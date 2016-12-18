@@ -36,12 +36,16 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.fs" />
     <Compile Include="Properties\AddinInfo.fs" />
+    <Compile Include="XSVim.fs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <AddinReference Include="MonoDevelop.SourceEditor2" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
   <Import Project="..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets')" />
