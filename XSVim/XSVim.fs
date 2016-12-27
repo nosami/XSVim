@@ -21,9 +21,10 @@ type CommandType =
     | Select
     | Delete
     | Change
+    | DoNothing
 
-type Repeater =
-    | Repeat of int
+//type Repeater =
+//    | Repeat of int
 
 type TextObject =
     | Character
@@ -56,6 +57,7 @@ type TextObject =
     | ForwardToEndOfWORD
     | BackwardToEndOfWord
     | BackwardToEndOfWORD
+    | Nothing
 
 type VimAction = {
     repeat: int
@@ -64,7 +66,12 @@ type VimAction = {
 }
 
 module VimHelpers =
+    let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+        seq { editor.Caret.Offset..line.EndOffset }
+        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+
     let getRange (editor:TextEditorData) motion =
+        let line = editor.GetLine editor.Caret.Line
         match motion with
         | Right -> 
             let line = editor.GetLine editor.Caret.Line
@@ -74,27 +81,30 @@ module VimHelpers =
             editor.Caret.Offset,
             if editor.Caret.Line > DocumentLocation.MinLine then
                 let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
-                let line = editor.VisualToLogicalLine(visualLine - 1)
-                editor.LocationToOffset (new DocumentLocation(line, editor.Caret.Column))
+                let lineNumber = editor.VisualToLogicalLine(visualLine - 1)
+                editor.LocationToOffset (new DocumentLocation(lineNumber, editor.Caret.Column))
             else
                 editor.Caret.Offset
         | Down ->
             editor.Caret.Offset,
             if editor.Caret.Line < editor.Document.LineCount then
                 let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
-                let line = editor.VisualToLogicalLine(visualLine + 1)
-                editor.LocationToOffset (new DocumentLocation(line, editor.Caret.Column))
+                let lineNumber = editor.VisualToLogicalLine(visualLine + 1)
+                editor.LocationToOffset (new DocumentLocation(lineNumber, editor.Caret.Column))
             else
                 editor.Caret.Offset
-        | EndOfLine ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, line.EndOffset
-        | StartOfLine ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, line.Offset
-        | FirstNonWhitespace ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
+        | EndOfLine -> editor.Caret.Offset, line.EndOffset
+        | StartOfLine -> editor.Caret.Offset, line.Offset
+        | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
+        | WholeLine -> line.Offset, line.EndOffset
+        | ToCharInclusive c ->
+            match findCharForwardsOnLine editor line c with
+            | Some index -> editor.Caret.Offset, index+1
+            | None -> editor.Caret.Offset, editor.Caret.Offset
+        | ToCharExclusive c ->
+            match findCharForwardsOnLine editor line c with
+            | Some index -> editor.Caret.Offset, index
+            | None -> editor.Caret.Offset, editor.Caret.Offset
         | _ -> 0,0
 
 type XSVim() =
@@ -135,10 +145,14 @@ type XSVim() =
     let getCommand (repeat: int option) commandType textObject =
         Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
+    let wait = getCommand (Some 1) DoNothing Nothing
     member x.RunCommand command =
         let start, finish = VimHelpers.getRange textEditorData command.textObject
         match command.commandType with
         | Move -> x.Editor.CaretOffset <- finish
+        | Delete -> 
+            x.Editor.SetSelection(start, finish)
+            ClipboardActions.Cut(textEditorData)
         | _ -> ()
 
     override x.Initialize() =
@@ -165,16 +179,20 @@ type XSVim() =
         let action =
             match keyList with
             | [ Movement m ] -> getCommand multiplier Move m
+            | [ Action action; Movement m ] -> getCommand multiplier action m
             | [ Action action; 'd' ] -> getCommand multiplier action WholeLine
-            | [ Action action; 't'; c ] -> getCommand multiplier action (ToCharInclusive c)
-            | [ Action action; 'f'; c ] -> getCommand multiplier action (ToCharExclusive c)
+            | [ Action action; 't'; c ] -> getCommand multiplier action (ToCharExclusive c)
+            | [ Action action; 'f'; c ] -> getCommand multiplier action (ToCharInclusive c)
+            | [ Action action ] -> wait
+            | [ Action action; _ ] -> wait
             | _ -> None
 
         match multiplier, action with
         | _, Some action' ->
-            MonoDevelop.Core.LoggingService.LogDebug (sprintf "%A" action')
-            x.RunCommand action'
-            keys.Clear()
+            MonoDevelop.Core.LoggingService.LogDebug (sprintf "%A %A" keys action')
+            if action'.commandType <> DoNothing then
+                x.RunCommand action'
+                keys.Clear()
             false
         | None, None -> base.KeyPress descriptor
         | _, _ -> false
