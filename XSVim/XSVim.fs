@@ -43,6 +43,9 @@ type TextObject =
     | Down
     | Left
     | Right
+    | FirstNonWhitespace
+    | StartOfLine
+    | EndOfLine
     | ToCharInclusive of c:char
     | ToCharExclusive of c:char
     | WordForwards of c:char
@@ -83,6 +86,15 @@ module VimHelpers =
                 editor.LocationToOffset (new DocumentLocation(line, editor.Caret.Column))
             else
                 editor.Caret.Offset
+        | EndOfLine ->
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, line.EndOffset
+        | StartOfLine ->
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, line.Offset
+        | FirstNonWhitespace ->
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
         | _ -> 0,0
 
 type XSVim() =
@@ -94,12 +106,22 @@ type XSVim() =
         else
             None
 
+    let (|OneToNine|_|) character =
+        if character > '1' && character < '9' then
+            Some (CharUnicodeInfo.GetDecimalDigitValue character)
+        else
+            None
+
     let (|Movement|_|) character =
         match character with
         | 'h' -> Some Left
         | 'j' -> Some Down
         | 'k' -> Some Up
         | 'l' -> Some Right
+        | '$' -> Some EndOfLine
+        | '^' -> Some StartOfLine
+        | '0' -> Some StartOfLine
+        | '_' -> Some FirstNonWhitespace
         | _ -> None
 
     let (|Action|_|) character =
@@ -134,10 +156,10 @@ type XSVim() =
 
         let multiplier, keyList =
             match keyList with
-            | Digit d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
-            | Digit d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
-            | Digit d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
-            | Digit d :: t -> Some d,t
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
+            | OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
+            | OneToNine d :: t -> Some d,t
             | _ -> None, keyList
 
         let action =
