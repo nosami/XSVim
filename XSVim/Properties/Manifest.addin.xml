@@ -2,4 +2,7 @@
 <ExtensionModel>
 	<Runtime>
 	</Runtime>
+    <Extension path="/MonoDevelop/Ide/TextEditorExtensions">
+        <Class class="XSVim.XSVim" />
+    </Extension>
 </ExtensionModel>
