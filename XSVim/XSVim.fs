@@ -87,8 +87,8 @@ type XSVim() =
 
     let keys = ResizeArray<_>()
 
-    let getCommand repeat commandType textObject =
-        Some { repeat=repeat; commandType=commandType; textObject=textObject }
+    let getCommand (repeat: int option) commandType textObject =
+        Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
     //let doOnce = getAction 1
     //let doTimes n = getAction n
@@ -107,11 +107,12 @@ type XSVim() =
 
         let multiplier, keyList =
             match keyList with
-            | Digit d :: t -> d,t
-            | Digit d1 :: Digit d2 :: t -> d1 * 10 + d2, t
-            | Digit d1 :: Digit d2 :: Digit d3 :: t -> d1 * 100 + d2 * 10 + d3, t
-            | Digit d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> d1 * 1000 + d2 * 100 + d3 * 10 + d4, t
-            | _ -> 1, keyList
+            | Digit d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
+            | Digit d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
+            | Digit d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
+            | Digit d :: t -> Some d,t
+            //| [Digit d] -> Some d, []
+            | _ -> None, keyList
 
         let action =
             match keyList with
@@ -123,10 +124,10 @@ type XSVim() =
             | [ Action action; 'f'; c ] -> getCommand multiplier action (ToCharExclusive c)
             | _ -> None
 
-        match action with
-        | Some action' ->
+        match multiplier, action with
+        | _, Some action' ->
             MonoDevelop.Core.LoggingService.LogDebug (sprintf "%A" action')
             keys.Clear()
             false
-        | None -> base.KeyPress descriptor
-
+        | None, None -> base.KeyPress descriptor
+        | _, _ -> false
