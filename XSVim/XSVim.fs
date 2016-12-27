@@ -4,6 +4,7 @@ open System
 open System.Globalization
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
+open Mono.TextEditor
 
 type BlockChar = 
     | LeftSquare = '[' 
@@ -20,13 +21,10 @@ type CommandType =
     | Select
     | Delete
     | Change
-    | DoNothing
 
 type Repeater =
     | Repeat of int
 
-//type Motion =
-  
 type TextObject =
     | Character
     | AWord
@@ -62,6 +60,31 @@ type VimAction = {
     textObject: TextObject
 }
 
+module VimHelpers =
+    let getRange (editor:TextEditorData) motion =
+        match motion with
+        | Right -> 
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset + 1 else editor.Caret.Offset
+        | Left -> editor.Caret.Offset, if editor.Caret.Column > DocumentLocation.MinColumn then editor.Caret.Offset - 1 else editor.Caret.Offset
+        | Up ->
+            editor.Caret.Offset,
+            if editor.Caret.Line > DocumentLocation.MinLine then
+                let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
+                let line = editor.VisualToLogicalLine(visualLine - 1)
+                editor.LocationToOffset (new DocumentLocation(line, editor.Caret.Column))
+            else
+                editor.Caret.Offset
+        | Down ->
+            editor.Caret.Offset,
+            if editor.Caret.Line < editor.Document.LineCount then
+                let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
+                let line = editor.VisualToLogicalLine(visualLine + 1)
+                editor.LocationToOffset (new DocumentLocation(line, editor.Caret.Column))
+            else
+                editor.Caret.Offset
+        | _ -> 0,0
+
 type XSVim() =
     inherit TextEditorExtension()
 
@@ -86,14 +109,18 @@ type XSVim() =
         | _ -> None
 
     let keys = ResizeArray<_>()
-
+    let mutable textEditorData = null
     let getCommand (repeat: int option) commandType textObject =
         Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
-    //let doOnce = getAction 1
-    //let doTimes n = getAction n
+    member x.RunCommand command =
+        let start, finish = VimHelpers.getRange textEditorData command.textObject
+        match command.commandType with
+        | Move -> x.Editor.CaretOffset <- finish
+        | _ -> ()
 
-    override x.Initialize() = ()
+    override x.Initialize() =
+        textEditorData <- x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
 
     override x.KeyPress(descriptor:KeyDescriptor) =
         if descriptor.KeyChar = 'q' then
@@ -111,15 +138,12 @@ type XSVim() =
             | Digit d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
             | Digit d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
             | Digit d :: t -> Some d,t
-            //| [Digit d] -> Some d, []
             | _ -> None, keyList
 
         let action =
             match keyList with
             | [ Movement m ] -> getCommand multiplier Move m
-            //| [ Digit d; Movement m ] -> doTimes d Move m
             | [ Action action; 'd' ] -> getCommand multiplier action WholeLine
-            //| [ Digit d; Action action; 'd'] -> doTimes d Delete WholeLine
             | [ Action action; 't'; c ] -> getCommand multiplier action (ToCharInclusive c)
             | [ Action action; 'f'; c ] -> getCommand multiplier action (ToCharExclusive c)
             | _ -> None
@@ -127,6 +151,7 @@ type XSVim() =
         match multiplier, action with
         | _, Some action' ->
             MonoDevelop.Core.LoggingService.LogDebug (sprintf "%A" action')
+            x.RunCommand action'
             keys.Clear()
             false
         | None, None -> base.KeyPress descriptor
