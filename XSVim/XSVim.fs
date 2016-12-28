@@ -193,15 +193,16 @@ type XSVim() =
     let wait = getCommand (Some 1) DoNothing Nothing
 
     member x.RunCommand command =
-        let start, finish = VimHelpers.getRange textEditorData command.textObject
-        match command.commandType with
-        | Move -> x.Editor.CaretOffset <- finish
-        | Delete -> 
-            x.Editor.SetSelection(start, finish)
-            ClipboardActions.Cut textEditorData
-        | Visual ->
-            x.Editor.SetSelection(start, finish)
-        | _ -> ()
+        for i in [1..command.repeat] do
+            let start, finish = VimHelpers.getRange textEditorData command.textObject
+            match command.commandType with
+            | Move -> x.Editor.CaretOffset <- finish
+            | Delete -> 
+                x.Editor.SetSelection(start, finish)
+                ClipboardActions.Cut textEditorData
+            | Visual ->
+                x.Editor.SetSelection(start, finish)
+            | _ -> ()
 
     override x.Initialize() =
         textEditorData <- x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
