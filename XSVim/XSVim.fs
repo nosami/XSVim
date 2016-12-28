@@ -11,6 +11,8 @@ type CommandType =
     | Visual
     | Delete
     | Change
+    //| FindForwards
+    //| FindBackwards
     | DoNothing
 
 type TextObject =
@@ -45,6 +47,8 @@ type TextObject =
     | BackwardToEndOfWord
     | BackwardToEndOfWORD
     | Nothing
+    | FindCharForwards of char
+    | FindCharBackwards of char
 
 type VimAction = {
     repeat: int
@@ -54,11 +58,15 @@ type VimAction = {
 
 module VimHelpers =
     let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
-        seq { editor.Caret.Offset .. line.EndOffset }
+        seq { editor.Caret.Offset+1 .. line.EndOffset }
+        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+
+    let findCharBackwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+        seq { editor.Caret.Offset-1 .. -1 .. line.Offset }
         |> Seq.tryFind(fun index -> editor.Text.[index] = character)
 
     let findCharForwards (editor:TextEditorData) character =
-        seq { editor.Caret.Offset .. editor.Text.Length }
+        seq { editor.Caret.Offset+1 .. editor.Text.Length }
         |> Seq.tryFind(fun index -> editor.Text.[index] = character)
 
     let findCharBackwards (editor:TextEditorData) character =
@@ -95,9 +103,13 @@ module VimHelpers =
         | StartOfLine -> editor.Caret.Offset, line.Offset
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
         | WholeLine -> line.Offset, line.EndOffset
+        | FindCharBackwards c ->
+            match findCharBackwardsOnLine editor line c with
+            | Some index -> editor.Caret.Offset, index
+            | None -> editor.Caret.Offset, editor.Caret.Offset
         | ToCharInclusive c ->
             match findCharForwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index+1
+            | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
         | ToCharExclusive c ->
             match findCharForwardsOnLine editor line c with
@@ -109,7 +121,7 @@ module VimHelpers =
             | _, _ -> editor.Caret.Offset, editor.Caret.Offset
         | ABlock (startChar, endChar) ->
             match findCharRange editor startChar endChar with
-            | Some start, Some finish -> start, finish+1
+            | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.Caret.Offset, editor.Caret.Offset
         | _ -> 0,0
 
@@ -157,15 +169,24 @@ type XSVim() =
         | '_' -> Some FirstNonWhitespace
         | _ -> None
 
+    let (|FindChar|_|) character =
+        match character with
+        | 'f' -> Some ToCharInclusive
+        | 'F' -> Some FindCharBackwards
+        | 't' -> Some ToCharExclusive
+        //| 'T' -> Some Right
+        | _ -> None
+
     let (|Action|_|) character =
         match character with
         | 'd' -> Some Delete
         | 'c' -> Some Change
         | 'v' -> Some Visual
+        //| 'v' -> Some FindForwards
         | _ -> None
 
     let keys = ResizeArray<_>()
-    let mutable textEditorData = null
+    let mutable textEditorData = Unchecked.defaultof<TextEditorData>
     let getCommand (repeat: int option) commandType textObject =
         Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
@@ -184,6 +205,7 @@ type XSVim() =
 
     override x.Initialize() =
         textEditorData <- x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+        textEditorData.Caret.Mode <- CaretMode.Block
 
     override x.KeyPress(descriptor:KeyDescriptor) =
         if descriptor.KeyChar = 'q' then
@@ -207,14 +229,16 @@ type XSVim() =
         let action =
             match keyList with
             | [ Movement m ] -> run Move m
+            | [ FindChar m; c ] -> run Move (m c)
             | [ Action action; Movement m ] -> run action m
             | [ Action action; 'd' ] -> run action WholeLine
-            | [ Action action; 't'; c ] -> run action (ToCharExclusive c)
-            | [ Action action; 'f'; c ] -> run action (ToCharInclusive c)
+            | [ Action action; FindChar m; c ] -> run action (m c)
             | [ Action action; 'i'; BlockDelimiter c ] -> run action (InnerBlock c)
             | [ Action action; 'a'; BlockDelimiter c ] -> run action (ABlock c)
-            | [ Action action ] -> wait
+            | [ Action action ]  -> wait
             | [ Action action; _ ] -> wait
+            | [ FindChar m ] -> wait
+            | ['g'; 'd'] -> wait
             | _ -> None
 
         match multiplier, action with
