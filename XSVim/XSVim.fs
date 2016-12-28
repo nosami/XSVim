@@ -8,7 +8,7 @@ open Mono.TextEditor
 
 type CommandType =
     | Move
-    | Select
+    | Visual
     | Delete
     | Change
     | DoNothing
@@ -161,6 +161,7 @@ type XSVim() =
         match character with
         | 'd' -> Some Delete
         | 'c' -> Some Change
+        | 'v' -> Some Visual
         | _ -> None
 
     let keys = ResizeArray<_>()
@@ -177,6 +178,8 @@ type XSVim() =
         | Delete -> 
             x.Editor.SetSelection(start, finish)
             ClipboardActions.Cut textEditorData
+        | Visual ->
+            x.Editor.SetSelection(start, finish)
         | _ -> ()
 
     override x.Initialize() =
