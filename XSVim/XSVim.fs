@@ -6,25 +6,12 @@ open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
 
-type BlockChar = 
-    | LeftSquare = '[' 
-    | RightSquare = ']'
-    | LeftParens = '('
-    | RightParens = ')'
-    | LeftBrace = '{'
-    | RightBrace = '}'
-    | LeftChevron = '<'
-    | RightChevron = '>'
-
 type CommandType =
     | Move
     | Select
     | Delete
     | Change
     | DoNothing
-
-//type Repeater =
-//    | Repeat of int
 
 type TextObject =
     | Character
@@ -36,8 +23,8 @@ type TextObject =
     | InnerSentence
     | AParagraph
     | InnerParagraph
-    | ABlock of c:BlockChar
-    | InnerBlock of c:BlockChar
+    | ABlock of char * char
+    | InnerBlock of char * char
     | WholeLine
     // motions
     | Up
@@ -67,8 +54,19 @@ type VimAction = {
 
 module VimHelpers =
     let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
-        seq { editor.Caret.Offset..line.EndOffset }
+        seq { editor.Caret.Offset .. line.EndOffset }
         |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+
+    let findCharForwards (editor:TextEditorData) character =
+        seq { editor.Caret.Offset .. editor.Text.Length }
+        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+
+    let findCharBackwards (editor:TextEditorData) character =
+        seq { editor.Caret.Offset .. -1 .. 0 }
+        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+
+    let findCharRange (editor:TextEditorData) startChar endChar =
+        findCharBackwards editor startChar, findCharForwards editor endChar
 
     let getRange (editor:TextEditorData) motion =
         let line = editor.GetLine editor.Caret.Line
@@ -105,6 +103,14 @@ module VimHelpers =
             match findCharForwardsOnLine editor line c with
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
+        | InnerBlock (startChar, endChar) ->
+            match findCharRange editor startChar endChar with
+            | Some start, Some finish -> start+1, finish
+            | _, _ -> editor.Caret.Offset, editor.Caret.Offset
+        | ABlock (startChar, endChar) ->
+            match findCharRange editor startChar endChar with
+            | Some start, Some finish -> start, finish+1
+            | _, _ -> editor.Caret.Offset, editor.Caret.Offset
         | _ -> 0,0
 
 type XSVim() =
@@ -119,6 +125,23 @@ type XSVim() =
     let (|OneToNine|_|) character =
         if character > '1' && character < '9' then
             Some (CharUnicodeInfo.GetDecimalDigitValue character)
+        else
+            None
+
+    let (|BlockDelimiter|_|) character =
+        let pairs =
+            [ 
+                '[', ('[', ']')
+                ']', ('[', ']')
+                '(', ('(', ')')
+                ')', ('(', ')')
+                '{', ('{', '}')
+                '}', ('{', '}')
+                '<', ('<', '>')
+                '>', ('<', '>')
+            ] |> dict
+        if pairs.ContainsKey character then
+            Some pairs.[character]
         else
             None
 
@@ -146,13 +169,14 @@ type XSVim() =
         Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
     let wait = getCommand (Some 1) DoNothing Nothing
+
     member x.RunCommand command =
         let start, finish = VimHelpers.getRange textEditorData command.textObject
         match command.commandType with
         | Move -> x.Editor.CaretOffset <- finish
         | Delete -> 
             x.Editor.SetSelection(start, finish)
-            ClipboardActions.Cut(textEditorData)
+            ClipboardActions.Cut textEditorData
         | _ -> ()
 
     override x.Initialize() =
@@ -176,13 +200,16 @@ type XSVim() =
             | OneToNine d :: t -> Some d,t
             | _ -> None, keyList
 
+        let run = getCommand multiplier
         let action =
             match keyList with
-            | [ Movement m ] -> getCommand multiplier Move m
-            | [ Action action; Movement m ] -> getCommand multiplier action m
-            | [ Action action; 'd' ] -> getCommand multiplier action WholeLine
-            | [ Action action; 't'; c ] -> getCommand multiplier action (ToCharExclusive c)
-            | [ Action action; 'f'; c ] -> getCommand multiplier action (ToCharInclusive c)
+            | [ Movement m ] -> run Move m
+            | [ Action action; Movement m ] -> run action m
+            | [ Action action; 'd' ] -> run action WholeLine
+            | [ Action action; 't'; c ] -> run action (ToCharExclusive c)
+            | [ Action action; 'f'; c ] -> run action (ToCharInclusive c)
+            | [ Action action; 'i'; BlockDelimiter c ] -> run action (InnerBlock c)
+            | [ Action action; 'a'; BlockDelimiter c ] -> run action (ABlock c)
             | [ Action action ] -> wait
             | [ Action action; _ ] -> wait
             | _ -> None
