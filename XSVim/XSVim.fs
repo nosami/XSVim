@@ -5,14 +5,20 @@ open System.Globalization
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
+open MonoDevelop.Core
+
+
+type VimMode =
+    | NormalMode
+    | VisualMode
+    | InsertMode
 
 type CommandType =
     | Move
     | Visual
     | Delete
     | Change
-    //| FindForwards
-    //| FindBackwards
+    | SwitchMode of VimMode
     | DoNothing
 
 type TextObject =
@@ -25,8 +31,8 @@ type TextObject =
     | InnerSentence
     | AParagraph
     | InnerParagraph
-    | ABlock of char * char
-    | InnerBlock of char * char
+    | ABlock of string * string
+    | InnerBlock of string * string
     | WholeLine
     // motions
     | Up
@@ -36,19 +42,20 @@ type TextObject =
     | FirstNonWhitespace
     | StartOfLine
     | EndOfLine
-    | ToCharInclusive of c:char
-    | ToCharExclusive of c:char
-    | WordForwards of c:char
-    | WORDForwards of c:char
-    | WordBackwards of c:char
-    | WORDBackwards of c:char
+    | ToCharInclusive of string
+    | ToCharInclusiveBackwards of string
+    | ToCharExclusive of string
+    | ToCharExclusiveBackwards of string
+    | WordForwards
+    | WORDForwards
+    | WordBackwards
+    | WORDBackwards
     | ForwardToEndOfWord
     | ForwardToEndOfWORD
     | BackwardToEndOfWord
     | BackwardToEndOfWORD
     | Nothing
-    | FindCharForwards of char
-    | FindCharBackwards of char
+    | FindCharForwards of string
 
 type VimAction = {
     repeat: int
@@ -56,22 +63,33 @@ type VimAction = {
     textObject: TextObject
 }
 
+type VimState = {
+    keys: string list
+    mode: VimMode
+    desiredColumn: int // If we move up/down, which column did we start at?
+    findChar: char option
+}
+
 module VimHelpers =
     let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+        let ch = Char.Parse character
         seq { editor.Caret.Offset+1 .. line.EndOffset }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
     let findCharBackwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+        let ch = Char.Parse character
         seq { editor.Caret.Offset-1 .. -1 .. line.Offset }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
     let findCharForwards (editor:TextEditorData) character =
+        let ch = Char.Parse character
         seq { editor.Caret.Offset+1 .. editor.Text.Length }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
     let findCharBackwards (editor:TextEditorData) character =
+        let ch = Char.Parse character
         seq { editor.Caret.Offset .. -1 .. 0 }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = character)
+        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
     let findCharRange (editor:TextEditorData) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
@@ -103,7 +121,7 @@ module VimHelpers =
         | StartOfLine -> editor.Caret.Offset, line.Offset
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
         | WholeLine -> line.Offset, line.EndOffset
-        | FindCharBackwards c ->
+        | ToCharInclusiveBackwards c ->
             match findCharBackwardsOnLine editor line c with
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
@@ -127,30 +145,50 @@ module VimHelpers =
 
 type XSVim() =
     inherit TextEditorExtension()
+    let runCommand vimState textEditorData command =
+        for i in [1..command.repeat] do
+            let start, finish = VimHelpers.getRange textEditorData command.textObject
+            match command.commandType with
+            | Move -> textEditorData.Caret.Offset <- finish
+            | Delete ->
+                textEditorData.SetSelection(start, finish)
+                ClipboardActions.Cut textEditorData
+            | Visual ->
+                textEditorData.SetSelection(start, finish)
+            | _ -> ()
+
+        match command.commandType with
+        | SwitchMode mode ->
+            match mode with
+            | NormalMode -> textEditorData.Caret.Mode <- CaretMode.Block
+            | VisualMode -> textEditorData.Caret.Mode <- CaretMode.Block
+            | InsertMode -> textEditorData.Caret.Mode <- CaretMode.Insert
+            { vimState with mode = mode }
+        | _ -> vimState
 
     let (|Digit|_|) character =
-        if Char.IsDigit character then
-            Some (CharUnicodeInfo.GetDecimalDigitValue character)
+        if character > "0" && character < "9" then
+            Some (Convert.ToInt32 character)
         else
             None
 
     let (|OneToNine|_|) character =
-        if character > '1' && character < '9' then
-            Some (CharUnicodeInfo.GetDecimalDigitValue character)
+        if character > "1" && character < "9" then
+            Some (Convert.ToInt32 character)
         else
             None
 
     let (|BlockDelimiter|_|) character =
         let pairs =
             [ 
-                '[', ('[', ']')
-                ']', ('[', ']')
-                '(', ('(', ')')
-                ')', ('(', ')')
-                '{', ('{', '}')
-                '}', ('{', '}')
-                '<', ('<', '>')
-                '>', ('<', '>')
+                "[", ("[", "]")
+                "]", ("[", "]")
+                "(", ("(", ")")
+                ")", ("(", ")")
+                "{", ("{", "}")
+                "}", ("{", "}")
+                "<", ("<", ">")
+                ">", ("<", ">")
             ] |> dict
         if pairs.ContainsKey character then
             Some pairs.[character]
@@ -159,65 +197,44 @@ type XSVim() =
 
     let (|Movement|_|) character =
         match character with
-        | 'h' -> Some Left
-        | 'j' -> Some Down
-        | 'k' -> Some Up
-        | 'l' -> Some Right
-        | '$' -> Some EndOfLine
-        | '^' -> Some StartOfLine
-        | '0' -> Some StartOfLine
-        | '_' -> Some FirstNonWhitespace
+        | "h" -> Some Left
+        | "j" -> Some Down
+        | "k" -> Some Up
+        | "l" -> Some Right
+        | "$" -> Some EndOfLine
+        | "^" -> Some StartOfLine
+        | "0" -> Some StartOfLine
+        | "_" -> Some FirstNonWhitespace
         | _ -> None
 
     let (|FindChar|_|) character =
         match character with
-        | 'f' -> Some ToCharInclusive
-        | 'F' -> Some FindCharBackwards
-        | 't' -> Some ToCharExclusive
-        //| 'T' -> Some Right
+        | "f" -> Some ToCharInclusive
+        | "F" -> Some ToCharInclusiveBackwards
+        | "t" -> Some ToCharExclusive
+        | "T" -> Some ToCharExclusiveBackwards
         | _ -> None
 
     let (|Action|_|) character =
         match character with
-        | 'd' -> Some Delete
-        | 'c' -> Some Change
-        | 'v' -> Some Visual
-        //| 'v' -> Some FindForwards
+        | "d" -> Some Delete
+        | "c" -> Some Change
+        | "v" -> Some Visual
         | _ -> None
 
-    let keys = ResizeArray<_>()
-    let mutable textEditorData = Unchecked.defaultof<TextEditorData>
+    let (|ModeChange|_|) character =
+        match character with
+        | "i" -> Some InsertMode
+        | "v" -> Some VisualMode
+        | _ -> None
+
     let getCommand (repeat: int option) commandType textObject =
         Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
     let wait = getCommand (Some 1) DoNothing Nothing
 
-    member x.RunCommand command =
-        for i in [1..command.repeat] do
-            let start, finish = VimHelpers.getRange textEditorData command.textObject
-            match command.commandType with
-            | Move -> x.Editor.CaretOffset <- finish
-            | Delete -> 
-                x.Editor.SetSelection(start, finish)
-                ClipboardActions.Cut textEditorData
-            | Visual ->
-                x.Editor.SetSelection(start, finish)
-            | _ -> ()
-
-    override x.Initialize() =
-        textEditorData <- x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
-        textEditorData.Caret.Mode <- CaretMode.Block
-
-    override x.KeyPress(descriptor:KeyDescriptor) =
-        if descriptor.KeyChar = 'q' then
-            // temp debug reset code
-            keys.Clear()
-            false
-        else
-        if descriptor.KeyChar <> '\000' then
-            keys.Add descriptor.KeyChar
-        let keyList = keys |> List.ofSeq
-
+    let parseKeys (state:VimState) =
+        let keyList = state.keys// |> Seq.toList
         let multiplier, keyList =
             match keyList with
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
@@ -227,27 +244,60 @@ type XSVim() =
             | _ -> None, keyList
 
         let run = getCommand multiplier
-        let action =
-            match keyList with
-            | [ Movement m ] -> run Move m
-            | [ FindChar m; c ] -> run Move (m c)
-            | [ Action action; Movement m ] -> run action m
-            | [ Action action; 'd' ] -> run action WholeLine
-            | [ Action action; FindChar m; c ] -> run action (m c)
-            | [ Action action; 'i'; BlockDelimiter c ] -> run action (InnerBlock c)
-            | [ Action action; 'a'; BlockDelimiter c ] -> run action (ABlock c)
-            | [ Action action ]  -> wait
-            | [ Action action; _ ] -> wait
-            | [ FindChar m ] -> wait
-            | ['g'; 'd'] -> wait
-            | _ -> None
 
+        let action =
+            match state.mode, keyList with
+            | InsertMode, [ "<esc>" ] -> run (SwitchMode NormalMode) Nothing
+            | NormalMode, [ Movement m ] -> run Move m
+            | NormalMode, [ FindChar m; c ] -> run Move (m c)
+            | NormalMode, [ Action action; Movement m ] -> run action m
+            | NormalMode, [ Action action; "d" ] -> run action WholeLine //TODO: this only applies for `dd`
+            | NormalMode, [ Action action; FindChar m; c ] -> run action (m c)
+            | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> run action (InnerBlock c)
+            | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> run action (ABlock c)
+            | NormalMode, [ Action action ]  -> wait
+            | NormalMode, [ Action action; _ ] -> wait
+            | NormalMode, [ FindChar m ] -> wait
+            | NormalMode, [ ModeChange mode ] -> run (SwitchMode mode) Nothing
+            | NormalMode, ["g"; "d"] -> wait
+            | _ -> None
+        multiplier, action
+
+    let handleKeyPress (state:VimState) (keyPress:KeyDescriptor) (editorData:TextEditorData) =
+        let newKeys =
+            match keyPress.KeyChar with
+            | 'q' -> []
+            | c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | c when keyPress.KeyChar = '\000' ->
+                match keyPress.SpecialKey with
+                | SpecialKey.Escape -> 
+                    state.keys @ ["<esc>"]
+                | _ -> state.keys
+            | _ -> state.keys
+        
+        let multiplier, action = parseKeys { state with keys=newKeys }
         match multiplier, action with
-        | _, Some action' ->
-            MonoDevelop.Core.LoggingService.LogDebug (sprintf "%A %A" keys action')
-            if action'.commandType <> DoNothing then
-                x.RunCommand action'
-                keys.Clear()
-            false
-        | None, None -> base.KeyPress descriptor
-        | _, _ -> false
+        | _, Some action' when action'.commandType <> DoNothing->
+            LoggingService.LogDebug (sprintf "%A %A" newKeys action')
+            let newState = runCommand state editorData action'
+            newState, true
+        | None, None ->
+            state, false
+        | _, _ -> 
+            state, false
+
+
+    // TODO: how can I make this not mutable??
+    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None }
+
+    override x.Initialize() =
+        let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+        editorData.Caret.Mode <- CaretMode.Block
+
+    override x.KeyPress(descriptor:KeyDescriptor) =
+        let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+        let state, handledKeyPress = handleKeyPress vimState descriptor editorData
+        vimState <- state
+        match handledKeyPress with
+        | true -> false
+        | false -> base.KeyPress descriptor
