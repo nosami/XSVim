@@ -141,6 +141,14 @@ module VimHelpers =
             match findCharRange editor startChar endChar with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.Caret.Offset, editor.Caret.Offset
+        | WordForwards -> editor.Caret.Offset, editor.FindNextWordOffset (editor.Caret.Offset) + 1
+        | WordBackwards -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset
+        | ForwardToEndOfWord ->
+            let endOfWord = editor.FindCurrentWordEnd (editor.Caret.Offset+1) - 1
+            let endOfWord = 
+                if editor.Text.[endOfWord] = ' ' then editor.FindCurrentWordEnd (endOfWord+1) - 1 else endOfWord
+            editor.Caret.Offset, endOfWord
+        | BackwardToEndOfWord -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset |> editor.FindCurrentWordEnd
         | _ -> 0,0
 
 type XSVim() =
@@ -205,6 +213,10 @@ type XSVim() =
         | "^" -> Some StartOfLine
         | "0" -> Some StartOfLine
         | "_" -> Some FirstNonWhitespace
+        | "w" -> Some WordForwards
+        | "b" -> Some WordBackwards
+        | "e" -> Some ForwardToEndOfWord
+        | "E" -> Some BackwardToEndOfWord
         | _ -> None
 
     let (|FindChar|_|) character =
@@ -251,7 +263,7 @@ type XSVim() =
             | NormalMode, [ Movement m ] -> run Move m
             | NormalMode, [ FindChar m; c ] -> run Move (m c)
             | NormalMode, [ Action action; Movement m ] -> run action m
-            | NormalMode, [ Action action; "d" ] -> run action WholeLine //TODO: this only applies for `dd`
+            | NormalMode, [ "d"; "d" ] -> run Delete WholeLine //TODO: this only applies for `dd`
             | NormalMode, [ Action action; FindChar m; c ] -> run action (m c)
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> run action (InnerBlock c)
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> run action (ABlock c)
@@ -274,20 +286,22 @@ type XSVim() =
                     state.keys @ ["<esc>"]
                 | _ -> state.keys
             | _ -> state.keys
-        
-        let multiplier, action = parseKeys { state with keys=newKeys }
+        let newState = { state with keys=newKeys }
+        let multiplier, action = parseKeys newState
         match multiplier, action with
         | _, Some action' when action'.commandType <> DoNothing->
             LoggingService.LogDebug (sprintf "%A %A" newKeys action')
             let newState = runCommand state editorData action'
             newState, true
+        | _, Some action' ->
+            newState, true
         | None, None ->
-            state, false
+            newState, false
         | _, _ -> 
             state, false
 
 
-    // TODO: how can I make this not mutable??
+    // TODO: how can I make this immutable??
     let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None }
 
     override x.Initialize() =
