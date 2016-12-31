@@ -19,6 +19,7 @@ type CommandType =
     | Delete
     | Change
     | SwitchMode of VimMode
+    | Undo
     | DoNothing
 
 type TextObject =
@@ -161,8 +162,8 @@ type XSVim() =
             | Delete ->
                 textEditorData.SetSelection(start, finish)
                 ClipboardActions.Cut textEditorData
-            | Visual ->
-                textEditorData.SetSelection(start, finish)
+            | Visual -> textEditorData.SetSelection(start, finish)
+            | Undo -> MiscActions.Undo textEditorData
             | _ -> ()
 
         match command.commandType with
@@ -263,13 +264,10 @@ type XSVim() =
             | NormalMode, [ Movement m ] -> run Move m
             | NormalMode, [ FindChar m; c ] -> run Move (m c)
             | NormalMode, [ Action action; Movement m ] -> run action m
-            | NormalMode, [ "d"; "d" ] -> run Delete WholeLine //TODO: this only applies for `dd`
+            | NormalMode, [ "u" ] -> run Undo Nothing
+            | NormalMode, [ "d"; "d" ] -> run Delete WholeLine
             | NormalMode, [ Action action; FindChar m; c ] -> run action (m c)
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> run action (InnerBlock c)
-            | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> run action (ABlock c)
-            | NormalMode, [ Action action ]  -> wait
-            | NormalMode, [ Action action; _ ] -> wait
-            | NormalMode, [ FindChar m ] -> wait
             | NormalMode, [ ModeChange mode ] -> run (SwitchMode mode) Nothing
             | NormalMode, ["g"; "d"] -> wait
             | _ -> None
@@ -296,7 +294,7 @@ type XSVim() =
         | _, Some action' ->
             newState, true
         | None, None ->
-            newState, false
+            state, false
         | _, _ -> 
             state, false
 
