@@ -1,12 +1,10 @@
 ﻿namespace XSVim
 
 open System
-open System.Globalization
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
 open MonoDevelop.Core
-
 
 type VimMode =
     | NormalMode
@@ -18,6 +16,7 @@ type CommandType =
     | Visual
     | Delete
     | Change
+    | Go
     | SwitchMode of VimMode
     | Undo
     | InsertLineAbove
@@ -44,6 +43,7 @@ type TextObject =
     | Right
     | FirstNonWhitespace
     | StartOfLine
+    | StartOfDocument
     | EndOfLine
     | ToCharInclusive of string
     | ToCharInclusiveBackwards of string
@@ -122,6 +122,7 @@ module VimHelpers =
                 editor.Caret.Offset
         | EndOfLine -> editor.Caret.Offset, line.EndOffset
         | StartOfLine -> editor.Caret.Offset, line.Offset
+        | StartOfDocument -> editor.Caret.Offset, 0
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
         | WholeLine -> line.Offset, line.EndOffset
         | ToCharInclusiveBackwards c ->
@@ -237,6 +238,7 @@ type XSVim() =
         | "d" -> Some Delete
         | "c" -> Some Change
         | "v" -> Some Visual
+        | "g" -> Some Go
         | _ -> None
 
     let (|ModeChange|_|) character =
@@ -245,6 +247,8 @@ type XSVim() =
         | "v" -> Some VisualMode
         | _ -> None
 
+    let (|Keys|_|) (keys:string) =
+        keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
     let getCommand (repeat: int option) commandType textObject =
         { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
@@ -261,7 +265,6 @@ type XSVim() =
             | _ -> None, keyList
 
         let run = getCommand multiplier
-
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
@@ -278,7 +281,8 @@ type XSVim() =
             | NormalMode, [ "o" ] -> [ run InsertLineBelow Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "O" ] -> [ run InsertLineAbove Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action ] -> wait
-            | NormalMode, ["g"; "d"] -> wait
+            | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
+            | NormalMode, [ "g"; "d" ] -> wait
             | _ -> []
         multiplier, action
 
