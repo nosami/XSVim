@@ -242,9 +242,9 @@ type XSVim() =
         | _ -> None
 
     let getCommand (repeat: int option) commandType textObject =
-        Some { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
+        { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
-    let wait = getCommand (Some 1) DoNothing Nothing
+    let wait = [ getCommand (Some 1) DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
         let keyList = state.keys// |> Seq.toList
@@ -260,17 +260,20 @@ type XSVim() =
 
         let action =
             match state.mode, keyList with
-            | InsertMode, [ "<esc>" ] -> run (SwitchMode NormalMode) Nothing
-            | NormalMode, [ Movement m ] -> run Move m
-            | NormalMode, [ FindChar m; c ] -> run Move (m c)
-            | NormalMode, [ Action action; Movement m ] -> run action m
-            | NormalMode, [ "u" ] -> run Undo Nothing
-            | NormalMode, [ "d"; "d" ] -> run Delete WholeLine
-            | NormalMode, [ Action action; FindChar m; c ] -> run action (m c)
-            | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> run action (InnerBlock c)
-            | NormalMode, [ ModeChange mode ] -> run (SwitchMode mode) Nothing
+            | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | NormalMode, [ Movement m ] -> [ run Move m ]
+            | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
+            | NormalMode, [ Action action; Movement m ] -> [ run action m ]
+            | NormalMode, [ "u" ] -> [ run Undo Nothing ]
+            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLine ]
+            | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
+            | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
+            | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
+            | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ Action action ] -> wait
             | NormalMode, ["g"; "d"] -> wait
-            | _ -> None
+            | _ -> []
         multiplier, action
 
     let handleKeyPress (state:VimState) (keyPress:KeyDescriptor) (editorData:TextEditorData) =
@@ -280,24 +283,24 @@ type XSVim() =
             | c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
             | c when keyPress.KeyChar = '\000' ->
                 match keyPress.SpecialKey with
-                | SpecialKey.Escape -> 
-                    state.keys @ ["<esc>"]
+                | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | _ -> state.keys
             | _ -> state.keys
         let newState = { state with keys=newKeys }
         let multiplier, action = parseKeys newState
         match multiplier, action with
-        | _, Some action' when action'.commandType <> DoNothing->
-            LoggingService.LogDebug (sprintf "%A %A" newKeys action')
-            let newState = runCommand state editorData action'
-            newState, true
-        | _, Some action' ->
-            newState, true
-        | None, None ->
-            state, false
-        | _, _ -> 
-            state, false
-
+        | _, actions ->
+            let rec performActions actions' state handled =
+                match actions' with
+                | [] -> state, handled
+                | h::t ->
+                    LoggingService.LogDebug (sprintf "%A %A" newKeys h)
+                    if h.commandType <> DoNothing then
+                        let newState = runCommand state editorData h
+                        performActions t { newState with keys = [] } true
+                    else 
+                        newState, true
+            performActions actions newState false
 
     // TODO: how can I make this immutable??
     let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None }
