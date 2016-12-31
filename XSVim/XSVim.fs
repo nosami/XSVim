@@ -125,7 +125,7 @@ module VimHelpers =
         | StartOfLine -> editor.Caret.Offset, line.Offset
         | StartOfDocument -> editor.Caret.Offset, 0
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
-        | WholeLine -> line.Offset, line.EndOffset
+        | WholeLine -> line.Offset, line.EndOffsetIncludingDelimiter
         | LastLine -> 
             let lastLine = editor.GetLine editor.Document.LineCount
             editor.Caret.Offset, lastLine.Offset
@@ -178,10 +178,15 @@ type XSVim() =
         match command.commandType with
         | SwitchMode mode ->
             match mode with
-            | NormalMode -> textEditorData.Caret.Mode <- CaretMode.Block
-            | VisualMode -> textEditorData.Caret.Mode <- CaretMode.Block
-            | InsertMode -> textEditorData.Caret.Mode <- CaretMode.Insert
-            { vimState with mode = mode }
+            | NormalMode -> 
+                textEditorData.Caret.Mode <- CaretMode.Block
+                { vimState with mode = mode }
+            | VisualMode -> 
+                textEditorData.Caret.Mode <- CaretMode.Block
+                { vimState with mode = mode }
+            | InsertMode ->
+                textEditorData.Caret.Mode <- CaretMode.Insert
+                { vimState with mode = mode; keys = [] }
         | _ -> vimState
 
     let (|Digit|_|) character =
@@ -254,6 +259,7 @@ type XSVim() =
 
     let (|Keys|_|) (keys:string) =
         keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
+
     let getCommand (repeat: int option) commandType textObject =
         { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
@@ -270,6 +276,7 @@ type XSVim() =
             | _ -> None, keyList
 
         let run = getCommand multiplier
+        LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
@@ -292,25 +299,25 @@ type XSVim() =
             | _ -> []
         multiplier, action
 
-    let handleKeyPress (state:VimState) (keyPress:KeyDescriptor) (editorData:TextEditorData) =
+    let handleKeyPress state (keyPress:KeyDescriptor) editorData =
         let newKeys =
-            match keyPress.KeyChar with
-            | 'q' -> []
-            | c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
-            | c when keyPress.KeyChar = '\000' ->
+            match state.mode, keyPress.KeyChar with
+            | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | InsertMode, c when keyPress.KeyChar = '\000' ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | _ -> state.keys
             | _ -> state.keys
         let newState = { state with keys=newKeys }
         let multiplier, action = parseKeys newState
+        LoggingService.LogDebug (sprintf "%A %A" multiplier action)
         match multiplier, action with
         | _, actions ->
             let rec performActions actions' state handled =
                 match actions' with
                 | [] -> state, handled
                 | h::t ->
-                    LoggingService.LogDebug (sprintf "%A %A" newKeys h)
+
                     if h.commandType <> DoNothing then
                         let newState = runCommand state editorData h
                         performActions t { newState with keys = [] } true
@@ -324,10 +331,13 @@ type XSVim() =
         let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
         editorData.Caret.Mode <- CaretMode.Block
 
-    override x.KeyPress(descriptor:KeyDescriptor) =
+    override x.KeyPress descriptor =
         let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
-        let state, handledKeyPress = handleKeyPress vimState descriptor editorData
-        vimState <- state
-        match handledKeyPress with
-        | true -> false
-        | false -> base.KeyPress descriptor
+        let oldState = vimState
+
+        let newState, handledKeyPress = handleKeyPress vimState descriptor editorData
+        LoggingService.LogDebug (sprintf "%A %A" newState handledKeyPress)
+        vimState <- newState
+        match oldState.mode with
+        | InsertMode -> base.KeyPress descriptor
+        | _ -> false
