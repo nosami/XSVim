@@ -22,6 +22,7 @@ type CommandType =
     | InsertLineAbove
     | InsertLineBelow
     | RepeatLastAction
+    | RepeatLastFindCommand
     | ResetKeys
     | DoNothing
 
@@ -73,7 +74,7 @@ type VimState = {
     keys: string list
     mode: VimMode
     desiredColumn: int // If we move up/down, which column did we start at?
-    findChar: char option
+    findCharCommand: VimAction option
     lastAction: VimAction list // used by . command to repeat the last action
 }
 
@@ -282,17 +283,24 @@ type XSVim() =
 
         let run = getCommand multiplier
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
+        let newState =
+            match keyList with
+            | [ FindChar m; c ] -> { state with findCharCommand = run Move ( m c ) |> Some }
+            | _ -> state
+
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
+            | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
@@ -304,9 +312,10 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g"; "d" ] -> wait
+            | NormalMode, [ ";" ] -> [ run RepeatLastFindCommand Nothing ]
             | NormalMode, [ _; _; _; _ ] -> [ run ResetKeys Nothing ]
             | _ -> []
-        multiplier, action
+        multiplier, action, newState
 
     let handleKeyPress state (keyPress:KeyDescriptor) editorData =
         let newKeys =
@@ -317,8 +326,8 @@ type XSVim() =
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | _ -> state.keys
             | _ -> state.keys
-        let newState = { state with keys=newKeys }
-        let multiplier, action = parseKeys newState
+        let newState = { state with keys = newKeys }
+        let multiplier, action, newState = parseKeys newState
         LoggingService.LogDebug (sprintf "%A %A" multiplier action)
         let rec performActions actions' state handled =
             match actions' with
@@ -335,7 +344,7 @@ type XSVim() =
         | _, actions ->
             performActions actions { newState with lastAction = actions } false
 
-    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None; lastAction=[] }
+    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findCharCommand=None; lastAction=[] }
 
     override x.Initialize() =
         let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
