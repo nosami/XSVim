@@ -20,6 +20,8 @@ type CommandType =
     | Change
     | SwitchMode of VimMode
     | Undo
+    | InsertLineAbove
+    | InsertLineBelow
     | DoNothing
 
 type TextObject =
@@ -164,6 +166,7 @@ type XSVim() =
                 ClipboardActions.Cut textEditorData
             | Visual -> textEditorData.SetSelection(start, finish)
             | Undo -> MiscActions.Undo textEditorData
+            | InsertLineBelow -> MiscActions.InsertNewLineAtEnd textEditorData
             | _ -> ()
 
         match command.commandType with
@@ -271,6 +274,7 @@ type XSVim() =
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "o" ] -> [ run InsertLineBelow Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action ] -> wait
             | NormalMode, ["g"; "d"] -> wait
             | _ -> []
@@ -302,7 +306,6 @@ type XSVim() =
                         newState, true
             performActions actions newState false
 
-    // TODO: how can I make this immutable??
     let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None }
 
     override x.Initialize() =
