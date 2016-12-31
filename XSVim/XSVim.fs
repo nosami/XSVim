@@ -36,6 +36,7 @@ type TextObject =
     | ABlock of string * string
     | InnerBlock of string * string
     | WholeLine
+    | LastLine
     // motions
     | Up
     | Down
@@ -125,6 +126,9 @@ module VimHelpers =
         | StartOfDocument -> editor.Caret.Offset, 0
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
         | WholeLine -> line.Offset, line.EndOffset
+        | LastLine -> 
+            let lastLine = editor.GetLine editor.Document.LineCount
+            editor.Caret.Offset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
             match findCharBackwardsOnLine editor line c with
             | Some index -> editor.Caret.Offset, index
@@ -223,6 +227,7 @@ type XSVim() =
         | "b" -> Some WordBackwards
         | "e" -> Some ForwardToEndOfWord
         | "E" -> Some BackwardToEndOfWord
+        | "G" -> Some LastLine
         | _ -> None
 
     let (|FindChar|_|) character =
@@ -270,6 +275,7 @@ type XSVim() =
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
+            | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLine ]
