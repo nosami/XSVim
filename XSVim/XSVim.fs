@@ -167,6 +167,7 @@ type XSVim() =
             | Visual -> textEditorData.SetSelection(start, finish)
             | Undo -> MiscActions.Undo textEditorData
             | InsertLineBelow -> MiscActions.InsertNewLineAtEnd textEditorData
+            | InsertLineAbove -> textEditorData.Caret.Column <- 1; MiscActions.InsertNewLine textEditorData; CaretMoveActions.Up textEditorData
             | _ -> ()
 
         match command.commandType with
@@ -275,6 +276,7 @@ type XSVim() =
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "o" ] -> [ run InsertLineBelow Nothing; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "O" ] -> [ run InsertLineAbove Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action ] -> wait
             | NormalMode, ["g"; "d"] -> wait
             | _ -> []
