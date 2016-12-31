@@ -21,6 +21,8 @@ type CommandType =
     | Undo
     | InsertLineAbove
     | InsertLineBelow
+    | RepeatLastAction
+    | ResetKeys
     | DoNothing
 
 type TextObject =
@@ -72,6 +74,7 @@ type VimState = {
     mode: VimMode
     desiredColumn: int // If we move up/down, which column did we start at?
     findChar: char option
+    lastAction: VimAction list // used by . command to repeat the last action
 }
 
 module VimHelpers =
@@ -171,11 +174,13 @@ type XSVim() =
                 ClipboardActions.Cut textEditorData
             | Visual -> textEditorData.SetSelection(start, finish)
             | Undo -> MiscActions.Undo textEditorData
+
             | InsertLineBelow -> MiscActions.InsertNewLineAtEnd textEditorData
             | InsertLineAbove -> textEditorData.Caret.Column <- 1; MiscActions.InsertNewLine textEditorData; CaretMoveActions.Up textEditorData
             | _ -> ()
 
         match command.commandType with
+        | ResetKeys -> { vimState with keys = [] }
         | SwitchMode mode ->
             match mode with
             | NormalMode -> 
@@ -295,7 +300,9 @@ type XSVim() =
             | NormalMode, [ "O" ] -> [ run InsertLineAbove Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
+            | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g"; "d" ] -> wait
+            | NormalMode, [ _; _; _; _ ] -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action
 
@@ -311,21 +318,22 @@ type XSVim() =
         let newState = { state with keys=newKeys }
         let multiplier, action = parseKeys newState
         LoggingService.LogDebug (sprintf "%A %A" multiplier action)
+        let rec performActions actions' state handled =
+            match actions' with
+            | [] -> state, handled
+            | h::t ->
+                if h.commandType <> DoNothing then
+                    let newState = runCommand state editorData h
+                    performActions t { newState with keys = [] } true
+                else 
+                    newState, true
         match multiplier, action with
+        | _, [ a ] when a.commandType = RepeatLastAction ->
+            performActions state.lastAction newState false
         | _, actions ->
-            let rec performActions actions' state handled =
-                match actions' with
-                | [] -> state, handled
-                | h::t ->
+            performActions actions { newState with lastAction = actions } false
 
-                    if h.commandType <> DoNothing then
-                        let newState = runCommand state editorData h
-                        performActions t { newState with keys = [] } true
-                    else 
-                        newState, true
-            performActions actions newState false
-
-    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None }
+    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findChar=None; lastAction=[] }
 
     override x.Initialize() =
         let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
