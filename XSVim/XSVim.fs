@@ -62,7 +62,8 @@ type TextObject =
     | BackwardToEndOfWord
     | BackwardToEndOfWORD
     | Nothing
-    | FindCharForwards of string
+    | HalfPageUp
+    | HalfPageDown
 
 type VimAction = {
     repeat: int
@@ -101,6 +102,13 @@ module VimHelpers =
 
     let findCharRange (editor:TextEditorData) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
+
+    let getVisibleLineCount (editor:TextEditorData) =
+        let topVisibleLine = ((editor.VAdjustment.Value / editor.LineHeight) |> int) + 1
+        let bottomVisibleLine =
+            Math.Min(editor.LineCount - 1,
+                topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
+        bottomVisibleLine - topVisibleLine
 
     let getRange (editor:TextEditorData) motion =
         let line = editor.GetLine editor.Caret.Line
@@ -161,6 +169,14 @@ module VimHelpers =
                 if editor.Text.[endOfWord] = ' ' then editor.FindCurrentWordEnd (endOfWord+1) - 1 else endOfWord
             editor.Caret.Offset, endOfWord
         | BackwardToEndOfWord -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset |> editor.FindCurrentWordEnd
+        | HalfPageUp -> 
+            let visibleLineCount = getVisibleLineCount editor
+            let halfwayUp = Math.Max(1, editor.Caret.Line - visibleLineCount / 2)
+            editor.Caret.Offset, editor.GetLine(halfwayUp).Offset
+        | HalfPageDown -> 
+            let visibleLineCount = getVisibleLineCount editor
+            let halfwayDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount / 2)
+            editor.Caret.Offset, editor.GetLine(halfwayDown).Offset
         | _ -> 0,0
 
 type XSVim() =
@@ -239,6 +255,8 @@ type XSVim() =
         | "e" -> Some ForwardToEndOfWord
         | "E" -> Some BackwardToEndOfWord
         | "G" -> Some LastLine
+        | "<C-d>" -> Some HalfPageDown
+        | "<C-u>" -> Some HalfPageUp
         | _ -> None
 
     let (|FindChar|_|) character =
@@ -313,6 +331,7 @@ type XSVim() =
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g"; "d" ] -> wait
             | NormalMode, [ ";" ] -> [ run RepeatLastFindCommand Nothing ]
+
             | NormalMode, [ _; _; _; _ ] -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
@@ -320,6 +339,8 @@ type XSVim() =
     let handleKeyPress state (keyPress:KeyDescriptor) editorData =
         let newKeys =
             match state.mode, keyPress.KeyChar with
+            | NormalMode, c when keyPress.ModifierKeys = ModifierKeys.Control ->
+                state.keys @ [sprintf "<C-%c>" c]
             | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
             | InsertMode, c when keyPress.KeyChar = '\000' ->
                 match keyPress.SpecialKey with
