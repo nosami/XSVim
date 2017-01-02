@@ -414,10 +414,10 @@ type XSVim() =
                     performActions t { newState with keys = [] } true
                 else
                     newState, true
-        match multiplier, action with
-        | _, [ a ] when a.commandType = RepeatLastAction -> // "."
+        match action with
+        | [ a ] when a.commandType = RepeatLastAction -> // "."
             performActions state.lastAction newState false
-        | _, actions ->
+        | actions ->
             performActions actions { newState with lastAction = actions } false
 
     let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
