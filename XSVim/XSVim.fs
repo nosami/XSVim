@@ -394,6 +394,7 @@ type XSVim() =
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
+            | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
