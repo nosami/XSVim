@@ -77,7 +77,7 @@ type VimState = {
     keys: string list
     mode: VimMode
     visualStartOffset: int
-    findCharCommand: VimAction option
+    findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
 }
 
@@ -312,11 +312,10 @@ type XSVim() =
     let (|Keys|_|) (keys:string) =
         keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
 
-    let (|VisualModes|_|) mode =
+    let (|VisualModes|NonVisualMode|) mode =
         match mode with
-        | VisualMode -> Some VisualMode
-        | VisualLineMode -> Some VisualLineMode
-        | _ -> None
+        | VisualMode | VisualLineMode -> VisualModes
+        | _ -> NonVisualMode
 
     let (|NotInsertMode|InsertModeOn|) mode =
         if mode = InsertMode then InsertModeOn else NotInsertMode
@@ -382,12 +381,12 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g" ] -> wait
-            | VisualModes _, [ Movement m ] -> [ run Move m ]
-            | VisualModes _, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | VisualModes _, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | VisualModes _, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualModes _, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualModes _, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
+            | VisualModes, [ Movement m ] -> [ run Move m ]
+            | VisualModes, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
+            | VisualModes, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualModes, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualModes, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
             | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
