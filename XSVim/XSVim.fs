@@ -105,6 +105,21 @@ module VimHelpers =
     let findCharRange (editor:TextEditorData) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
 
+    let findWordForwards (editor:TextEditorData) =
+        let findFromNonLetterChar index =
+            match editor.Text.[index] with
+            | ' ' ->
+                seq { index+1 .. editor.Text.Length } 
+                |> Seq.tryFind(fun index -> editor.Text.[index] <> ' ')
+            | _ -> Some index
+
+        if not (Char.IsLetterOrDigit editor.Text.[editor.Caret.Offset]) && Char.IsLetterOrDigit editor.Text.[editor.Caret.Offset + 1] then 
+            editor.Caret.Offset + 1 |> Some
+        else
+            seq { editor.Caret.Offset+1 .. editor.Text.Length }
+            |> Seq.tryFind(fun index -> not (Char.IsLetterOrDigit editor.Text.[index]))
+            |> Option.bind findFromNonLetterChar
+
     let getVisibleLineCount (editor:TextEditorData) =
         let topVisibleLine = ((editor.VAdjustment.Value / editor.LineHeight) |> int) + 1
         let bottomVisibleLine =
@@ -163,7 +178,10 @@ module VimHelpers =
             match findCharRange editor startChar endChar with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.Caret.Offset, editor.Caret.Offset
-        | WordForwards -> editor.Caret.Offset, editor.FindNextWordOffset (editor.Caret.Offset) + 1
+        | WordForwards -> 
+            match findWordForwards editor with
+            | Some index -> editor.Caret.Offset, index
+            | None -> editor.Caret.Offset, editor.Caret.Offset
         | WordBackwards -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset
         | ForwardToEndOfWord ->
             let endOfWord = editor.FindCurrentWordEnd (editor.Caret.Offset+1) - 1
