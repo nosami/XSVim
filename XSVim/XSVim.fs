@@ -355,6 +355,7 @@ type XSVim() =
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | InsertMode, [ "<C-c>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
@@ -391,6 +392,8 @@ type XSVim() =
         let newKeys =
             match state.mode, keyPress.KeyChar with
             | NormalMode, c when keyPress.ModifierKeys = ModifierKeys.Control ->
+                state.keys @ [sprintf "<C-%c>" c]
+            | InsertMode, c when keyPress.ModifierKeys = ModifierKeys.Control ->
                 state.keys @ [sprintf "<C-%c>" c]
             | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
             | VisualMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
