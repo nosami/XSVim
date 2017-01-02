@@ -64,6 +64,7 @@ type TextObject =
     | HalfPageUp
     | HalfPageDown
     | CurrentLocation
+    | Selection
 
 type VimAction = {
     repeat: int
@@ -74,7 +75,7 @@ type VimAction = {
 type VimState = {
     keys: string list
     mode: VimMode
-    desiredColumn: int // If we move up/down, which column did we start at?
+    visualStartOffset: int
     findCharCommand: VimAction option
     lastAction: VimAction list // used by . command to repeat the last action
 }
@@ -178,6 +179,9 @@ module VimHelpers =
             let halfwayDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount / 2)
             editor.Caret.Offset, editor.GetLine(halfwayDown).Offset
         | CurrentLocation -> editor.Caret.Offset, editor.Caret.Offset+1
+        | Selection -> 
+            let selection = editor.Selections |> Seq.head
+            selection.GetLeadOffset editor, selection.GetAnchorOffset editor
         | _ -> 0,0
 
 type XSVim() =
@@ -186,7 +190,11 @@ type XSVim() =
         for i in [1..command.repeat] do
             let start, finish = VimHelpers.getRange textEditorData command.textObject
             match command.commandType with
-            | Move -> textEditorData.Caret.Offset <- finish
+            | Move -> 
+                textEditorData.Caret.Offset <- finish
+                if vimState.mode = VisualMode then
+                    let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
+                    textEditorData.SetSelection(start, finish)
             | Delete ->
                 textEditorData.SetSelection(start, finish)
                 ClipboardActions.Cut textEditorData
@@ -207,7 +215,7 @@ type XSVim() =
             | VisualMode -> 
                 textEditorData.Caret.Mode <- CaretMode.Block
                 textEditorData.Caret.PreserveSelection <- true
-                { vimState with mode = mode }
+                { vimState with mode = mode; visualStartOffset = textEditorData.Caret.Offset }
             | InsertMode ->
                 textEditorData.Caret.Mode <- CaretMode.Insert
                 textEditorData.Caret.PreserveSelection <- false
@@ -325,9 +333,7 @@ type XSVim() =
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | VisualMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
-            | VisualMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
@@ -341,7 +347,6 @@ type XSVim() =
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | VisualMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "o" ] -> [ run InsertLineBelow Nothing; run (SwitchMode InsertMode) Nothing ]
@@ -350,6 +355,12 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g" ] -> wait
+            | VisualMode, [ Movement m ] -> [ run Move m ]
+            | VisualMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
+            | VisualMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | VisualMode, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualMode, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualMode, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
             | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
@@ -384,7 +395,7 @@ type XSVim() =
         | _, actions ->
             performActions actions { newState with lastAction = actions } false
 
-    let mutable vimState = { keys=[]; mode=NormalMode; desiredColumn=0; findCharCommand=None; lastAction=[] }
+    let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
 
     override x.Initialize() =
         let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
