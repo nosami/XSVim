@@ -357,7 +357,7 @@ type XSVim() =
 
         let action =
             match state.mode, keyList with
-            | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | _, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | _, [ "<C-c>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
@@ -383,7 +383,6 @@ type XSVim() =
             | NormalMode, [ "g" ] -> wait
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualModes, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | VisualModes, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
