@@ -317,6 +317,10 @@ type XSVim() =
         | VisualMode -> Some VisualMode
         | VisualLineMode -> Some VisualLineMode
         | _ -> None
+
+    let (|NotInsertMode|InsertModeOn|) mode =
+        if mode = InsertMode then InsertModeOn else NotInsertMode
+
     let getCommand (repeat: int option) commandType textObject =
         { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
@@ -393,9 +397,7 @@ type XSVim() =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
                 state.keys @ [sprintf "<C-%c>" c]
-            | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
-            | VisualMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
-            | VisualLineMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | NotInsertMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
             | VisualMode, c | VisualLineMode, c | InsertMode, c ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
