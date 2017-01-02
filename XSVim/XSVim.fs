@@ -320,10 +320,10 @@ type XSVim() =
     let (|NotInsertMode|InsertModeOn|) mode =
         if mode = InsertMode then InsertModeOn else NotInsertMode
 
-    let getCommand (repeat: int option) commandType textObject =
-        { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
+    let getCommand repeat commandType textObject =
+        { repeat=repeat; commandType=commandType; textObject=textObject }
 
-    let wait = [ getCommand (Some 1) DoNothing Nothing ]
+    let wait = [ getCommand 1 DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
         let keyList = state.keys
@@ -331,22 +331,22 @@ type XSVim() =
             match keyList with
             // d2w
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
-                Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
+                d1 * 1000 + d2 * 100 + d3 * 10 + d4, c::t
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
-                Some (d1 * 100 + d2 * 10 + d3), c::t
+                d1 * 100 + d2 * 10 + d3, c::t
             | c :: OneToNine d1 :: Digit d2 :: t ->
-                Some (d1 * 10 + d2), c::t
+                d1 * 10 + d2, c::t
             | c :: OneToNine d :: t ->
-                Some d, c::t
+                d, c::t
             // 2dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
-                Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
+                d1 * 1000 + d2 * 100 + d3 * 10 + d4, t
             | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
-                Some (d1 * 100 + d2 * 10 + d3), t
+                d1 * 100 + d2 * 10 + d3, t
             | OneToNine d1 :: Digit d2 :: t ->
-                Some (d1 * 10 + d2), t
-            | OneToNine d :: t -> Some d,t
-            | _ -> None, keyList
+                d1 * 10 + d2, t
+            | OneToNine d :: t -> d, t
+            | _ -> 1, keyList
 
         let run = getCommand multiplier
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
