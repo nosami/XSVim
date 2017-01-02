@@ -409,11 +409,12 @@ type XSVim() =
             match actions' with
             | [] -> state, handled
             | h::t ->
-                if h.commandType <> DoNothing then
+                if h.commandType = DoNothing then
+                    newState, true
+                else
                     let newState = runCommand state editorData h
                     performActions t { newState with keys = [] } true
-                else
-                    newState, true
+
         match action with
         | [ a ] when a.commandType = RepeatLastAction -> // "."
             performActions state.lastAction newState false
