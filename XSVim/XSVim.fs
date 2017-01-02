@@ -15,6 +15,7 @@ type VimMode =
 type CommandType =
     | Move
     | Visual
+    | Yank
     | Delete
     | Change
     | Go
@@ -232,6 +233,14 @@ type XSVim() =
                     | _ -> finish
                 editor.SetSelection(start, finish)
                 ClipboardActions.Cut editor
+            | Yank ->
+                let finish =
+                    match command.textObject with
+                    | ForwardToEndOfWord -> finish + 1
+                    | _ -> finish
+                editor.SetSelection(start, finish)
+                ClipboardActions.Copy editor
+                editor.ClearSelection()
             | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
             | InsertLineBelow -> MiscActions.InsertNewLineAtEnd editor
@@ -321,6 +330,7 @@ type XSVim() =
         | "d" -> Some Delete
         | "c" -> Some Change
         | "v" -> Some Visual
+        | "y" -> Some Yank
         | "g" -> Some Go
         | _ -> None
 
@@ -389,6 +399,7 @@ type XSVim() =
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLine ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
