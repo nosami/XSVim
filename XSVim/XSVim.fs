@@ -191,7 +191,6 @@ type XSVim() =
                 ClipboardActions.Cut textEditorData
             | Visual -> textEditorData.SetSelection(start, finish)
             | Undo -> MiscActions.Undo textEditorData
-
             | InsertLineBelow -> MiscActions.InsertNewLineAtEnd textEditorData
             | InsertLineAbove -> textEditorData.Caret.Column <- 1; MiscActions.InsertNewLine textEditorData; CaretMoveActions.Up textEditorData
             | _ -> ()
@@ -202,12 +201,15 @@ type XSVim() =
             match mode with
             | NormalMode -> 
                 textEditorData.Caret.Mode <- CaretMode.Block
+                textEditorData.Caret.PreserveSelection <- false
                 { vimState with mode = mode }
             | VisualMode -> 
                 textEditorData.Caret.Mode <- CaretMode.Block
+                textEditorData.Caret.PreserveSelection <- true
                 { vimState with mode = mode }
             | InsertMode ->
                 textEditorData.Caret.Mode <- CaretMode.Insert
+                textEditorData.Caret.PreserveSelection <- false
                 { vimState with mode = mode; keys = [] }
         | _ -> vimState
 
@@ -309,7 +311,9 @@ type XSVim() =
         let action =
             match state.mode, keyList with
             | InsertMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | VisualMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
+            | VisualMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
@@ -329,10 +333,9 @@ type XSVim() =
             | NormalMode, [ Action action ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
-            | NormalMode, [ "g"; "d" ] -> wait
+            | NormalMode, [ "g" ] -> wait
             | NormalMode, [ ";" ] -> [ run RepeatLastFindCommand Nothing ]
-
-            | NormalMode, [ _; _; _; _ ] -> [ run ResetKeys Nothing ]
+            | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
 
@@ -342,7 +345,8 @@ type XSVim() =
             | NormalMode, c when keyPress.ModifierKeys = ModifierKeys.Control ->
                 state.keys @ [sprintf "<C-%c>" c]
             | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
-            | InsertMode, c when keyPress.KeyChar = '\000' ->
+            | VisualMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | VisualMode, c | InsertMode, c ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | _ -> state.keys
