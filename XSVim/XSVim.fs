@@ -6,6 +6,8 @@ open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
 open MonoDevelop.Core
 
+type BeforeAfter = Before | After
+
 type VimMode =
     | NormalMode
     | VisualMode
@@ -16,6 +18,7 @@ type CommandType =
     | Move
     | Visual
     | Yank
+    | Put of BeforeAfter
     | Delete
     | Change
     | Go
@@ -241,6 +244,24 @@ type XSVim() =
                 editor.SetSelection(start, finish)
                 ClipboardActions.Copy editor
                 editor.ClearSelection()
+            | Put Before ->
+                let clipboard = ClipboardActions.GetClipboardContent()
+                if clipboard.EndsWith("\n") then
+                    editor.Caret.Offset <- editor.GetLine(editor.Caret.Line).Offset
+                    ClipboardActions.Paste editor
+                    CaretMoveActions.Up editor
+                else
+                    ClipboardActions.Paste editor
+            | Put After ->
+                let clipboard = ClipboardActions.GetClipboardContent()
+                if clipboard.EndsWith("\n") then
+                    editor.Caret.Offset <- editor.GetLine(editor.Caret.Line).EndOffset+1
+                    ClipboardActions.Paste editor
+                    CaretMoveActions.Up editor
+                else
+                    editor.Caret.Offset <- editor.Caret.Offset + 1
+                    ClipboardActions.Paste editor
+                    editor.Caret.Offset <- editor.Caret.Offset - 1
             | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
             | InsertLineBelow -> MiscActions.InsertNewLineAtEnd editor
@@ -403,6 +424,8 @@ type XSVim() =
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
+            | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
+            | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
@@ -420,6 +443,7 @@ type XSVim() =
             | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
+            | VisualModes, [ "y" ] -> [ run Yank Selection; run (SwitchMode NormalMode) Nothing ]
             | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
