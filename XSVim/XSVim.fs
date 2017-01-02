@@ -9,6 +9,7 @@ open MonoDevelop.Core
 type VimMode =
     | NormalMode
     | VisualMode
+    | VisualLineMode
     | InsertMode
 
 type CommandType =
@@ -182,26 +183,37 @@ module VimHelpers =
         | Selection -> 
             let selection = editor.Selections |> Seq.head
             selection.GetLeadOffset editor, selection.GetAnchorOffset editor
-        | _ -> 0,0
+        | _ -> editor.Caret.Offset, editor.Caret.Offset
 
 type XSVim() =
     inherit TextEditorExtension()
-    let runCommand vimState textEditorData command =
+    let setSelection vimState (editor:TextEditorData) start finish =
+        match vimState.mode with
+        | VisualMode ->
+            let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
+            editor.SetSelection(start, finish)
+        | VisualLineMode ->
+            let startPos = Math.Min(finish, vimState.visualStartOffset)
+            let endPos = Math.Max(finish, vimState.visualStartOffset)
+            let startLine = editor.GetLineByOffset startPos
+            let endLine = editor.GetLineByOffset endPos
+            editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
+        | _ -> ()
+
+    let runCommand vimState editor command =
         for i in [1..command.repeat] do
-            let start, finish = VimHelpers.getRange textEditorData command.textObject
+            let start, finish = VimHelpers.getRange editor command.textObject
             match command.commandType with
             | Move -> 
-                textEditorData.Caret.Offset <- finish
-                if vimState.mode = VisualMode then
-                    let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
-                    textEditorData.SetSelection(start, finish)
+                editor.Caret.Offset <- finish
+                setSelection vimState editor start finish
             | Delete ->
-                textEditorData.SetSelection(start, finish)
-                ClipboardActions.Cut textEditorData
-            | Visual -> textEditorData.SetSelection(start, finish)
-            | Undo -> MiscActions.Undo textEditorData
-            | InsertLineBelow -> MiscActions.InsertNewLineAtEnd textEditorData
-            | InsertLineAbove -> textEditorData.Caret.Column <- 1; MiscActions.InsertNewLine textEditorData; CaretMoveActions.Up textEditorData
+                editor.SetSelection(start, finish)
+                ClipboardActions.Cut editor
+            | Visual -> editor.SetSelection(start, finish)
+            | Undo -> MiscActions.Undo editor
+            | InsertLineBelow -> MiscActions.InsertNewLineAtEnd editor
+            | InsertLineAbove -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | _ -> ()
 
         match command.commandType with
@@ -209,16 +221,20 @@ type XSVim() =
         | SwitchMode mode ->
             match mode with
             | NormalMode -> 
-                textEditorData.Caret.Mode <- CaretMode.Block
-                textEditorData.Caret.PreserveSelection <- false
+                editor.Caret.Mode <- CaretMode.Block
+                editor.Caret.PreserveSelection <- false
+                editor.ClearSelection()
                 { vimState with mode = mode }
-            | VisualMode -> 
-                textEditorData.Caret.Mode <- CaretMode.Block
-                textEditorData.Caret.PreserveSelection <- true
-                { vimState with mode = mode; visualStartOffset = textEditorData.Caret.Offset }
+            | VisualMode | VisualLineMode -> 
+                editor.Caret.Mode <- CaretMode.Block
+                editor.Caret.PreserveSelection <- true
+                let start, finish = VimHelpers.getRange editor command.textObject
+                let newState = { vimState with mode = mode; visualStartOffset = editor.Caret.Offset }
+                setSelection newState editor start finish
+                newState
             | InsertMode ->
-                textEditorData.Caret.Mode <- CaretMode.Insert
-                textEditorData.Caret.PreserveSelection <- false
+                editor.Caret.Mode <- CaretMode.Insert
+                editor.Caret.PreserveSelection <- false
                 { vimState with mode = mode; keys = [] }
         | _ -> vimState
 
@@ -290,11 +306,17 @@ type XSVim() =
         match character with
         | "i" -> Some InsertMode
         | "v" -> Some VisualMode
+        | "V" -> Some VisualLineMode
         | _ -> None
 
     let (|Keys|_|) (keys:string) =
         keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
 
+    let (|VisualModes|_|) mode =
+        match mode with
+        | VisualMode -> Some VisualMode
+        | VisualLineMode -> Some VisualLineMode
+        | _ -> None
     let getCommand (repeat: int option) commandType textObject =
         { repeat=(match repeat with | Some r -> r | None -> 1); commandType=commandType; textObject=textObject }
 
@@ -355,12 +377,12 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g" ] -> wait
-            | VisualMode, [ Movement m ] -> [ run Move m ]
-            | VisualMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | VisualMode, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | VisualMode, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualMode, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualMode, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
+            | VisualModes _, [ Movement m ] -> [ run Move m ]
+            | VisualModes _, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
+            | VisualModes _, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | VisualModes _, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualModes _, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualModes _, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
             | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
@@ -372,7 +394,8 @@ type XSVim() =
                 state.keys @ [sprintf "<C-%c>" c]
             | NormalMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
             | VisualMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
-            | VisualMode, c | InsertMode, c ->
+            | VisualLineMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | VisualMode, c | VisualLineMode, c | InsertMode, c ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | _ -> state.keys
@@ -387,7 +410,7 @@ type XSVim() =
                 if h.commandType <> DoNothing then
                     let newState = runCommand state editorData h
                     performActions t { newState with keys = [] } true
-                else 
+                else
                     newState, true
         match multiplier, action with
         | _, [ a ] when a.commandType = RepeatLastAction -> // "."
