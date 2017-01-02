@@ -22,7 +22,6 @@ type CommandType =
     | InsertLineAbove
     | InsertLineBelow
     | RepeatLastAction
-    | RepeatLastFindCommand
     | ResetKeys
     | DoNothing
 
@@ -294,18 +293,25 @@ type XSVim() =
     let wait = [ getCommand (Some 1) DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
-        let keyList = state.keys// |> Seq.toList
+        let keyList = state.keys
         let multiplier, keyList =
             match keyList with
             // d2w
-            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
-            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t             -> Some (d1 * 100 + d2 * 10 + d3), c::t
-            | c :: OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), c::t
-            | c :: OneToNine d :: t -> Some d, c::t
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
+                Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
+                Some (d1 * 100 + d2 * 10 + d3), c::t
+            | c :: OneToNine d1 :: Digit d2 :: t ->
+                Some (d1 * 10 + d2), c::t
+            | c :: OneToNine d :: t ->
+                Some d, c::t
             // 2dw
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
-            | OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
+                Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
+                Some (d1 * 100 + d2 * 10 + d3), t
+            | OneToNine d1 :: Digit d2 :: t ->
+                Some (d1 * 10 + d2), t
             | OneToNine d :: t -> Some d,t
             | _ -> None, keyList
 
@@ -344,7 +350,6 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g" ] -> wait
-            | NormalMode, [ ";" ] -> [ run RepeatLastFindCommand Nothing ]
             | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _ -> []
         multiplier, action, newState
