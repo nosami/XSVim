@@ -64,6 +64,7 @@ type TextObject =
     | Nothing
     | HalfPageUp
     | HalfPageDown
+    | CurrentLocation
 
 type VimAction = {
     repeat: int
@@ -177,6 +178,7 @@ module VimHelpers =
             let visibleLineCount = getVisibleLineCount editor
             let halfwayDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount / 2)
             editor.Caret.Offset, editor.GetLine(halfwayDown).Offset
+        | CurrentLocation -> editor.Caret.Offset, editor.Caret.Offset+1
         | _ -> 0,0
 
 type XSVim() =
@@ -294,12 +296,13 @@ type XSVim() =
     let parseKeys (state:VimState) =
         let keyList = state.keys// |> Seq.toList
         let multiplier, keyList =
-            match keyList with // 2dw or d2w
+            match keyList with
+            // d2w
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
-            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), c::t
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t             -> Some (d1 * 100 + d2 * 10 + d3), c::t
             | c :: OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), c::t
             | c :: OneToNine d :: t -> Some d, c::t
-
+            // 2dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
             | OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
             | OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
@@ -328,9 +331,11 @@ type XSVim() =
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
+            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
+            | VisualMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "o" ] -> [ run InsertLineBelow Nothing; run (SwitchMode InsertMode) Nothing ]
