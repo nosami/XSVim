@@ -294,7 +294,12 @@ type XSVim() =
     let parseKeys (state:VimState) =
         let keyList = state.keys// |> Seq.toList
         let multiplier, keyList =
-            match keyList with
+            match keyList with // 2dw or d2w
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), c::t
+            | c :: OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), c::t
+            | c :: OneToNine d :: t -> Some d, c::t
+
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t -> Some(d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
             | OneToNine d1 :: Digit d2 :: Digit d3 :: t -> Some (d1 * 100 + d2 * 10 + d3), t
             | OneToNine d1 :: Digit d2 :: t -> Some (d1 * 10 + d2), t
@@ -364,7 +369,7 @@ type XSVim() =
                 else 
                     newState, true
         match multiplier, action with
-        | _, [ a ] when a.commandType = RepeatLastAction ->
+        | _, [ a ] when a.commandType = RepeatLastAction -> // "."
             performActions state.lastAction newState false
         | _, actions ->
             performActions actions { newState with lastAction = actions } false
