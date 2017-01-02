@@ -208,6 +208,10 @@ type XSVim() =
                 editor.Caret.Offset <- finish
                 setSelection vimState editor start finish
             | Delete ->
+                let finish =
+                    match command.textObject with
+                    | ForwardToEndOfWord -> finish + 1
+                    | _ -> finish
                 editor.SetSelection(start, finish)
                 ClipboardActions.Cut editor
             | Visual -> editor.SetSelection(start, finish)
