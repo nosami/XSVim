@@ -210,27 +210,31 @@ module VimHelpers =
 
 type XSVim() =
     inherit TextEditorExtension()
-    let setSelection vimState (editor:TextEditorData) start finish =
+
+    let (|VisualModes|NonVisualMode|) mode =
+        match mode with
+        | VisualMode | VisualLineMode | VisualBlockMode -> VisualModes
+        | _ -> NonVisualMode
+
+    let setSelection vimState (editor:TextEditorData) (start:int) finish =
         match vimState.mode with
+        | NormalMode ->
+            editor.SetSelection(start, finish)
         | VisualMode ->
             let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
-            editor.SetSelection(start, finish)
+            editor.SetSelection(vimState.visualStartOffset, finish)
         | VisualBlockMode ->
-            //let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
-            //let leftColumn = Math.Min(selectionStartLocation.Column, editor.Caret.Column)
-            let leftColumn, rightColumn = 
+            let leftColumn, rightColumn =
                 if editor.Caret.Column < selectionStartLocation.Column then
                     editor.Caret.Column, selectionStartLocation.Column+1
                 else
                     selectionStartLocation.Column, editor.Caret.Column+1
-            //let rightColumn = if leftColumn = rightColumn then rightColumn + 1 else rightColumn
             let topLine = Math.Min(selectionStartLocation.Line, editor.Caret.Line)
             let bottomLine = Math.Max(selectionStartLocation.Line, editor.Caret.Line)
 
             editor.MainSelection <-
-                new Selection(new DocumentLocation (topLine, leftColumn),new DocumentLocation (bottomLine, rightColumn), SelectionMode.Block)
-            //editor.select
+                new Selection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn), SelectionMode.Block)
         | VisualLineMode ->
             let startPos = Math.Min(finish, vimState.visualStartOffset)
             let endPos = Math.Max(finish, vimState.visualStartOffset)
@@ -245,13 +249,16 @@ type XSVim() =
             match command.commandType with
             | Move -> 
                 editor.Caret.Offset <- finish
-                setSelection vimState editor start finish
+                match vimState.mode with
+                | VisualModes -> setSelection vimState editor start finish
+                | _ -> ()
             | Delete ->
                 let finish =
                     match command.textObject with
                     | ForwardToEndOfWord -> finish + 1
                     | _ -> finish
-                setSelection vimState editor start finish
+                if command.textObject <> Selection then
+                    setSelection vimState editor start finish
                 ClipboardActions.Cut editor
             | Yank ->
                 let finish =
@@ -279,7 +286,7 @@ type XSVim() =
                     editor.Caret.Offset <- editor.Caret.Offset + 1
                     ClipboardActions.Paste editor
                     editor.Caret.Offset <- editor.Caret.Offset - 1
-            | Visual -> setSelection vimState editor start finish
+            | Visual -> editor.SetSelection(start, finish)//setSelection vimState editor start finish
             | Undo -> MiscActions.Undo editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
