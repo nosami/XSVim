@@ -71,6 +71,8 @@ type TextObject =
     | Nothing
     | HalfPageUp
     | HalfPageDown
+    | PageUp
+    | PageDown
     | CurrentLocation
     | Selection
     | SelectionStart
@@ -211,6 +213,14 @@ module VimHelpers =
             let visibleLineCount = getVisibleLineCount editor
             let halfwayDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount / 2)
             editor.Caret.Offset, editor.GetLine(halfwayDown).Offset
+        | PageUp -> 
+            let visibleLineCount = getVisibleLineCount editor
+            let pageUp = Math.Max(1, editor.Caret.Line - visibleLineCount)
+            editor.Caret.Offset, editor.GetLine(pageUp).Offset
+        | PageDown -> 
+            let visibleLineCount = getVisibleLineCount editor
+            let pageDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount)
+            editor.Caret.Offset, editor.GetLine(pageDown).Offset
         | CurrentLocation -> editor.Caret.Offset, editor.Caret.Offset+1
         | Selection -> 
             let selection = editor.Selections |> Seq.head
@@ -388,6 +398,8 @@ type XSVim() =
         | "G" -> Some LastLine
         | "<C-d>" -> Some HalfPageDown
         | "<C-u>" -> Some HalfPageUp
+        | "<C-f>" -> Some PageDown
+        | "<C-b>" -> Some PageUp
         | _ -> None
 
     let (|FindChar|_|) character =
