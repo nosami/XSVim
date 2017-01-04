@@ -172,13 +172,17 @@ module VimHelpers =
             match findCharBackwardsOnLine editor line c with
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
+        | ToCharExclusiveBackwards c ->
+            match findCharBackwardsOnLine editor line c with
+            | Some index -> editor.Caret.Offset, index+1
+            | None -> editor.Caret.Offset, editor.Caret.Offset
         | ToCharInclusive c ->
             match findCharForwardsOnLine editor line c with
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
         | ToCharExclusive c ->
             match findCharForwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index
+            | Some index -> editor.Caret.Offset, index-1
             | None -> editor.Caret.Offset, editor.Caret.Offset
         | InnerBlock (startChar, endChar) ->
             match findCharRange editor startChar endChar with
@@ -462,9 +466,9 @@ type XSVim() =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; run (SwitchMode NormalMode) Nothing ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | NormalMode, [ Movement m ] -> [ run Move m ]
-            | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
-            | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
+            | NotInsertMode, [ Movement m ] -> [ run Move m ]
+            | NormalMode, [ "c"; FindChar m; c ] -> [ run Delete (m c); run (SwitchMode InsertMode) Nothing ]
+            | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
@@ -484,18 +488,23 @@ type XSVim() =
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ Action action ] -> wait
+            | NormalMode, [ Action _ ] -> wait
+            | NormalMode, [ Action _; "i" ] -> wait
+            | NormalMode, [ Action _; "a" ] -> wait
+            | NotInsertMode, [ FindChar _; ] -> wait
+            | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
+            | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
-            | NormalMode, [ "g" ] -> wait
-            | NormalMode, [ "g" ] -> wait
+            | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
             | VisualModes, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
             | VisualModes, [ "y" ] -> [ run Yank Selection; run (SwitchMode NormalMode) Nothing ]
-            | _         , _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
+            | _, _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
+            | _, [] when multiplier > 1 -> wait
             | _ -> []
         multiplier, action, newState
 
@@ -509,6 +518,10 @@ type XSVim() =
             | VisualModes, c | InsertMode, c ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
+                | SpecialKey.Left -> state.keys @ ["h"]
+                | SpecialKey.Down -> state.keys @ ["j"]
+                | SpecialKey.Up -> state.keys @ ["k"]
+                | SpecialKey.Right -> state.keys @ ["l"]
                 | _ -> state.keys
             | _ -> state.keys
         let newState = { state with keys = newKeys }
@@ -545,4 +558,5 @@ type XSVim() =
         vimState <- newState
         match oldState.mode with
         | InsertMode -> base.KeyPress descriptor
+        | VisualMode -> false
         | _ -> not handledKeyPress
