@@ -477,7 +477,7 @@ type XSVim() =
         let action =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; run (SwitchMode NormalMode) Nothing ]
-            | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ "c"; FindChar m; c ] -> [ run Delete (m c); run (SwitchMode InsertMode) Nothing ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
