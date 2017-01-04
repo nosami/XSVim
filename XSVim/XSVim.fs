@@ -73,6 +73,7 @@ type TextObject =
     | HalfPageDown
     | CurrentLocation
     | Selection
+    | SelectionStart
 
 type VimAction = {
     repeat: int
@@ -134,7 +135,7 @@ module VimHelpers =
                 topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
         bottomVisibleLine - topVisibleLine
 
-    let getRange (editor:TextEditorData) motion =
+    let getRange (vimState:VimState) (editor:TextEditorData) motion =
         let line = editor.GetLine editor.Caret.Line
         match motion with
         | Right -> 
@@ -212,6 +213,7 @@ module VimHelpers =
             let lead = selection.GetLeadOffset editor
             let anchor = selection.GetAnchorOffset editor
             Math.Min(lead, anchor), Math.Max(lead, anchor)
+        | SelectionStart -> editor.Caret.Offset, vimState.visualStartOffset
         | _ -> editor.Caret.Offset, editor.Caret.Offset
 
 type XSVim() =
@@ -254,7 +256,7 @@ type XSVim() =
 
     let runCommand vimState editor command =
         for i in [1..command.repeat] do
-            let start, finish = VimHelpers.getRange editor command.textObject
+            let start, finish = VimHelpers.getRange vimState editor command.textObject
             match command.commandType with
             | Move -> 
                 editor.Caret.Offset <- finish
@@ -324,7 +326,7 @@ type XSVim() =
                 editor.SelectionMode <- if mode = VisualBlockMode then SelectionMode.Block else SelectionMode.Normal
                 editor.Caret.Mode <- CaretMode.Block
                 editor.Caret.PreserveSelection <- true
-                let start, finish = VimHelpers.getRange editor command.textObject
+                let start, finish = VimHelpers.getRange vimState editor command.textObject
                 let newState = { vimState with mode = mode; visualStartOffset = editor.Caret.Offset }
                 setSelection newState editor command start finish
                 newState
@@ -407,6 +409,12 @@ type XSVim() =
         | "V" -> Some VisualLineMode
         | _ -> None
 
+    let (|Escape|_|) character =
+        match character with
+        | "<esc>" -> Some Escape
+        | "<C-c>" -> Some Escape
+        | _ -> None
+
     let (|Keys|_|) (keys:string) =
         keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
 
@@ -450,8 +458,8 @@ type XSVim() =
 
         let action =
             match state.mode, keyList with
-            | _, [ "<esc>" ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | _, [ "<C-c>" ] -> [ run (SwitchMode NormalMode) Nothing ]
+            | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; run (SwitchMode NormalMode) Nothing ]
+            | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
             | NormalMode, [ Movement m ] -> [ run Move m ]
             | NormalMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
