@@ -535,4 +535,4 @@ type XSVim() =
         vimState <- newState
         match oldState.mode with
         | InsertMode -> base.KeyPress descriptor
-        | _ -> false
+        | _ -> not handledKeyPress
