@@ -517,7 +517,7 @@ type XSVim() =
             | VisualModes, [ "y" ] -> [ run Yank Selection; run (SwitchMode NormalMode) Nothing ]
             | _, _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _, [] when multiplier > 1 -> wait
-            | _ -> []
+            | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
 
     let handleKeyPress state (keyPress:KeyDescriptor) editorData =
