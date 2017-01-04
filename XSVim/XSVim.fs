@@ -422,7 +422,7 @@ type XSVim() =
         let keyList = state.keys
         let multiplier, keyList =
             match keyList with
-            // d2w
+            // d2w -> 2, dw
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 d1 * 1000 + d2 * 100 + d3 * 10 + d4, c::t
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
@@ -431,7 +431,7 @@ type XSVim() =
                 d1 * 10 + d2, c::t
             | c :: OneToNine d :: t ->
                 d, c::t
-            // 2dw
+            // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 d1 * 1000 + d2 * 100 + d3 * 10 + d4, t
             | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
@@ -472,8 +472,8 @@ type XSVim() =
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
             | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "o" ] -> [ run (InsertLine After) Nothing; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "O" ] -> [ run (InsertLine Before) Nothing; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
