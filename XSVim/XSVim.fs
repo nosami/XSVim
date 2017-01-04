@@ -44,6 +44,7 @@ type TextObject =
     | ABlock of string * string
     | InnerBlock of string * string
     | WholeLine
+    | WholeLineIncludingDelimiter
     | LastLine
     // motions
     | Up
@@ -54,6 +55,7 @@ type TextObject =
     | StartOfLine
     | StartOfDocument
     | EndOfLine
+    | EndOfLineIncludingDelimiter
     | ToCharInclusive of string
     | ToCharInclusiveBackwards of string
     | ToCharExclusive of string
@@ -156,10 +158,12 @@ module VimHelpers =
             else
                 editor.Caret.Offset
         | EndOfLine -> editor.Caret.Offset, line.EndOffset
+        | EndOfLineIncludingDelimiter -> editor.Caret.Offset, line.EndOffsetIncludingDelimiter
         | StartOfLine -> editor.Caret.Offset, line.Offset
         | StartOfDocument -> editor.Caret.Offset, 0
         | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
-        | WholeLine -> line.Offset, line.EndOffsetIncludingDelimiter
+        | WholeLine -> line.Offset, line.EndOffset
+        | WholeLineIncludingDelimiter -> line.Offset, line.EndOffsetIncludingDelimiter
         | LastLine -> 
             let lastLine = editor.GetLine editor.Document.LineCount
             editor.Caret.Offset, lastLine.Offset
@@ -205,7 +209,9 @@ module VimHelpers =
         | CurrentLocation -> editor.Caret.Offset, editor.Caret.Offset+1
         | Selection -> 
             let selection = editor.Selections |> Seq.head
-            selection.GetLeadOffset editor, selection.GetAnchorOffset editor
+            let lead = selection.GetLeadOffset editor
+            let anchor = selection.GetAnchorOffset editor
+            Math.Min(lead, anchor), Math.Max(lead, anchor)
         | _ -> editor.Caret.Offset, editor.Caret.Offset
 
 type XSVim() =
@@ -216,13 +222,17 @@ type XSVim() =
         | VisualMode | VisualLineMode | VisualBlockMode -> VisualModes
         | _ -> NonVisualMode
 
-    let setSelection vimState (editor:TextEditorData) (start:int) finish =
+    let setSelection vimState (editor:TextEditorData) (command:VimAction) (start:int) finish =
         match vimState.mode with
         | NormalMode ->
             editor.SetSelection(start, finish)
         | VisualMode ->
-            let start = if finish > vimState.visualStartOffset then vimState.visualStartOffset+1 else vimState.visualStartOffset
-            editor.SetSelection(vimState.visualStartOffset, finish)
+            let start, finish =
+                if finish < vimState.visualStartOffset then
+                    finish, vimState.visualStartOffset + 1
+                else
+                    vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
+            editor.SetSelection(start, finish)
         | VisualBlockMode ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
             let leftColumn, rightColumn =
@@ -232,7 +242,6 @@ type XSVim() =
                     selectionStartLocation.Column, editor.Caret.Column+1
             let topLine = Math.Min(selectionStartLocation.Line, editor.Caret.Line)
             let bottomLine = Math.Max(selectionStartLocation.Line, editor.Caret.Line)
-
             editor.MainSelection <-
                 new Selection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn), SelectionMode.Block)
         | VisualLineMode ->
@@ -250,7 +259,7 @@ type XSVim() =
             | Move -> 
                 editor.Caret.Offset <- finish
                 match vimState.mode with
-                | VisualModes -> setSelection vimState editor start finish
+                | VisualModes -> setSelection vimState editor command start finish
                 | _ -> ()
             | Delete ->
                 let finish =
@@ -258,14 +267,14 @@ type XSVim() =
                     | ForwardToEndOfWord -> finish + 1
                     | _ -> finish
                 if command.textObject <> Selection then
-                    setSelection vimState editor start finish
+                    setSelection vimState editor command start finish
                 ClipboardActions.Cut editor
             | Yank ->
                 let finish =
                     match command.textObject with
                     | ForwardToEndOfWord -> finish + 1
                     | _ -> finish
-                setSelection vimState editor start finish
+                setSelection vimState editor command start finish
                 ClipboardActions.Copy editor
                 editor.ClearSelection()
             | Put Before ->
@@ -286,7 +295,7 @@ type XSVim() =
                     editor.Caret.Offset <- editor.Caret.Offset + 1
                     ClipboardActions.Paste editor
                     editor.Caret.Offset <- editor.Caret.Offset - 1
-            | Visual -> editor.SetSelection(start, finish)//setSelection vimState editor start finish
+            | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
@@ -317,7 +326,7 @@ type XSVim() =
                 editor.Caret.PreserveSelection <- true
                 let start, finish = VimHelpers.getRange editor command.textObject
                 let newState = { vimState with mode = mode; visualStartOffset = editor.Caret.Offset }
-                setSelection newState editor start finish
+                setSelection newState editor command start finish
                 newState
             | InsertMode ->
                 editor.Caret.Mode <- CaretMode.Insert
@@ -401,11 +410,6 @@ type XSVim() =
     let (|Keys|_|) (keys:string) =
         keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
 
-    let (|VisualModes|NonVisualMode|) mode =
-        match mode with
-        | VisualMode | VisualLineMode | VisualBlockMode -> VisualModes
-        | _ -> NonVisualMode
-
     let (|NotInsertMode|InsertModeOn|) mode =
         if mode = InsertMode then InsertModeOn else NotInsertMode
 
@@ -454,9 +458,9 @@ type XSVim() =
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
-            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLine ]
+            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLine ]
+            | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
@@ -474,6 +478,7 @@ type XSVim() =
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ "g" ] -> wait
+            | NormalMode, [ "g" ] -> wait
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
@@ -489,7 +494,8 @@ type XSVim() =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
                 state.keys @ [sprintf "<C-%c>" c]
-            | NotInsertMode, c when keyPress.KeyChar <> '\000' -> state.keys @ [c |> string]
+            | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
+                state.keys @ [c |> string]
             | VisualModes, c | InsertMode, c ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
