@@ -27,6 +27,7 @@ type CommandType =
     | SwitchMode of VimMode
     | Undo
     | Redo
+    | JoinLines
     | InsertLine of BeforeOrAfter
     | RepeatLastAction
     | ResetKeys
@@ -323,6 +324,7 @@ type XSVim() =
             | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
             | Redo -> MiscActions.Redo editor
+            | JoinLines -> Vi.ViActions.Join editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | _ -> ()
@@ -504,6 +506,7 @@ type XSVim() =
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
+            | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
