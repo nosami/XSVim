@@ -51,6 +51,7 @@ type TextObject =
     | Down
     | Left
     | Right
+    | RightIncludingDelimiter
     | FirstNonWhitespace
     | StartOfLine
     | StartOfDocument
@@ -143,6 +144,9 @@ module VimHelpers =
         | Right -> 
             let line = editor.GetLine editor.Caret.Line
             editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset + 1 else editor.Caret.Offset
+        | RightIncludingDelimiter -> 
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, if editor.Caret.Column < line.LengthIncludingDelimiter then editor.Caret.Offset + 1 else editor.Caret.Offset
         | Left -> editor.Caret.Offset, if editor.Caret.Column > DocumentLocation.MinColumn then editor.Caret.Offset - 1 else editor.Caret.Offset
         | Up ->
             editor.Caret.Offset,
@@ -496,7 +500,7 @@ type XSVim() =
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
             | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | NormalMode, [ "a" ] -> [ run Move Right; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; run (SwitchMode InsertMode) Nothing ]
