@@ -142,13 +142,13 @@ module VimHelpers =
     let getRange (vimState:VimState) (editor:TextEditorData) motion =
         let line = editor.GetLine editor.Caret.Line
         match motion with
-        | Right -> 
+        | Right ->
             let line = editor.GetLine editor.Caret.Line
             editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset + 1 else editor.Caret.Offset
-        | RightIncludingDelimiter -> 
+        | RightIncludingDelimiter ->
             let line = editor.GetLine editor.Caret.Line
             editor.Caret.Offset, if editor.Caret.Column < line.LengthIncludingDelimiter then editor.Caret.Offset + 1 else editor.Caret.Offset
-        | EnsureCursorBeforeDelimiter -> 
+        | EnsureCursorBeforeDelimiter ->
             let line = editor.GetLine editor.Caret.Line
             editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset else editor.Caret.Offset - 1
         | Left -> editor.Caret.Offset, if editor.Caret.Column > DocumentLocation.MinColumn then editor.Caret.Offset - 1 else editor.Caret.Offset
@@ -535,7 +535,7 @@ type XSVim() =
                 state.keys @ [sprintf "<C-%c>" c]
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
                 state.keys @ [c |> string]
-            | VisualModes, c | InsertMode, c ->
+            | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"]
                 | SpecialKey.Left -> state.keys @ ["h"]
@@ -543,7 +543,6 @@ type XSVim() =
                 | SpecialKey.Up -> state.keys @ ["k"]
                 | SpecialKey.Right -> state.keys @ ["l"]
                 | _ -> state.keys
-            | _ -> state.keys
         let newState = { state with keys = newKeys }
         let multiplier, action, newState = parseKeys newState
         LoggingService.LogDebug (sprintf "%A %A" multiplier action)
@@ -574,7 +573,7 @@ type XSVim() =
         let oldState = vimState
 
         let newState, handledKeyPress = handleKeyPress vimState descriptor editorData
-        LoggingService.LogDebug (sprintf "%A %A" newState handledKeyPress)
+        //LoggingService.LogDebug (sprintf "%A %A" newState handledKeyPress)
         vimState <- newState
         match oldState.mode with
         | InsertMode -> base.KeyPress descriptor
