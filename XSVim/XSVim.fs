@@ -441,6 +441,7 @@ type XSVim() =
         match character with
         | "<esc>" -> Some Escape
         | "<C-c>" -> Some Escape
+        | "<C-[>" -> Some Escape
         | _ -> None
 
     let (|Keys|_|) (keys:string) =
