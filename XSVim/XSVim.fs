@@ -52,6 +52,7 @@ type TextObject =
     | Left
     | Right
     | RightIncludingDelimiter
+    | EnsureCursorBeforeDelimiter
     | FirstNonWhitespace
     | StartOfLine
     | StartOfDocument
@@ -147,6 +148,9 @@ module VimHelpers =
         | RightIncludingDelimiter -> 
             let line = editor.GetLine editor.Caret.Line
             editor.Caret.Offset, if editor.Caret.Column < line.LengthIncludingDelimiter then editor.Caret.Offset + 1 else editor.Caret.Offset
+        | EnsureCursorBeforeDelimiter -> 
+            let line = editor.GetLine editor.Caret.Line
+            editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset else editor.Caret.Offset - 1
         | Left -> editor.Caret.Offset, if editor.Caret.Column > DocumentLocation.MinColumn then editor.Caret.Offset - 1 else editor.Caret.Offset
         | Up ->
             editor.Caret.Offset,
@@ -493,7 +497,7 @@ type XSVim() =
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
-            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
+            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
