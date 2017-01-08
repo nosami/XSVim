@@ -26,6 +26,7 @@ type CommandType =
     | Go
     | SwitchMode of VimMode
     | Undo
+    | Redo
     | InsertLine of BeforeOrAfter
     | RepeatLastAction
     | ResetKeys
@@ -321,6 +322,7 @@ type XSVim() =
                     editor.Caret.Offset <- editor.Caret.Offset - 1
             | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
+            | Redo -> MiscActions.Redo editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | _ -> ()
@@ -492,6 +494,7 @@ type XSVim() =
             | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
+            | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
