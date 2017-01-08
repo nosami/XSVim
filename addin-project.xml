@@ -1,0 +1,7 @@
+<AddinProject appVersion="6.0">
+    <Project>
+        <AddinFile>XSVim/bin/Debug/XSVim.dll</AddinFile>
+        <BuildFile>XSVim.sln</BuildFile>
+        <BuildConfiguration>Debug</BuildConfiguration>
+    </Project>
+</AddinProject>
