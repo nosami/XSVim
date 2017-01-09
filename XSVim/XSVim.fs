@@ -24,6 +24,7 @@ type CommandType =
     | BlockInsert
     | Change
     | Go
+    | GoToDeclaration
     | SwitchMode of VimMode
     | Undo
     | Redo
@@ -278,6 +279,8 @@ type XSVim() =
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
         | _ -> ()
 
+    let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
+
     let runCommand vimState editor command =
         for i in [1..command.repeat] do
             let start, finish = VimHelpers.getRange vimState editor command.textObject
@@ -327,6 +330,7 @@ type XSVim() =
             | JoinLines -> Vi.ViActions.Join editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
+            | GoToDeclaration -> dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration"
             | _ -> ()
 
         match command.commandType with
@@ -521,6 +525,7 @@ type XSVim() =
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
+            | NormalMode, [ "g"; "d" ] -> [ run GoToDeclaration Nothing ]
             | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
