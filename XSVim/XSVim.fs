@@ -30,7 +30,6 @@ type CommandType =
     | Redo
     | JoinLines
     | InsertLine of BeforeOrAfter
-    | RepeatLastAction
     | ResetKeys
     | NextTab
     | PreviousTab
@@ -533,7 +532,7 @@ type XSVim() =
             | NormalMode, [ "g"; "t" ] -> [ run NextTab Nothing ]
             | NormalMode, [ "g"; "T" ] -> [ run PreviousTab Nothing ]
             | NormalMode, [ "g" ] -> wait
-            | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
+            | NormalMode, [ "." ] -> state.lastAction
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
@@ -541,7 +540,6 @@ type XSVim() =
             | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
             | VisualModes, [ "c" ] -> [ run Delete Selection; switchMode InsertMode ]
             | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
-            | _, _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
@@ -555,11 +553,11 @@ type XSVim() =
                 state.keys @ [c |> string]
             | _ ->
                 match keyPress.SpecialKey with
-                | SpecialKey.Escape -> state.keys @ ["<esc>"]
-                | SpecialKey.Left -> state.keys @ ["h"]
-                | SpecialKey.Down -> state.keys @ ["j"]
-                | SpecialKey.Up -> state.keys @ ["k"]
-                | SpecialKey.Right -> state.keys @ ["l"]
+                | SpecialKey.Escape -> ["<esc>"]
+                | SpecialKey.Left -> ["h"]
+                | SpecialKey.Down -> ["j"]
+                | SpecialKey.Up -> ["k"]
+                | SpecialKey.Right -> ["l"]
                 | _ -> state.keys
         let newState = { state with keys = newKeys }
         let multiplier, action, newState = parseKeys newState
@@ -574,11 +572,7 @@ type XSVim() =
                     let newState = runCommand state editorData h
                     performActions t { newState with keys = [] } true
 
-        match action with
-        | [ a ] when a.commandType = RepeatLastAction -> // "."
-            performActions state.lastAction newState false
-        | actions ->
-            performActions actions { newState with lastAction = actions } false
+        performActions action { newState with lastAction = action } false
 
     let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
 
