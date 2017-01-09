@@ -252,17 +252,15 @@ type XSVim() =
         | _ -> NonVisualMode
 
     let setSelection vimState (editor:TextEditorData) (command:VimAction) (start:int) finish =
-        match vimState.mode with
-        | NormalMode ->
-            editor.SetSelection(start, finish)
-        | VisualMode ->
+        match vimState.mode, command.commandType with
+        | VisualMode, Move | VisualMode, SwitchMode _ ->
             let start, finish =
                 if finish < vimState.visualStartOffset then
                     finish, vimState.visualStartOffset + 1
                 else
                     vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
             editor.SetSelection(start, finish)
-        | VisualBlockMode ->
+        | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
             let leftColumn, rightColumn =
                 if editor.Caret.Column < selectionStartLocation.Column then
@@ -273,13 +271,13 @@ type XSVim() =
             let bottomLine = Math.Max(selectionStartLocation.Line, editor.Caret.Line)
             editor.MainSelection <-
                 new Selection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn), SelectionMode.Block)
-        | VisualLineMode ->
+        | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
             let startPos = Math.Min(finish, vimState.visualStartOffset)
             let endPos = Math.Max(finish, vimState.visualStartOffset)
             let startLine = editor.GetLineByOffset startPos
             let endLine = editor.GetLineByOffset endPos
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
-        | _ -> ()
+        | _ -> editor.SetSelection(start, finish)
 
     let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
 
@@ -305,8 +303,10 @@ type XSVim() =
                     match command.textObject with
                     | ForwardToEndOfWord -> finish + 1
                     | _ -> finish
-                setSelection vimState editor command start finish
+                if command.textObject <> Selection then
+                    setSelection vimState editor command start finish
                 ClipboardActions.Copy editor
+                LoggingService.LogDebug (sprintf "Yanked - %s" (ClipboardActions.GetClipboardContent()))
                 editor.ClearSelection()
             | Put Before ->
                 let clipboard = ClipboardActions.GetClipboardContent()
@@ -456,9 +456,6 @@ type XSVim() =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let (|Keys|_|) (keys:string) =
-        keys |> Seq.map(fun c -> c |> string) |> List.ofSeq |> Some
-
     let (|NotInsertMode|InsertModeOn|) mode =
         if mode = InsertMode then InsertModeOn else NotInsertMode
 
@@ -512,6 +509,7 @@ type XSVim() =
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
             | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; switchMode InsertMode ]
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
+            | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Delete EndOfLine; switchMode InsertMode ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
@@ -546,6 +544,7 @@ type XSVim() =
             | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
             | VisualModes, [ "c" ] -> [ run Delete Selection; switchMode InsertMode ]
             | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
+            | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
