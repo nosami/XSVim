@@ -30,6 +30,7 @@ type CommandType =
     | Redo
     | JoinLines
     | InsertLine of BeforeOrAfter
+    | ReplaceChar of string
     | ResetKeys
     | NextTab
     | PreviousTab
@@ -329,6 +330,11 @@ type XSVim() =
             | Undo -> MiscActions.Undo editor
             | Redo -> MiscActions.Redo editor
             | JoinLines -> Vi.ViActions.Join editor
+            | ReplaceChar c ->
+                editor.SetSelection(editor.Caret.Offset, editor.Caret.Offset+1)
+                editor.DeleteSelectedText true
+                editor.InsertAtCaret c
+                CaretMoveActions.Left editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | GoToDeclaration -> dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration"
@@ -447,9 +453,7 @@ type XSVim() =
 
     let (|Escape|_|) character =
         match character with
-        | "<esc>" -> Some Escape
-        | "<C-c>" -> Some Escape
-        | "<C-[>" -> Some Escape
+        | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
     let (|Keys|_|) (keys:string) =
@@ -514,6 +518,8 @@ type XSVim() =
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
+            | NormalMode, [ "r" ] -> wait
+            | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
