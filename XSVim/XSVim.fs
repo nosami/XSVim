@@ -5,6 +5,7 @@ open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
 open MonoDevelop.Core
+open MonoDevelop.Ide.Commands
 
 type BeforeOrAfter = Before | After
 
@@ -23,7 +24,6 @@ type CommandType =
     | Delete
     | BlockInsert
     | Change
-    | Go
     | GoToDeclaration
     | SwitchMode of VimMode
     | Undo
@@ -32,6 +32,8 @@ type CommandType =
     | InsertLine of BeforeOrAfter
     | RepeatLastAction
     | ResetKeys
+    | NextTab
+    | PreviousTab
     | DoNothing
 
 type TextObject =
@@ -331,6 +333,8 @@ type XSVim() =
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | GoToDeclaration -> dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration"
+            | NextTab -> dispatch WindowCommands.PrevDocument
+            | PreviousTab -> dispatch WindowCommands.NextDocument
             | _ -> ()
 
         match command.commandType with
@@ -432,7 +436,6 @@ type XSVim() =
         | "c" -> Some Change
         | "v" -> Some Visual
         | "y" -> Some Yank
-        | "g" -> Some Go
         | _ -> None
 
     let (|ModeChange|_|) character =
@@ -526,6 +529,8 @@ type XSVim() =
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "g"; "d" ] -> [ run GoToDeclaration Nothing ]
+            | NormalMode, [ "g"; "t" ] -> [ run NextTab Nothing ]
+            | NormalMode, [ "g"; "T" ] -> [ run PreviousTab Nothing ]
             | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "." ] -> [ run RepeatLastAction Nothing ]
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
