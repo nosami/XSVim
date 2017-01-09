@@ -488,6 +488,7 @@ type XSVim() =
             | _ -> 1, keyList
 
         let run = getCommand multiplier
+        let switchMode mode = run (SwitchMode mode) Nothing
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -496,19 +497,19 @@ type XSVim() =
 
         let action =
             match state.mode, keyList with
-            | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; run (SwitchMode NormalMode) Nothing ]
+            | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ Movement m ] -> [ run Move m ]
-            | NormalMode, [ "c"; FindChar m; c ] -> [ run Delete (m c); run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "c"; FindChar m; c ] -> [ run Delete (m c); switchMode InsertMode ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
-            | NormalMode, [ "c"; Movement m ] -> [ run Delete m; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "c"; Movement m ] -> [ run Delete m; switchMode InsertMode ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
-            | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; switchMode InsertMode ]
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
-            | NormalMode, [ "C" ] -> [ run Delete EndOfLine; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ "C" ] -> [ run Delete EndOfLine; switchMode InsertMode ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
@@ -517,11 +518,11 @@ type XSVim() =
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
-            | NormalMode, [ ModeChange mode ] -> [ run (SwitchMode mode) Nothing ]
-            | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "A" ] -> [ run Move EndOfLine; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; run (SwitchMode InsertMode) Nothing ]
-            | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; run (SwitchMode InsertMode) Nothing ]
+            | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
+            | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
+            | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
+            | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
+            | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
             | NormalMode, [ Action _ ] -> wait
             | NormalMode, [ Action _; "i" ] -> wait
             | NormalMode, [ Action _; "a" ] -> wait
@@ -536,10 +537,10 @@ type XSVim() =
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
-            | VisualModes, [ "x" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualModes, [ "d" ] -> [ run Delete Selection; run (SwitchMode NormalMode) Nothing ]
-            | VisualModes, [ "c" ] -> [ run Delete Selection; run (SwitchMode InsertMode) Nothing ]
-            | VisualModes, [ "y" ] -> [ run Yank Selection; run (SwitchMode NormalMode) Nothing ]
+            | VisualModes, [ "x" ] -> [ run Delete Selection; switchMode NormalMode ]
+            | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
+            | VisualModes, [ "c" ] -> [ run Delete Selection; switchMode InsertMode ]
+            | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
             | _, _ :: _ :: _ :: _ :: t -> [ run ResetKeys Nothing ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
