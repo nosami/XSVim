@@ -24,16 +24,14 @@ type CommandType =
     | Delete
     | BlockInsert
     | Change
-    | GoToDeclaration
     | SwitchMode of VimMode
     | Undo
     | Redo
     | JoinLines
+    | Dispatch of obj
     | InsertLine of BeforeOrAfter
     | ReplaceChar of string
     | ResetKeys
-    | NextTab
-    | PreviousTab
     | DoNothing
 
 type TextObject =
@@ -337,9 +335,7 @@ type XSVim() =
                 CaretMoveActions.Left editor
             | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
-            | GoToDeclaration -> dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration"
-            | NextTab -> dispatch WindowCommands.PrevDocument
-            | PreviousTab -> dispatch WindowCommands.NextDocument
+            | Dispatch command -> dispatch command
             | _ -> ()
 
         match command.commandType with
@@ -489,6 +485,8 @@ type XSVim() =
 
         let run = getCommand multiplier
         let switchMode mode = run (SwitchMode mode) Nothing
+        let dispatch command = run (Dispatch command) Nothing
+
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -516,6 +514,9 @@ type XSVim() =
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
+            | NormalMode, [ "/" ] -> [ dispatch SearchCommands.Find ]
+            | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
+            | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
             | NormalMode, [ "r" ] -> wait
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
@@ -532,9 +533,9 @@ type XSVim() =
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
-            | NormalMode, [ "g"; "d" ] -> [ run GoToDeclaration Nothing ]
-            | NormalMode, [ "g"; "t" ] -> [ run NextTab Nothing ]
-            | NormalMode, [ "g"; "T" ] -> [ run PreviousTab Nothing ]
+            | NormalMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
+            | NormalMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
+            | NormalMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
             | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "." ] -> state.lastAction
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
