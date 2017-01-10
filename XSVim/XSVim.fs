@@ -518,8 +518,6 @@ type XSVim() =
             | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
             | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
-            | NormalMode, [ "z"; "t" ] -> [ dispatch TextEditorCommands.ScrollTop ]
-            | NormalMode, [ "z"; "b" ] -> [ dispatch TextEditorCommands.ScrollBottom ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "%" ] -> [ dispatch TextEditorCommands.GotoMatchingBrace ]
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
