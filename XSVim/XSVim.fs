@@ -210,6 +210,8 @@ module VimHelpers =
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
         | WordBackwards -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset
+        | InnerWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset
+        | AWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset+1 //TODO - needs to select up to next word
         | ForwardToEndOfWord ->
             let endOfWord = editor.FindCurrentWordEnd (editor.Caret.Offset+1) - 1
             let endOfWord = 
@@ -280,6 +282,20 @@ type XSVim() =
     let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
 
     let runCommand vimState editor command =
+        let delete start finish =
+            let finish =
+                match command.textObject with
+                | ForwardToEndOfWord -> finish + 1
+                | _ -> finish
+            if command.textObject <> Selection then
+                setSelection vimState editor command start finish
+            ClipboardActions.Cut editor
+
+        let switchToInsertMode() =
+            editor.Caret.Mode <- CaretMode.Insert
+            editor.Caret.PreserveSelection <- false
+            { vimState with mode = InsertMode; keys = [] }
+
         for i in [1..command.repeat] do
             let start, finish = VimHelpers.getRange vimState editor command.textObject
             match command.commandType with
@@ -288,14 +304,8 @@ type XSVim() =
                 match vimState.mode with
                 | VisualModes -> setSelection vimState editor command start finish
                 | _ -> ()
-            | Delete ->
-                let finish =
-                    match command.textObject with
-                    | ForwardToEndOfWord -> finish + 1
-                    | _ -> finish
-                if command.textObject <> Selection then
-                    setSelection vimState editor command start finish
-                ClipboardActions.Cut editor
+            | Delete -> delete start finish
+            | Change -> delete start finish
             | Yank ->
                 let finish =
                     match command.textObject with
@@ -321,9 +331,9 @@ type XSVim() =
                     ClipboardActions.Paste editor
                     CaretMoveActions.Up editor
                 else
-                    editor.Caret.Offset <- editor.Caret.Offset + 1
+                    CaretMoveActions.Right editor
                     ClipboardActions.Paste editor
-                    editor.Caret.Offset <- editor.Caret.Offset - 1
+                    CaretMoveActions.Left editor
             | Visual -> editor.SetSelection(start, finish)
             | Undo -> MiscActions.Undo editor
             | Redo -> MiscActions.Redo editor
@@ -337,7 +347,7 @@ type XSVim() =
             | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
             | Dispatch command -> dispatch command
             | _ -> ()
-
+        // commands that change state
         match command.commandType with
         | ResetKeys -> { vimState with keys = [] }
         | BlockInsert ->
@@ -365,10 +375,8 @@ type XSVim() =
                 let newState = { vimState with mode = mode; visualStartOffset = editor.Caret.Offset }
                 setSelection newState editor command start finish
                 newState
-            | InsertMode ->
-                editor.Caret.Mode <- CaretMode.Insert
-                editor.Caret.PreserveSelection <- false
-                { vimState with mode = mode; keys = [] }
+            | InsertMode -> switchToInsertMode()
+        | Change -> switchToInsertMode()
         | _ -> vimState
 
     let (|Digit|_|) character =
@@ -498,17 +506,15 @@ type XSVim() =
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ Movement m ] -> [ run Move m ]
-            | NormalMode, [ "c"; FindChar m; c ] -> [ run Delete (m c); switchMode InsertMode ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
-            | NormalMode, [ "c"; Movement m ] -> [ run Delete m; switchMode InsertMode ]
             | NormalMode, [ Action action; Movement m ] -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
-            | NormalMode, [ "c"; "c" ] -> [ run Delete WholeLine; switchMode InsertMode ]
+            | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
-            | NormalMode, [ "C" ] -> [ run Delete EndOfLine; switchMode InsertMode ]
+            | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
@@ -527,14 +533,16 @@ type XSVim() =
             | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
+            | NormalMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
+            | NormalMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
             | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
             | NormalMode, [ Action _ ] -> wait
-            | NormalMode, [ Action _; "i" ] -> wait
-            | NormalMode, [ Action _; "a" ] -> wait
+            | NotInsertMode, [ Action _; "i" ] -> wait
+            | NotInsertMode, [ Action _; "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
@@ -548,7 +556,7 @@ type XSVim() =
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "x" ] -> [ run Delete Selection; switchMode NormalMode ]
             | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
-            | VisualModes, [ "c" ] -> [ run Delete Selection; switchMode InsertMode ]
+            | VisualModes, [ "c" ] -> [ run Change Selection ]
             | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
