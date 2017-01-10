@@ -372,13 +372,13 @@ type XSVim() =
         | _ -> vimState
 
     let (|Digit|_|) character =
-        if character > "0" && character < "9" then
+        if character >= "0" && character <= "9" then
             Some (Convert.ToInt32 character)
         else
             None
 
     let (|OneToNine|_|) character =
-        if character > "1" && character < "9" then
+        if character >= "1" && character <= "9" then
             Some (Convert.ToInt32 character)
         else
             None
@@ -551,6 +551,8 @@ type XSVim() =
             | VisualModes, [ "c" ] -> [ run Delete Selection; switchMode InsertMode ]
             | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
+            | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
+            | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
