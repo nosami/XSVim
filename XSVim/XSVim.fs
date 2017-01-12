@@ -530,11 +530,13 @@ type XSVim() =
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
             | NormalMode, [ "r" ] -> wait
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
-            | NormalMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
-            | NormalMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
-            | NormalMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
-            | NormalMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
-            | NormalMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
+            | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
+            | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
+            | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
+            | NotInsertMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
+            | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
+            | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
+            | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
             | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
@@ -543,6 +545,7 @@ type XSVim() =
             | NormalMode, [ Action _ ] -> wait
             | NotInsertMode, [ Action _; "i" ] -> wait
             | NotInsertMode, [ Action _; "a" ] -> wait
+            | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
