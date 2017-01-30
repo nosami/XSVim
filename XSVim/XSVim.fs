@@ -542,6 +542,7 @@ type XSVim() =
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
+            | NormalMode, [ "I" ] -> [ run Move FirstNonWhitespace; switchMode InsertMode ]
             | NormalMode, [ Action _ ] -> wait
             | NotInsertMode, [ Action _; "i" ] -> wait
             | NotInsertMode, [ Action _; "a" ] -> wait
