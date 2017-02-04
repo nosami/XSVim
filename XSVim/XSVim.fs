@@ -483,8 +483,8 @@ type XSVim() =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let (|NotInsertMode|InsertModeOn|) mode =
-        if mode = InsertMode then InsertModeOn else NotInsertMode
+    let (|NotInsertMode|_|) mode =
+        if mode = InsertMode then None else Some NotInsertMode
 
     let getCommand repeat commandType textObject =
         { repeat=repeat; commandType=commandType; textObject=textObject }
@@ -624,12 +624,14 @@ type XSVim() =
 
     let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
 
+    let getEditorData (this:XSVim) = this.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+
     override x.Initialize() =
-        let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+        let editorData = getEditorData x
         editorData.Caret.Mode <- CaretMode.Block
 
     override x.KeyPress descriptor =
-        let editorData = x.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
+        let editorData = getEditorData x
         let oldState = vimState
 
         let newState, handledKeyPress = handleKeyPress vimState descriptor editorData
