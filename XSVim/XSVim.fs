@@ -581,6 +581,8 @@ type XSVim() =
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
+            | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
+            | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
             | VisualModes, [ "x" ] -> [ run Delete Selection; switchMode NormalMode ]
             | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
             | VisualModes, [ "c" ] -> [ run Change Selection ]
