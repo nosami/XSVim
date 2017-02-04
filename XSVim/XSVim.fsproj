@@ -50,5 +50,4 @@
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
   <Import Project="..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets')" />
-  <Import Project="..\packages\MonoDevelop.Addins.0.3.8\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.8\build\net40\MonoDevelop.Addins.targets')" />
 </Project>
