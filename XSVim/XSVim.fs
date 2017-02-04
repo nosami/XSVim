@@ -1,11 +1,10 @@
 ﻿namespace XSVim
 
 open System
-open MonoDevelop.Ide.Editor
-open MonoDevelop.Ide.Editor.Extension
 open Mono.TextEditor
 open MonoDevelop.Core
 open MonoDevelop.Ide.Commands
+open MonoDevelop.Ide.Editor.Extension
 
 type BeforeOrAfter = Before | After
 
@@ -69,6 +68,8 @@ type TextObject =
     | WORDForwards
     | WordBackwards
     | WORDBackwards
+    | ParagraphForwards
+    | ParagraphBackwards
     | ForwardToEndOfWord
     | ForwardToEndOfWORD
     | BackwardToEndOfWord
@@ -134,6 +135,18 @@ module VimHelpers =
             seq { editor.Caret.Offset+1 .. editor.Text.Length }
             |> Seq.tryFind(fun index -> not (Char.IsLetterOrDigit editor.Text.[index]))
             |> Option.bind findFromNonLetterChar
+
+    let paragraphBackwards (editor:TextEditorData) =
+        seq { editor.Caret.Line-1 .. -1 .. 1 }
+        |> Seq.tryFind(fun lineNr -> let line = editor.GetLineText lineNr
+                                     String.IsNullOrWhiteSpace line)
+        |> Option.bind(fun lineNr -> Some (editor.GetLine lineNr).Offset)
+
+    let paragraphForwards (editor:TextEditorData) =
+        seq { editor.Caret.Line+1 .. editor.LineCount }
+        |> Seq.tryFind(fun lineNr -> let line = editor.GetLineText lineNr
+                                     String.IsNullOrWhiteSpace line)
+        |> Option.bind(fun lineNr -> Some (editor.GetLine lineNr).Offset)
 
     let getVisibleLineCount (editor:TextEditorData) =
         let topVisibleLine = ((editor.VAdjustment.Value / editor.LineHeight) |> int) + 1
@@ -205,11 +218,19 @@ module VimHelpers =
             match findCharRange editor startChar endChar with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.Caret.Offset, editor.Caret.Offset
-        | WordForwards -> 
+        | WordForwards ->
             match findWordForwards editor with
             | Some index -> editor.Caret.Offset, index
             | None -> editor.Caret.Offset, editor.Caret.Offset
         | WordBackwards -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset
+        | ParagraphBackwards ->
+            match paragraphBackwards editor with
+            | Some index -> editor.Caret.Offset, index
+            | None -> editor.Caret.Offset, editor.Caret.Offset
+        | ParagraphForwards ->
+            match paragraphForwards editor with
+            | Some index -> editor.Caret.Offset, index
+            | None -> editor.Caret.Offset, editor.Caret.Offset
         | InnerWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset
         | AWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset+1 //TODO - needs to select up to next word
         | ForwardToEndOfWord ->
@@ -425,6 +446,8 @@ type XSVim() =
         | "e" -> Some ForwardToEndOfWord
         | "E" -> Some BackwardToEndOfWord
         | "G" -> Some LastLine
+        | "{" -> Some ParagraphBackwards
+        | "}" -> Some ParagraphForwards
         | "<C-d>" -> Some HalfPageDown
         | "<C-u>" -> Some HalfPageUp
         | "<C-f>" -> Some PageDown
