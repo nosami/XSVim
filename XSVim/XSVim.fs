@@ -286,9 +286,7 @@ module VimHelpers =
             | _ -> editor.Caret.Offset, editor.Caret.Offset
         | _ -> editor.Caret.Offset, editor.Caret.Offset
 
-type XSVim() =
-    inherit TextEditorExtension()
-
+module Vim =
     let (|VisualModes|_|) mode =
         match mode with
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
@@ -321,8 +319,6 @@ type XSVim() =
             let endLine = editor.GetLineByOffset endPos
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
         | _ -> editor.SetSelection(start, finish)
-
-    
 
     let runCommand vimState editor command =
         let delete start finish =
@@ -647,6 +643,8 @@ type XSVim() =
 
         performActions action { newState with lastAction = action } false
 
+type XSVim() =
+    inherit TextEditorExtension()
     let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
 
     let getEditorData (this:XSVim) = this.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
@@ -659,7 +657,7 @@ type XSVim() =
         let editorData = getEditorData x
         let oldState = vimState
 
-        let newState, handledKeyPress = handleKeyPress vimState descriptor editorData
+        let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor editorData
         //LoggingService.LogDebug (sprintf "%A %A" newState handledKeyPress)
         vimState <- newState
         match oldState.mode with

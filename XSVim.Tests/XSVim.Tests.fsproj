@@ -1,0 +1,65 @@
+﻿<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{3C522649-67F6-4F65-9CC9-D5847768FE68}</ProjectGuid>
+    <ProjectTypeGuids>{86F6BF2A-E449-4B3E-813B-9ACC37E5545F};{F2A71F9B-5D33-465A-A702-920D77279786}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <RootNamespace>XSVim.Tests</RootNamespace>
+    <AssemblyName>XSVim.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TestRunnerCommand>..\..\monodevelop\main\build\bin\mdtool.exe</TestRunnerCommand>
+    <TestRunnerArgs>run-md-tests</TestRunnerArgs>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <DefineConstants></DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <GenerateTailCalls>true</GenerateTailCalls>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup>
+    <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(VisualStudioVersion)' == '10.0' OR '$(VisualStudioVersion)' == '11.0'">
+    <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.fs" />
+    <Compile Include="Properties\AddinInfo.fs" />
+    <Compile Include="TestHelpers.fs" />
+    <Compile Include="DeleteTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Manifest.addin.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\XSVim\XSVim.fsproj">
+      <Project>{9DB313D4-4CD1-455F-846F-42CD234DE626}</Project>
+      <Name>XSVim</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="GuiUnit">
+      <HintPath>..\..\monodevelop\main\build\tests\GuiUnit.exe</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <AddinReference Include="MonoDevelop.SourceEditor2" />
+  </ItemGroup>
+  <Import Project="$(FSharpTargetsPath)" />
+  <Import Project="..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets')" />
+</Project>
