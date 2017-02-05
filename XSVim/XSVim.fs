@@ -518,6 +518,7 @@ type XSVim() =
         let keyList = state.keys
         let multiplier, keyList =
             match keyList with
+            | "r" :: _ -> 1, keyList
             // d2w -> 2, dw
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 d1 * 1000 + d2 * 100 + d3 * 10 + d4, c::t
