@@ -82,6 +82,7 @@ type TextObject =
     | CurrentLocation
     | Selection
     | SelectionStart
+    | MatchingBrace
 
 type VimAction = {
     repeat: int
@@ -97,7 +98,20 @@ type VimState = {
     lastAction: VimAction list // used by . command to repeat the last action
 }
 
+[<AutoOpen>]
 module VimHelpers =
+    let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
+
+    let closingBraces = [')'; '}'; ']'] |> set
+    let openingbraces = ['('; '{'; '[' ] |> set
+
+    let findNextBraceForwardsOnLine (editor:TextEditorData) (line:DocumentLine) =
+        if closingBraces.Contains(editor.Text.[editor.Caret.Offset]) then
+            Some editor.Caret.Offset
+        else
+            seq { editor.Caret.Offset .. line.EndOffset }
+            |> Seq.tryFind(fun index -> openingbraces.Contains(editor.Text.[index]))
+
     let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
         let ch = Char.Parse character
         seq { editor.Caret.Offset+1 .. line.EndOffset }
@@ -262,15 +276,23 @@ module VimHelpers =
             let anchor = selection.GetAnchorOffset editor
             Math.Min(lead, anchor), Math.Max(lead, anchor)
         | SelectionStart -> editor.Caret.Offset, vimState.visualStartOffset
+        | MatchingBrace ->
+            match findNextBraceForwardsOnLine editor line with
+            | Some offset ->
+                let startOffset = editor.Caret.Offset
+                editor.Caret.Offset <- offset
+                dispatch TextEditorCommands.GotoMatchingBrace
+                startOffset, editor.Caret.Offset
+            | _ -> editor.Caret.Offset, editor.Caret.Offset
         | _ -> editor.Caret.Offset, editor.Caret.Offset
 
 type XSVim() =
     inherit TextEditorExtension()
 
-    let (|VisualModes|NonVisualMode|) mode =
+    let (|VisualModes|_|) mode =
         match mode with
-        | VisualMode | VisualLineMode | VisualBlockMode -> VisualModes
-        | _ -> NonVisualMode
+        | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
+        | _ -> None
 
     let setSelection vimState (editor:TextEditorData) (command:VimAction) (start:int) finish =
         match vimState.mode, command.commandType with
@@ -300,7 +322,7 @@ type XSVim() =
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
         | _ -> editor.SetSelection(start, finish)
 
-    let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
+    
 
     let runCommand vimState editor command =
         let delete start finish =
@@ -448,6 +470,7 @@ type XSVim() =
         | "G" -> Some LastLine
         | "{" -> Some ParagraphBackwards
         | "}" -> Some ParagraphForwards
+        | "%" -> Some MatchingBrace
         | "<C-d>" -> Some HalfPageDown
         | "<C-u>" -> Some HalfPageUp
         | "<C-f>" -> Some PageDown
@@ -548,7 +571,6 @@ type XSVim() =
             | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait
-            | NormalMode, [ "%" ] -> [ dispatch TextEditorCommands.GotoMatchingBrace ]
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
             | NormalMode, [ "r" ] -> wait
