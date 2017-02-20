@@ -53,12 +53,12 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="GuiUnit">
-      <HintPath>..\..\monodevelop\main\build\tests\GuiUnit.exe</HintPath>
-    </Reference>
+    <AddinReference Include="MonoDevelop.SourceEditor2" />
   </ItemGroup>
   <ItemGroup>
-    <AddinReference Include="MonoDevelop.SourceEditor2" />
+    <Reference Include="GuiUnit">
+      <HintPath>..\lib\GuiUnit.exe</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
   <Import Project="..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets')" />
