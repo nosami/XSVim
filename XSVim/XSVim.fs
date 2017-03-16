@@ -324,7 +324,9 @@ module Vim =
         let delete start finish =
             let finish =
                 match command.textObject with
-                | ForwardToEndOfWord -> finish + 1
+                | ForwardToEndOfWord
+                | ToCharInclusive _
+                | ToCharExclusive _ -> finish + 1
                 | _ -> finish
             if command.textObject <> Selection then
                 setSelection vimState editor command start finish
@@ -347,8 +349,10 @@ module Vim =
             | Change -> delete start finish
             | Yank ->
                 let finish =
-                    match command.textObject with
-                    | ForwardToEndOfWord -> finish + 1
+                match command.textObject with
+                | ForwardToEndOfWord
+                | ToCharInclusive _
+                | ToCharExclusive _ -> finish + 1
                     | _ -> finish
                 if command.textObject <> Selection then
                     setSelection vimState editor command start finish
