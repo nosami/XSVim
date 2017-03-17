@@ -1,12 +1,15 @@
-﻿namespace XSVim
-
+namespace XSVim
 open System
-open Mono.TextEditor
 open MonoDevelop.Core
 open MonoDevelop.Ide.Commands
+open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 
+open MonoDevelop.Ide
+
 type BeforeOrAfter = Before | After
+
+type CaretMode = Insert | Block
 
 type VimMode =
     | NormalMode
@@ -96,6 +99,7 @@ type VimState = {
     visualStartOffset: int
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
+    clipboard: string
 }
 
 [<AutoOpen>]
@@ -105,186 +109,219 @@ module VimHelpers =
     let closingBraces = [')'; '}'; ']'] |> set
     let openingbraces = ['('; '{'; '[' ] |> set
 
-    let findNextBraceForwardsOnLine (editor:TextEditorData) (line:DocumentLine) =
-        if closingBraces.Contains(editor.Text.[editor.Caret.Offset]) then
-            Some editor.Caret.Offset
+    let findNextBraceForwardsOnLine (editor:TextEditor) (line:IDocumentLine) =
+        if closingBraces.Contains(editor.Text.[editor.CaretOffset]) then
+            Some editor.CaretOffset
         else
-            seq { editor.Caret.Offset .. line.EndOffset }
+            seq { editor.CaretOffset .. line.EndOffset }
             |> Seq.tryFind(fun index -> openingbraces.Contains(editor.Text.[index]))
 
-    let findCharForwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+    let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
         let ch = Char.Parse character
-        seq { editor.Caret.Offset+1 .. line.EndOffset }
+        seq { editor.CaretOffset+1 .. line.EndOffset }
         |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
-    let findCharBackwardsOnLine (editor:TextEditorData) (line:DocumentLine) character =
+    let findCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
         let ch = Char.Parse character
-        seq { editor.Caret.Offset-1 .. -1 .. line.Offset }
+        seq { editor.CaretOffset-1 .. -1 .. line.Offset }
         |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
-    let findCharForwards (editor:TextEditorData) character =
+    let findCharForwards (editor:TextEditor) character =
         let ch = Char.Parse character
-        seq { editor.Caret.Offset+1 .. editor.Text.Length }
+        seq { editor.CaretOffset+1 .. editor.Text.Length }
         |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
-    let findCharBackwards (editor:TextEditorData) character =
+    let findCharBackwards (editor:TextEditor) character =
         let ch = Char.Parse character
-        seq { editor.Caret.Offset .. -1 .. 0 }
+        seq { editor.CaretOffset .. -1 .. 0 }
         |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
-    let findCharRange (editor:TextEditorData) startChar endChar =
+    let findCharRange (editor:TextEditor) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
 
-    let findWordForwards (editor:TextEditorData) =
+    let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
+
+    let findWordForwards (editor:TextEditor) =
         let findFromNonLetterChar index =
             match editor.Text.[index] with
             | ' ' ->
                 seq { index+1 .. editor.Text.Length } 
-                |> Seq.tryFind(fun index -> editor.Text.[index] <> ' ')
+                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.Text.[index]))
             | _ -> Some index
 
-        if not (Char.IsLetterOrDigit editor.Text.[editor.Caret.Offset]) && Char.IsLetterOrDigit editor.Text.[editor.Caret.Offset + 1] then 
-            editor.Caret.Offset + 1 |> Some
+        if not (isWordChar editor.Text.[editor.CaretOffset]) && isWordChar editor.Text.[editor.CaretOffset + 1] then 
+            editor.CaretOffset + 1 |> Some
         else
-            seq { editor.Caret.Offset+1 .. editor.Text.Length }
-            |> Seq.tryFind(fun index -> not (Char.IsLetterOrDigit editor.Text.[index]))
+            seq { editor.CaretOffset+1 .. editor.Text.Length }
+            |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index]))
             |> Option.bind findFromNonLetterChar
 
-    let paragraphBackwards (editor:TextEditorData) =
-        seq { editor.Caret.Line-1 .. -1 .. 1 }
+    let findPrevWord (editor:TextEditor) =
+        let result = Math.Max(editor.CaretOffset - 1, 0)
+        let previous = isWordChar editor.Text.[result]
+        let rec findStartBackwards index previous isInIdentifier =
+            let ch = editor.Text.[index]
+            let current = isWordChar ch
+
+            match previous with
+            | _ when index = 0 -> 0
+            | false when isInIdentifier -> index + 2
+            | _ -> findStartBackwards (index - 1) current previous
+        findStartBackwards result previous previous
+
+    let findWordEnd (editor:TextEditor) =
+        let result = Math.Min(editor.CaretOffset+1, editor.Text.Length)
+        let previous = isWordChar editor.Text.[result]
+
+        let rec findEnd index previous isInIdentifier =
+            let ch = editor.Text.[index]
+            let current = isWordChar ch
+
+            match previous with
+            | _ when index = editor.Text.Length-1 -> editor.Text.Length
+            | false when isInIdentifier -> index - 2
+            | _ -> findEnd (index + 1) current previous
+        findEnd result previous previous
+
+    let findCurrentWordStart (editor:TextEditor) =
+        seq { editor.CaretOffset .. -1 .. 1 }
+        |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index-1]))
+
+    let findCurrentWordEnd (editor:TextEditor) =
+        seq { editor.CaretOffset .. editor.Text.Length-1 }
+        |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index]))
+
+    let paragraphBackwards (editor:TextEditor) =
+        seq { editor.CaretLine-1 .. -1 .. 1 }
         |> Seq.tryFind(fun lineNr -> let line = editor.GetLineText lineNr
                                      String.IsNullOrWhiteSpace line)
         |> Option.bind(fun lineNr -> Some (editor.GetLine lineNr).Offset)
 
-    let paragraphForwards (editor:TextEditorData) =
-        seq { editor.Caret.Line+1 .. editor.LineCount }
+    let paragraphForwards (editor:TextEditor) =
+        seq { editor.CaretLine+1 .. editor.LineCount }
         |> Seq.tryFind(fun lineNr -> let line = editor.GetLineText lineNr
                                      String.IsNullOrWhiteSpace line)
         |> Option.bind(fun lineNr -> Some (editor.GetLine lineNr).Offset)
 
-    let getVisibleLineCount (editor:TextEditorData) =
-        let topVisibleLine = ((editor.VAdjustment.Value / editor.LineHeight) |> int) + 1
-        let bottomVisibleLine =
-            Math.Min(editor.LineCount - 1,
-                topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
-        bottomVisibleLine - topVisibleLine
-
-    let getRange (vimState:VimState) (editor:TextEditorData) motion =
-        let line = editor.GetLine editor.Caret.Line
+    let getVisibleLineCount (_editor:TextEditor) =
+        //let topVisibleLine = ((editor .VAdjustment.Value / editor.LineHeight) |> int) + 1
+        //let bottomVisibleLine =
+        //    Math.Min(editor.LineCount - 1,
+        //        topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
+        //bottomVisibleLine - topVisibleLine
+        40
+    let getRange (vimState:VimState) (editor:TextEditor) motion =
+        let line = editor.GetLine editor.CaretLine
         match motion with
         | Right ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset + 1 else editor.Caret.Offset
+            let line = editor.GetLine editor.CaretLine
+            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset + 1 else editor.CaretOffset
         | RightIncludingDelimiter ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, if editor.Caret.Column < line.LengthIncludingDelimiter then editor.Caret.Offset + 1 else editor.Caret.Offset
+            let line = editor.GetLine editor.CaretLine
+            editor.CaretOffset, if editor.CaretColumn < line.LengthIncludingDelimiter then editor.CaretOffset + 1 else editor.CaretOffset
         | EnsureCursorBeforeDelimiter ->
-            let line = editor.GetLine editor.Caret.Line
-            editor.Caret.Offset, if editor.Caret.Column < line.Length then editor.Caret.Offset else editor.Caret.Offset - 1
-        | Left -> editor.Caret.Offset, if editor.Caret.Column > DocumentLocation.MinColumn then editor.Caret.Offset - 1 else editor.Caret.Offset
+            let line = editor.GetLine editor.CaretLine
+            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
+        | Left -> editor.CaretOffset, if editor.CaretColumn > DocumentLocation.MinColumn then editor.CaretOffset - 1 else editor.CaretOffset
         | Up ->
-            editor.Caret.Offset,
-            if editor.Caret.Line > DocumentLocation.MinLine then
-                let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
-                let lineNumber = editor.VisualToLogicalLine(visualLine - 1)
-                editor.LocationToOffset (new DocumentLocation(lineNumber, editor.Caret.Column))
+            editor.CaretOffset,
+            if editor.CaretLine > DocumentLocation.MinLine then
+                editor.LocationToOffset (new DocumentLocation(editor.CaretLine - 1, editor.CaretColumn))
             else
-                editor.Caret.Offset
+                editor.CaretOffset
         | Down ->
-            editor.Caret.Offset,
-            if editor.Caret.Line < editor.Document.LineCount then
-                let visualLine = editor.LogicalToVisualLine(editor.Caret.Line)
-                let lineNumber = editor.VisualToLogicalLine(visualLine + 1)
-                editor.LocationToOffset (new DocumentLocation(lineNumber, editor.Caret.Column))
+            editor.CaretOffset,
+            if editor.CaretLine < editor.LineCount then
+                editor.LocationToOffset (new DocumentLocation(editor.CaretLine + 1, editor.CaretColumn))
             else
-                editor.Caret.Offset
-        | EndOfLine -> editor.Caret.Offset, line.EndOffset
-        | EndOfLineIncludingDelimiter -> editor.Caret.Offset, line.EndOffsetIncludingDelimiter
-        | StartOfLine -> editor.Caret.Offset, line.Offset
-        | StartOfDocument -> editor.Caret.Offset, 0
-        | FirstNonWhitespace -> editor.Caret.Offset, line.Offset + editor.GetLineIndent(editor.Caret.Line).Length
+                editor.CaretOffset
+        | EndOfLine -> editor.CaretOffset, line.EndOffset
+        | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter
+        | StartOfLine -> editor.CaretOffset, line.Offset
+        | StartOfDocument -> editor.CaretOffset, 0
+        | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine -> line.Offset, line.EndOffset
         | WholeLineIncludingDelimiter -> line.Offset, line.EndOffsetIncludingDelimiter
         | LastLine -> 
-            let lastLine = editor.GetLine editor.Document.LineCount
-            editor.Caret.Offset, lastLine.Offset
+            let lastLine = editor.GetLine editor.LineCount
+            editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
             match findCharBackwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index
-            | None -> editor.Caret.Offset, editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusiveBackwards c ->
             match findCharBackwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index+1
-            | None -> editor.Caret.Offset, editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index+1
+            | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharInclusive c ->
             match findCharForwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index
-            | None -> editor.Caret.Offset, editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusive c ->
             match findCharForwardsOnLine editor line c with
-            | Some index -> editor.Caret.Offset, index-1
-            | None -> editor.Caret.Offset, editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index-1
+            | None -> editor.CaretOffset, editor.CaretOffset
         | InnerBlock (startChar, endChar) ->
             match findCharRange editor startChar endChar with
             | Some start, Some finish -> start+1, finish
-            | _, _ -> editor.Caret.Offset, editor.Caret.Offset
+            | _, _ -> editor.CaretOffset, editor.CaretOffset
         | ABlock (startChar, endChar) ->
             match findCharRange editor startChar endChar with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
-            | _, _ -> editor.Caret.Offset, editor.Caret.Offset
+            | _, _ -> editor.CaretOffset, editor.CaretOffset
         | WordForwards ->
             match findWordForwards editor with
-            | Some index -> editor.Caret.Offset, index
-            | None -> editor.Caret.Offset, editor.Caret.Offset
-        | WordBackwards -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
+        | WordBackwards -> editor.CaretOffset, findPrevWord editor
         | ParagraphBackwards ->
             match paragraphBackwards editor with
-            | Some index -> editor.Caret.Offset, index
-            | None -> editor.Caret.Offset, editor.Caret.Offset
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
         | ParagraphForwards ->
             match paragraphForwards editor with
-            | Some index -> editor.Caret.Offset, index
-            | None -> editor.Caret.Offset, editor.Caret.Offset
-        | InnerWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset
-        | AWord -> editor.FindCurrentWordStart editor.Caret.Offset, editor.FindCurrentWordEnd editor.Caret.Offset+1 //TODO - needs to select up to next word
-        | ForwardToEndOfWord ->
-            let endOfWord = editor.FindCurrentWordEnd (editor.Caret.Offset+1) - 1
-            let endOfWord = 
-                if editor.Text.[endOfWord] = ' ' then editor.FindCurrentWordEnd (endOfWord+1) - 1 else endOfWord
-            editor.Caret.Offset, endOfWord
-        | BackwardToEndOfWord -> editor.Caret.Offset, editor.FindPrevWordOffset editor.Caret.Offset |> editor.FindCurrentWordEnd
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
+        | InnerWord -> match findCurrentWordStart editor, findCurrentWordEnd editor with
+                       | Some startpos, Some endpos -> startpos, endpos
+                       | _ -> editor.CaretOffset, editor.CaretOffset
+        | AWord -> match findCurrentWordStart editor, findCurrentWordEnd editor with
+                   | Some startpos, Some endpos -> startpos, endpos
+                   | _ -> editor.CaretOffset, editor.CaretOffset
+        | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor
+        //| BackwardToEndOfWord -> editor.CaretOffset, findPrevWord editor |> editor.FindCurrentWordEnd
         | HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
-            let halfwayUp = Math.Max(1, editor.Caret.Line - visibleLineCount / 2)
-            editor.Caret.Offset, editor.GetLine(halfwayUp).Offset
+            let halfwayUp = Math.Max(1, editor.CaretLine - visibleLineCount / 2)
+            editor.CaretOffset, editor.GetLine(halfwayUp).Offset
         | HalfPageDown -> 
             let visibleLineCount = getVisibleLineCount editor
-            let halfwayDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount / 2)
-            editor.Caret.Offset, editor.GetLine(halfwayDown).Offset
-        | PageUp -> 
+            let halfwayDown = Math.Min(editor.LineCount, editor.CaretLine + visibleLineCount / 2)
+            editor.CaretOffset, editor.GetLine(halfwayDown).Offset
+        | PageUp ->
             let visibleLineCount = getVisibleLineCount editor
-            let pageUp = Math.Max(1, editor.Caret.Line - visibleLineCount)
-            editor.Caret.Offset, editor.GetLine(pageUp).Offset
-        | PageDown -> 
+            let pageUp = Math.Max(1, editor.CaretLine - visibleLineCount)
+            editor.CaretOffset, editor.GetLine(pageUp).Offset
+        | PageDown ->
             let visibleLineCount = getVisibleLineCount editor
-            let pageDown = Math.Min(editor.Document.LineCount, editor.Caret.Line + visibleLineCount)
-            editor.Caret.Offset, editor.GetLine(pageDown).Offset
-        | CurrentLocation -> editor.Caret.Offset, editor.Caret.Offset+1
-        | Selection -> 
+            let pageDown = Math.Min(editor.LineCount, editor.CaretLine + visibleLineCount)
+            editor.CaretOffset, editor.GetLine(pageDown).Offset
+        | CurrentLocation -> editor.CaretOffset, editor.CaretOffset+1
+        | Selection ->
             let selection = editor.Selections |> Seq.head
-            let lead = selection.GetLeadOffset editor
-            let anchor = selection.GetAnchorOffset editor
+            let lead = editor.LocationToOffset selection.Lead
+            let anchor = editor.LocationToOffset selection.Anchor
             Math.Min(lead, anchor), Math.Max(lead, anchor)
-        | SelectionStart -> editor.Caret.Offset, vimState.visualStartOffset
+        | SelectionStart -> editor.CaretOffset, vimState.visualStartOffset
         | MatchingBrace ->
             match findNextBraceForwardsOnLine editor line with
             | Some offset ->
-                let startOffset = editor.Caret.Offset
-                editor.Caret.Offset <- offset
+                let startOffset = editor.CaretOffset
+                editor.CaretOffset <- offset
                 dispatch TextEditorCommands.GotoMatchingBrace
-                startOffset, editor.Caret.Offset
-            | _ -> editor.Caret.Offset, editor.Caret.Offset
-        | _ -> editor.Caret.Offset, editor.Caret.Offset
+                startOffset, editor.CaretOffset
+            | _ -> editor.CaretOffset, editor.CaretOffset
+        | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
     let (|VisualModes|_|) mode =
@@ -292,7 +329,10 @@ module Vim =
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
 
-    let setSelection vimState (editor:TextEditorData) (command:VimAction) (start:int) finish =
+    let (|NotInsertMode|_|) mode =
+        if mode = InsertMode then None else Some NotInsertMode
+
+    let setSelection vimState (editor:TextEditor) (command:VimAction) (start:int) finish =
         match vimState.mode, command.commandType with
         | VisualMode, Move | VisualMode, SwitchMode _ ->
             let start, finish =
@@ -304,14 +344,14 @@ module Vim =
         | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
             let leftColumn, rightColumn =
-                if editor.Caret.Column < selectionStartLocation.Column then
-                    editor.Caret.Column, selectionStartLocation.Column+1
+                if editor.CaretColumn < selectionStartLocation.Column then
+                    editor.CaretColumn, selectionStartLocation.Column+1
                 else
-                    selectionStartLocation.Column, editor.Caret.Column+1
-            let topLine = Math.Min(selectionStartLocation.Line, editor.Caret.Line)
-            let bottomLine = Math.Max(selectionStartLocation.Line, editor.Caret.Line)
-            editor.MainSelection <-
-                new Selection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn), SelectionMode.Block)
+                    selectionStartLocation.Column, editor.CaretColumn+1
+            let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
+            let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
+            editor.SetSelection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn))
+            if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
         | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
             let startPos = Math.Min(finish, vimState.visualStartOffset)
             let endPos = Math.Max(finish, vimState.visualStartOffset)
@@ -321,102 +361,122 @@ module Vim =
         | _ -> editor.SetSelection(start, finish)
 
     let runCommand vimState editor command =
-        let delete start finish =
+        let delete state start finish =
             let finish =
                 match command.textObject with
-                | ForwardToEndOfWord -> finish + 1
+                | ForwardToEndOfWord
+                | ToCharInclusive _
+                | ToCharExclusive _ -> finish + 1
                 | _ -> finish
             if command.textObject <> Selection then
-                setSelection vimState editor command start finish
-            ClipboardActions.Cut editor
+                setSelection state editor command start finish
+            let clipboard = editor.SelectedText
+            EditActions.ClipboardCut editor
+            { state with clipboard = clipboard }
 
-        let switchToInsertMode() =
-            editor.Caret.Mode <- CaretMode.Insert
-            editor.Caret.PreserveSelection <- false
-            { vimState with mode = InsertMode; keys = [] }
-
-        for i in [1..command.repeat] do
-            let start, finish = VimHelpers.getRange vimState editor command.textObject
-            match command.commandType with
-            | Move -> 
-                editor.Caret.Offset <- finish
-                match vimState.mode with
-                | VisualModes -> setSelection vimState editor command start finish
-                | _ -> ()
-            | Delete -> delete start finish
-            | Change -> delete start finish
-            | Yank ->
-                let finish =
-                    match command.textObject with
-                    | ForwardToEndOfWord -> finish + 1
-                    | _ -> finish
-                if command.textObject <> Selection then
-                    setSelection vimState editor command start finish
-                ClipboardActions.Copy editor
-                LoggingService.LogDebug (sprintf "Yanked - %s" (ClipboardActions.GetClipboardContent()))
-                editor.ClearSelection()
-            | Put Before ->
-                let clipboard = ClipboardActions.GetClipboardContent()
-                if clipboard.EndsWith "\n" then
-                    editor.Caret.Offset <- editor.GetLine(editor.Caret.Line).Offset
-                    ClipboardActions.Paste editor
-                    CaretMoveActions.Up editor
-                else
-                    ClipboardActions.Paste editor
-            | Put After ->
-                let clipboard = ClipboardActions.GetClipboardContent()
-                if clipboard.EndsWith "\n" then
-                    editor.Caret.Offset <- editor.GetLine(editor.Caret.Line).EndOffset+1
-                    ClipboardActions.Paste editor
-                    CaretMoveActions.Up editor
-                else
-                    CaretMoveActions.Right editor
-                    ClipboardActions.Paste editor
-                    CaretMoveActions.Left editor
-            | Visual -> editor.SetSelection(start, finish)
-            | Undo -> MiscActions.Undo editor
-            | Redo -> MiscActions.Redo editor
-            | JoinLines -> Vi.ViActions.Join editor
-            | ReplaceChar c ->
-                editor.SetSelection(editor.Caret.Offset, editor.Caret.Offset+1)
-                editor.DeleteSelectedText true
-                editor.InsertAtCaret c
-                CaretMoveActions.Left editor
-            | InsertLine Before -> MiscActions.InsertNewLineAtEnd editor
-            | InsertLine After -> editor.Caret.Column <- 1; MiscActions.InsertNewLine editor; CaretMoveActions.Up editor
-            | Dispatch command -> dispatch command
+        let setCaretMode caretMode =
+            match vimState.mode, caretMode with
+            | NotInsertMode, Insert -> EditActions.SwitchCaretMode editor
+            | InsertMode, Block -> EditActions.SwitchCaretMode editor
             | _ -> ()
-        // commands that change state
-        match command.commandType with
-        | ResetKeys -> { vimState with keys = [] }
-        | BlockInsert ->
-            editor.Caret.Mode <- CaretMode.Insert
-            editor.Caret.PreserveSelection <- false
-            let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
-            let topLine = Math.Min(selectionStartLocation.Line, editor.Caret.Line)
-            let bottomLine = Math.Max(selectionStartLocation.Line, editor.Caret.Line)
-            editor.Caret.Column <- Math.Min(editor.Caret.Column, selectionStartLocation.Column)
-            editor.MainSelection <-
-                new Selection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column), SelectionMode.Block)
-            { vimState with mode = InsertMode; keys = [] }
-        | SwitchMode mode ->
-            match mode with
-            | NormalMode -> 
-                editor.Caret.Mode <- CaretMode.Block
-                editor.Caret.PreserveSelection <- false
-                editor.ClearSelection()
-                { vimState with mode = mode }
-            | VisualMode | VisualLineMode | VisualBlockMode ->
-                editor.SelectionMode <- if mode = VisualBlockMode then SelectionMode.Block else SelectionMode.Normal
-                editor.Caret.Mode <- CaretMode.Block
-                editor.Caret.PreserveSelection <- true
-                let start, finish = VimHelpers.getRange vimState editor command.textObject
-                let newState = { vimState with mode = mode; visualStartOffset = editor.Caret.Offset }
-                setSelection newState editor command start finish
-                newState
-            | InsertMode -> switchToInsertMode()
-        | Change -> switchToInsertMode()
-        | _ -> vimState
+
+        let switchToInsertMode state =
+            setCaretMode Insert
+            { state with mode = InsertMode; keys = [] }
+
+        let rec processCommands count vimState = 
+            let start, finish = VimHelpers.getRange vimState editor command.textObject
+            let newState =
+                match command.commandType with
+                | Move -> 
+                    editor.CaretOffset <- finish
+                    match vimState.mode with
+                    | VisualModes -> setSelection vimState editor command start finish
+                    | _ -> ()
+                    vimState
+                | Delete -> delete vimState start finish
+                | Change -> 
+                    let state = delete vimState start finish
+                    switchToInsertMode state
+                | Yank ->
+                    let finish =
+                        match command.textObject with
+                        | ForwardToEndOfWord
+                        | ToCharInclusive _
+                        | ToCharExclusive _ -> finish + 1
+                        | _ -> finish
+                    if command.textObject <> Selection then
+                        setSelection vimState editor command start finish
+                    let clipboard = editor.SelectedText
+                    EditActions.ClipboardCopy editor
+                    LoggingService.LogDebug (sprintf "Yanked - %s" clipboard)
+                    editor.ClearSelection()
+                    { vimState with clipboard = clipboard }
+                | Put Before -> 
+                    if vimState.clipboard.EndsWith "\n" then
+                        editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
+                        EditActions.ClipboardPaste editor
+                        EditActions.MoveCaretUp editor
+                    else
+                        EditActions.ClipboardPaste editor
+                    vimState
+                | Put After ->
+                    if vimState.clipboard.EndsWith "\n" then
+                        editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
+                        EditActions.ClipboardPaste editor
+                        EditActions.MoveCaretUp editor
+                    else
+                        EditActions.MoveCaretRight editor
+                        EditActions.ClipboardPaste editor
+                        EditActions.MoveCaretLeft editor
+                    vimState
+
+                | Visual -> editor.SetSelection(start, finish); vimState
+                | Undo -> EditActions.Undo editor; vimState
+                | Redo -> EditActions.Redo editor; vimState
+                | JoinLines -> EditActions.JoinLines editor; vimState
+                | ReplaceChar c ->
+                    editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)
+                    EditActions.Delete editor
+                    editor.InsertAtCaret c
+                    EditActions.MoveCaretLeft editor
+                    vimState
+                | InsertLine Before -> EditActions.InsertNewLineAtEnd editor; vimState
+                | InsertLine After -> 
+                    editor.CaretColumn <- 1
+                    EditActions.InsertNewLine editor
+                    EditActions.MoveCaretUp editor
+                    vimState
+                | Dispatch command -> dispatch command ; vimState
+                | ResetKeys -> { vimState with keys = [] }
+                | BlockInsert ->
+                    let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
+                    let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
+                    let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
+                    editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
+                    editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
+                    if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
+                    { vimState with mode = InsertMode; keys = [] }
+                | SwitchMode mode ->
+                    match mode with
+                    | NormalMode -> 
+                        editor.ClearSelection()
+                        setCaretMode Block
+                        { vimState with mode = mode }
+                    | VisualMode | VisualLineMode | VisualBlockMode ->
+                        setCaretMode Block
+                        let start, finish = VimHelpers.getRange vimState editor command.textObject
+                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset }
+                        setSelection newState editor command start finish
+                        match mode, editor.SelectionMode with
+                        | VisualBlockMode, SelectionMode.Normal -> dispatch TextEditorCommands.ToggleBlockSelectionMode
+                        | _, SelectionMode.Block -> dispatch TextEditorCommands.ToggleBlockSelectionMode
+                        | _ -> ()
+                        newState
+                    | InsertMode -> switchToInsertMode vimState
+                | _ -> vimState
+            if count = 1 then newState else processCommands (count-1) newState
+        processCommands command.repeat vimState
 
     let (|Digit|_|) character =
         if character >= "0" && character <= "9" then
@@ -501,9 +561,6 @@ module Vim =
         match character with
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
-
-    let (|NotInsertMode|_|) mode =
-        if mode = InsertMode then None else Some NotInsertMode
 
     let getCommand repeat commandType textObject =
         { repeat=repeat; commandType=commandType; textObject=textObject }
@@ -645,20 +702,14 @@ module Vim =
 
 type XSVim() =
     inherit TextEditorExtension()
-    let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[] }
+    let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard="" }
 
-    let getEditorData (this:XSVim) = this.Editor.GetContent<ITextEditorDataProvider>().GetTextEditorData()
-
-    override x.Initialize() =
-        let editorData = getEditorData x
-        editorData.Caret.Mode <- CaretMode.Block
+    override x.Initialize() = EditActions.SwitchCaretMode x.Editor
 
     override x.KeyPress descriptor =
-        let editorData = getEditorData x
         let oldState = vimState
 
-        let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor editorData
-        //LoggingService.LogDebug (sprintf "%A %A" newState handledKeyPress)
+        let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
         vimState <- newState
         match oldState.mode with
         | InsertMode -> base.KeyPress descriptor

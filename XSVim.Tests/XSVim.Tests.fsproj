@@ -3,11 +3,10 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{3C522649-67F6-4F65-9CC9-D5847768FE68}</ProjectGuid>
-    <ProjectTypeGuids>{86F6BF2A-E449-4B3E-813B-9ACC37E5545F};{F2A71F9B-5D33-465A-A702-920D77279786}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <RootNamespace>XSVim.Tests</RootNamespace>
     <AssemblyName>XSVim.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <TestRunnerCommand>..\..\monodevelop\main\build\bin\mdtool.exe</TestRunnerCommand>
     <TestRunnerArgs>run-md-tests</TestRunnerArgs>
   </PropertyGroup>
@@ -35,31 +34,43 @@
     <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Properties\AssemblyInfo.fs" />
-    <Compile Include="Properties\AddinInfo.fs" />
-    <Compile Include="TestHelpers.fs" />
-    <Compile Include="DeleteTests.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Properties\Manifest.addin.xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\XSVim\XSVim.fsproj">
       <Project>{9DB313D4-4CD1-455F-846F-42CD234DE626}</Project>
       <Name>XSVim</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <AddinReference Include="MonoDevelop.SourceEditor2" />
-  </ItemGroup>
-  <ItemGroup>
+    <Reference Include="MonoDevelop.SourceEditor">
+      <HintPath>..\lib\MonoDevelop.SourceEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoDevelop.Ide">
+      <HintPath>..\lib\MonoDevelop.Ide.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoDevelop.Core">
+      <HintPath>..\lib\MonoDevelop.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MonoDevelop.DesignerSupport">
+      <HintPath>..\lib\MonoDevelop.DesignerSupport.dll</HintPath>
+    </Reference>
+    <Reference Include="gtk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
+      <Private>True</Private>
+    </Reference>
     <Reference Include="GuiUnit">
       <HintPath>..\lib\GuiUnit.exe</HintPath>
     </Reference>
+    <Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="Mono.Posix" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.fs" />
+    <EmbeddedResource Include="Properties\Manifest.addin.xml" />
+    <Compile Include="TestHelpers.fs" />
+    <Compile Include="DeleteTests.fs" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
-  <Import Project="..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets" Condition="Exists('..\packages\MonoDevelop.Addins.0.3.3\build\net40\MonoDevelop.Addins.targets')" />
 </Project>
