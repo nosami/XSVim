@@ -1,13 +1,11 @@
 ﻿namespace XSVim
 
-open System
 open Mono.Addins
-open Mono.Addins.Description
 open MonoDevelop
 [<assembly:Addin (
   "XSVim", 
   Namespace = "XSVim",
-  Version = "0.13"
+  Version = "0.13.2"
 )>]
 
 [<assembly:AddinName ("Vim")>]

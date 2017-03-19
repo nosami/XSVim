@@ -242,7 +242,7 @@ module VimHelpers =
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine -> line.Offset, line.EndOffset
         | WholeLineIncludingDelimiter -> line.Offset, line.EndOffsetIncludingDelimiter
-        | LastLine -> 
+        | LastLine ->
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
@@ -388,7 +388,7 @@ module Vim =
             let start, finish = VimHelpers.getRange vimState editor command.textObject
             let newState =
                 match command.commandType with
-                | Move -> 
+                | Move ->
                     editor.CaretOffset <- finish
                     match vimState.mode with
                     | VisualModes -> setSelection vimState editor command start finish
@@ -456,7 +456,7 @@ module Vim =
                     editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
                     editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
                     if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
-                    { vimState with mode = InsertMode; keys = [] }
+                    switchToInsertMode vimState
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode -> 
