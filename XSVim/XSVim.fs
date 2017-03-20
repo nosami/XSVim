@@ -636,6 +636,8 @@ module Vim =
             | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
             | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
             | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
+            | VisualMode, [ "u"] -> [ dispatch EditCommands.LowercaseSelection ]
+            | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
             | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
@@ -666,6 +668,13 @@ module Vim =
             | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
             | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
+            | NotInsertMode, [ "<C-w>" ] -> wait
+            // These commands don't work the same way as vim yet, but better than nothing
+            | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
+            | NotInsertMode, [ "<C-w>"; "c" ] -> [ dispatch FileCommands.CloseFile ]
+            | NotInsertMode, [ "<C-w>"; "v" ]
+            | NotInsertMode, [ "<C-w>"; "s" ] 
+                -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
