@@ -460,7 +460,7 @@ module Vim =
         | "k" -> Some Up
         | "l" -> Some Right
         | "$" -> Some EndOfLine
-        | "^" -> Some StartOfLine
+        | "^" -> Some FirstNonWhitespace
         | "0" -> Some StartOfLine
         | "_" -> Some FirstNonWhitespace
         | "w" -> Some WordForwards
