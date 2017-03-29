@@ -1,5 +1,4 @@
 ﻿namespace XSVim.Tests
-
 open XSVim
 open NUnit.Framework
 

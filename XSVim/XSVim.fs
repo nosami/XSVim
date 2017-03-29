@@ -5,8 +5,6 @@ open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 
-open MonoDevelop.Ide
-
 type BeforeOrAfter = Before | After
 
 type CaretMode = Insert | Block
@@ -650,11 +648,11 @@ module Vim =
             | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
+            | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
             | NormalMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NormalMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
             | NormalMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
-            | NormalMode, [ "g" ] -> wait
             | NormalMode, [ "." ] -> state.lastAction
             | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
@@ -669,12 +667,17 @@ module Vim =
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
             | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
             | NotInsertMode, [ "<C-w>" ] -> wait
+            | NotInsertMode, [ "<C-w>"; "w" ]
+            | NotInsertMode, [ "<C-w>"; "<C-w>" ] -> [ dispatch WindowCommands.NextDocument ]
             // These commands don't work the same way as vim yet, but better than nothing
             | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
             | NotInsertMode, [ "<C-w>"; "c" ] -> [ dispatch FileCommands.CloseFile ]
             | NotInsertMode, [ "<C-w>"; "v" ]
             | NotInsertMode, [ "<C-w>"; "s" ] 
+            | NotInsertMode, [ "<C-w>"; "<C-v>" ]
+            | NotInsertMode, [ "<C-w>"; "<C-s>" ] 
                 -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
+            | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
         multiplier, action, newState
