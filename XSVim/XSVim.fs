@@ -21,6 +21,7 @@ type CommandType =
     | Yank
     | Put of BeforeOrAfter
     | Delete
+    | DeleteLeft
     | BlockInsert
     | Change
     | SwitchMode of VimMode
@@ -346,6 +347,7 @@ module Vim =
                 | VisualModes -> setSelection vimState editor command start finish
                 | _ -> ()
             | Delete -> delete start finish
+            | DeleteLeft -> if editor.CaretColumn > 1 then delete vimState (editor.CaretOffset - 1) editor.CaretOffset
             | Change -> delete start finish
             | Yank ->
                 let finish =
@@ -565,6 +567,7 @@ module Vim =
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
+            | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
             | NormalMode, [ "s"] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
