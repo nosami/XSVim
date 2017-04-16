@@ -27,3 +27,7 @@ module ``Delete tests`` =
     [<Test>]
     let ``Delete char to left of caret``() =
         test "abc$def" "X" "ac$def"
+
+    [<Test>]
+    let ``Delete char to left doesn't delete past start of line``() =
+        test "abcdef\nab$cdef" "XXX" "abcdef\nb$cdef"
