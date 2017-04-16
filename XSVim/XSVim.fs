@@ -321,7 +321,7 @@ module Vim =
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
         | _ -> editor.SetSelection(start, finish)
 
-    let runCommand vimState editor command =
+    let runCommand vimState (editor:TextEditorData) command =
         let delete start finish =
             let finish =
                 match command.textObject with
@@ -347,14 +347,14 @@ module Vim =
                 | VisualModes -> setSelection vimState editor command start finish
                 | _ -> ()
             | Delete -> delete start finish
-            | DeleteLeft -> if editor.CaretColumn > 1 then delete vimState (editor.CaretOffset - 1) editor.CaretOffset
+            | DeleteLeft -> if editor.Caret.Column > 1 then delete (editor.Caret.Offset - 1) editor.Caret.Offset
             | Change -> delete start finish
             | Yank ->
                 let finish =
-                match command.textObject with
-                | ForwardToEndOfWord
-                | ToCharInclusive _
-                | ToCharExclusive _ -> finish + 1
+                    match command.textObject with
+                    | ForwardToEndOfWord
+                    | ToCharInclusive _
+                    | ToCharExclusive _ -> finish + 1
                     | _ -> finish
                 if command.textObject <> Selection then
                     setSelection vimState editor command start finish
