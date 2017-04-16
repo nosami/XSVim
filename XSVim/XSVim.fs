@@ -551,6 +551,7 @@ module Vim =
         let action =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
+            | NormalMode, [ Escape ] -> [ run ResetKeys Nothing ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ Movement m ] -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
