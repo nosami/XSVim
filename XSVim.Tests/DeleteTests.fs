@@ -1,5 +1,4 @@
 ﻿namespace XSVim.Tests
-open XSVim
 open NUnit.Framework
 
 [<TestFixture>]
@@ -16,7 +15,15 @@ module ``Delete tests`` =
 
         let expected =
             @"aaaaaa
-              dddddd
+ $             dddddd
               eeeeee";
         //Assert.False true
-        test source "Vjd" expected ""
+        test source "Vjd" expected
+
+    [<Test>]
+    let ``Delete char under caret``() =
+        test "abc$def" "x" "abd$ef"
+
+    [<Test>]
+    let ``Delete char to left of caret``() =
+        test "abc$def" "X" "ac$def"

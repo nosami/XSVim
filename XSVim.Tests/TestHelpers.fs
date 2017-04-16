@@ -23,12 +23,12 @@ module FixtureSetup =
 
 [<AutoOpen>]
 module TestHelpers =
-    let test (source:string) (keys:string) expected expectedMode =
+    let test (source:string) (keys:string) expected =
         FixtureSetup.initialiseMonoDevelop()
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
         editor.Text <- source.Replace("$", "")
-        editor.CaretOffset <- caret
+        editor.CaretOffset <- caret-1
         //editor.Caret.UpdateCaretOffset()
         let plugin = new XSVim()
         let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard="" }
@@ -38,5 +38,7 @@ module TestHelpers =
                 let newState, handledKeyPress = Vim.handleKeyPress state descriptor editor
                 newState) state
 
-        Assert.AreEqual(expected, editor.Text)
+        let cursor = if newState.mode = InsertMode then "|" else "$"
+        let actual = editor.Text.Insert(editor.CaretOffset+1, cursor)
+        Assert.AreEqual(expected, actual)
 

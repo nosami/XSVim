@@ -71,6 +71,7 @@
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
     <Compile Include="TestHelpers.fs" />
     <Compile Include="DeleteTests.fs" />
+    <Compile Include="Movement.fs" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
 </Project>

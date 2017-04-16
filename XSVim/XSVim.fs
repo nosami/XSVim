@@ -1,4 +1,4 @@
-namespace XSVim
+﻿namespace XSVim
 open System
 open MonoDevelop.Core
 open MonoDevelop.Ide.Commands
@@ -233,7 +233,7 @@ module VimHelpers =
                 editor.LocationToOffset (new DocumentLocation(editor.CaretLine + 1, editor.CaretColumn))
             else
                 editor.CaretOffset
-        | EndOfLine -> editor.CaretOffset, line.EndOffset
+        | EndOfLine -> editor.CaretOffset, line.EndOffset-1
         | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter
         | StartOfLine -> editor.CaretOffset, line.Offset
         | StartOfDocument -> editor.CaretOffset, 0
