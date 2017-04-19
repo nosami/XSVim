@@ -23,6 +23,6 @@ pack/*
 .DS_Store
 
 /packages
-
+XSVim/any
 
 .paket/paket.exe

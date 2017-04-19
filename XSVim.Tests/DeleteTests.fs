@@ -30,7 +30,7 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``Delete to end of line``() =
-        test "abc$def" "d$" "abc$"
+        test "abc$ def\nghi" "d$" "ab\n$ghi"
 
     [<Test>]
     let ``Delete char to left doesn't delete past start of line``() =

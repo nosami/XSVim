@@ -364,6 +364,7 @@ module Vim =
             let finish =
                 match command.textObject with
                 | ForwardToEndOfWord
+                | EndOfLine
                 | ToCharInclusive _
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
@@ -402,6 +403,7 @@ module Vim =
                     let finish =
                         match command.textObject with
                         | ForwardToEndOfWord
+                        | EndOfLine
                         | ToCharInclusive _
                         | ToCharExclusive _ -> finish + 1
                         | _ -> finish

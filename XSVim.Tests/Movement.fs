@@ -13,7 +13,7 @@ module ``Movement tests`` =
 
     [<Test>]
     let ``Move to end of line``() =
-        test "aa$aaaa\nbbb" "$" "aaaaaa$\nbbb"
+        test "aa$a aaa\nbbb" "$" "aaa aaa$\nbbb"
 
     [<Test>]
     let ``Move to end of document``() =
