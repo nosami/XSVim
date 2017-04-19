@@ -12,6 +12,7 @@ module FixtureSetup =
 
     let initialiseMonoDevelop() =
         if !firstRun then
+            printf "initialising"
             firstRun := false
             Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
             //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
