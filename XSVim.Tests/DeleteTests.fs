@@ -18,20 +18,24 @@ module ``Delete tests`` =
  $             dddddd
               eeeeee";
         //Assert.False true
-        test source "Vjd" expected
+        assertText source "Vjd" expected
 
     [<Test>]
     let ``Delete char under caret``() =
-        test "abc$def" "x" "abd$ef"
+        assertText "abc$def" "x" "abd$ef"
 
     [<Test>]
     let ``Delete char to left of caret``() =
-        test "abc$def" "X" "ac$def"
+        assertText "abc$def" "X" "ac$def"
 
     [<Test>]
     let ``Delete to end of line``() =
-        test "abc$ def\nghi" "d$" "ab\n$ghi"
+        assertText "abc$ def\nghi" "d$" "ab\n$ghi"
+
+    [<Test>]
+    let ``Delete to end of line using D``() =
+        assertText "abc$ def\nghi" "D" "ab\n$ghi"
 
     [<Test>]
     let ``Delete char to left doesn't delete past start of line``() =
-        test "abcdef\nab$cdef" "XXX" "abcdef\nb$cdef"
+        assertText "abcdef\nab$cdef" "XXX" "abcdef\nb$cdef"

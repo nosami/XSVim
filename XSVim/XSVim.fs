@@ -391,7 +391,13 @@ module Vim =
                 | Move ->
                     editor.CaretOffset <- finish
                     match vimState.mode with
-                    | VisualModes -> setSelection vimState editor command start finish
+                    | VisualModes ->
+                        let finish =
+                            match command.textObject with
+                            | EndOfLine -> finish + 1
+                            | _ -> finish
+
+                        setSelection vimState editor command start finish
                     | _ -> ()
                     vimState
                 | Delete -> delete vimState start finish
@@ -432,8 +438,8 @@ module Vim =
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretLeft editor
                     vimState
-
-                | Visual -> editor.SetSelection(start, finish); vimState
+                | Visual ->
+                    editor.SetSelection(start, finish); vimState
                 | Undo -> EditActions.Undo editor; vimState
                 | Redo -> EditActions.Redo editor; vimState
                 | JoinLines -> EditActions.JoinLines editor; vimState

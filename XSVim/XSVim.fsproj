@@ -28,6 +28,8 @@
     <Commandlineparameters>-no-redirect</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release</OutputPath>
     <DefineConstants></DefineConstants>
@@ -71,8 +73,6 @@
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
     <Compile Include="XSVim.fs" />
     <None Include="packages.config" />
-    <None Include="any\netstandard1.6\FSharp.Core.sigdata" />
-    <None Include="any\netstandard1.6\FSharp.Core.optdata" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
 </Project>
