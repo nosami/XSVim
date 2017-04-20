@@ -1,5 +1,6 @@
 ﻿namespace XSVim
 open System
+open System.Collections.Generic
 open MonoDevelop.Core
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
@@ -727,15 +728,19 @@ module Vim =
 
 type XSVim() =
     inherit TextEditorExtension()
-    let mutable vimState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard="" }
+    static let editorStates = Dictionary<FilePath, VimState>()
 
-    override x.Initialize() = EditActions.SwitchCaretMode x.Editor
+    override x.Initialize() =
+        if not (editorStates.ContainsKey x.Editor.FileName) then
+            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard="" })
+        EditActions.SwitchCaretMode x.Editor
 
     override x.KeyPress descriptor =
+        let vimState = editorStates.[x.Editor.FileName]
         let oldState = vimState
 
         let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
-        vimState <- newState
+        editorStates.[x.Editor.FileName] <- newState
         match oldState.mode with
         | InsertMode -> base.KeyPress descriptor
         | VisualMode -> false
