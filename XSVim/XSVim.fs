@@ -423,8 +423,7 @@ module Vim =
                         match command, vimState.lastAction with
                         // don't change desired column if we already started moving up or down
                         | MoveUpOrDown, [ MoveUpOrDown ] -> vimState 
-                        | MoveUpOrDown, _ -> { vimState with desiredColumn = editor.CaretColumn }
-                        | _ -> vimState
+                        | _ -> { vimState with desiredColumn = editor.CaretColumn }
                     editor.CaretOffset <- finish
                     newState
 
