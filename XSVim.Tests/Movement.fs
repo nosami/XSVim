@@ -22,3 +22,7 @@ module ``Movement tests`` =
     [<Test>]
     let ``Move to start of document``() =
         assertText "aaaaaa\nbb$bbbb" "gg" "a$aaaaa\nbbbbbb"
+
+    [<Test>]
+    let ``Move down to desired column``() =
+        assertText "12345$6\n123\n123456" "jj" "123456\n123\n12345$6"

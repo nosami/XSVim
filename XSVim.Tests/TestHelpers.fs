@@ -99,7 +99,7 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
         //editor.Caret.UpdateCaretOffset()
         let plugin = new XSVim()
-        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard="" }
+        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=0 }
         let newState =
             keys |> Seq.fold(fun state c ->
                 let descriptor = KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None)
