@@ -615,6 +615,14 @@ module Vim =
         let numericArgument, keyList =
             match keyList with
             | "r" :: _ -> None, keyList
+            // 2dw -> 2, dw
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
+                Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
+                Some (d1 * 100 + d2 * 10 + d3), t
+            | OneToNine d1 :: Digit d2 :: t ->
+                Some (d1 * 10 + d2), t
+            | OneToNine d :: t -> Some (d), t
             // d2w -> 2, dw
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
@@ -624,17 +632,10 @@ module Vim =
                 Some (d1 * 10 + d2), c::t
             | c :: OneToNine d :: t ->
                 Some d, c::t
-            // 2dw -> 2, dw
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
-                Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
-                Some (d1 * 100 + d2 * 10 + d3), t
-            | OneToNine d1 :: Digit d2 :: t ->
-                Some (d1 * 10 + d2), t
-            | OneToNine d :: t -> Some (d), t
             | _ -> None, keyList
 
         let run = getCommand numericArgument
+        let runOnce = getCommand (Some 1)
         let switchMode mode = run (SwitchMode mode) Nothing
         let dispatch command = run (Dispatch command) Nothing
 
@@ -698,12 +699,12 @@ module Vim =
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
-                | Some lineNumber -> [ run Move (StartOfLineNumber lineNumber) ]
-                | None -> [ run Move LastLine ]
+                | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
+                | None -> [ runOnce Move LastLine ]
             | NotInsertMode, [ "g" ] -> wait
             | NotInsertMode, [ "g"; "g" ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
-                [ run Move (StartOfLineNumber lineNumber) ]
+                [ runOnce Move (StartOfLineNumber lineNumber) ]
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NotInsertMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
