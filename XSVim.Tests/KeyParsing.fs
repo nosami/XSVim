@@ -13,4 +13,4 @@ module ``Key parsing tests`` =
 
     [<Test>]
     let ``10j``() =
-        test "10j" |> should equal (10, Move, Down)
+        test "10j" |> should equal (Some 10, Move, Down)

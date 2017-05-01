@@ -29,4 +29,4 @@ module ``Movement tests`` =
 
     [<Test>]
     let ``Move ten right``() =
-        assertText "a$bcdefghijkl" "10l" "abcdefghijkl"
+        assertText "a$bcdefghijkl" "10l" "abcdefghijk$l"
