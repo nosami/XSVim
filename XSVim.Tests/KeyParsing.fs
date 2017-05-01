@@ -10,6 +10,7 @@ module ``Key parsing tests`` =
         let action, _state = Vim.parseKeys state
         let first = action.Head
         first.repeat, first.commandType, first.textObject
+
     [<Test>]
     let ``10j``() =
         test "10j" |> should equal (10, Move, Down)
