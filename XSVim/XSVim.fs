@@ -60,6 +60,7 @@ type TextObject =
     | EnsureCursorBeforeDelimiter
     | FirstNonWhitespace
     | StartOfLine
+    | StartOfLineNumber of int
     | StartOfDocument
     | EndOfLine
     | EndOfLineIncludingDelimiter
@@ -88,7 +89,7 @@ type TextObject =
     | MatchingBrace
 
 type VimAction = {
-    repeat: int
+    repeat: int option
     commandType: CommandType
     textObject: TextObject
 }
@@ -251,6 +252,9 @@ module VimHelpers =
         | EndOfLine -> editor.CaretOffset, line.EndOffset-1
         | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter
         | StartOfLine -> editor.CaretOffset, line.Offset
+        | StartOfLineNumber lineNumber ->
+            let line = editor.GetLine lineNumber
+            editor.CaretOffset, line.Offset
         | StartOfDocument -> editor.CaretOffset, 0
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine -> line.Offset, line.EndOffset
@@ -511,7 +515,11 @@ module Vim =
                     | InsertMode -> switchToInsertMode vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState
-        processCommands command.repeat vimState
+        let count =
+            match command.repeat with
+            | Some r -> r
+            | None -> 1
+        processCommands count vimState
 
     let (|Digit|_|) character =
         if character >= "0" && character <= "9" then
@@ -558,7 +566,7 @@ module Vim =
         | "b" -> Some WordBackwards
         | "e" -> Some ForwardToEndOfWord
         | "E" -> Some BackwardToEndOfWord
-        | "G" -> Some LastLine
+
         | "{" -> Some ParagraphBackwards
         | "}" -> Some ParagraphForwards
         | "%" -> Some MatchingBrace
@@ -600,33 +608,33 @@ module Vim =
     let getCommand repeat commandType textObject =
         { repeat=repeat; commandType=commandType; textObject=textObject }
 
-    let wait = [ getCommand 1 DoNothing Nothing ]
+    let wait = [ getCommand None DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
         let keyList = state.keys
-        let multiplier, keyList =
+        let numericArgument, keyList =
             match keyList with
-            | "r" :: _ -> 1, keyList
+            | "r" :: _ -> None, keyList
             // d2w -> 2, dw
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
-                d1 * 1000 + d2 * 100 + d3 * 10 + d4, c::t
+                Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
             | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
-                d1 * 100 + d2 * 10 + d3, c::t
+                Some (d1 * 100 + d2 * 10 + d3), c::t
             | c :: OneToNine d1 :: Digit d2 :: t ->
-                d1 * 10 + d2, c::t
+                Some (d1 * 10 + d2), c::t
             | c :: OneToNine d :: t ->
-                d, c::t
+                Some d, c::t
             // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
-                d1 * 1000 + d2 * 100 + d3 * 10 + d4, t
+                Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
             | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
-                d1 * 100 + d2 * 10 + d3, t
+                Some (d1 * 100 + d2 * 10 + d3), t
             | OneToNine d1 :: Digit d2 :: t ->
-                d1 * 10 + d2, t
-            | OneToNine d :: t -> d, t
-            | _ -> 1, keyList
+                Some (d1 * 10 + d2), t
+            | OneToNine d :: t -> Some (d), t
+            | _ -> None, keyList
 
-        let run = getCommand multiplier
+        let run = getCommand numericArgument
         let switchMode mode = run (SwitchMode mode) Nothing
         let dispatch command = run (Dispatch command) Nothing
 
@@ -688,13 +696,19 @@ module Vim =
             | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
-            | NormalMode, [ "g" ] -> wait
-            | NormalMode, [ "g"; "g" ] -> [ run Move StartOfDocument ]
-            | NormalMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
-            | NormalMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
-            | NormalMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
-            | NormalMode, [ "." ] -> state.lastAction
-            | NormalMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
+            | NotInsertMode, [ "G" ] ->
+                match numericArgument with
+                | Some lineNumber -> [ run Move (StartOfLineNumber lineNumber) ]
+                | None -> [ run Move LastLine ]
+            | NotInsertMode, [ "g" ] -> wait
+            | NotInsertMode, [ "g"; "g" ] ->
+                let lineNumber = match numericArgument with Some n -> n | None -> 1
+                [ run Move (StartOfLineNumber lineNumber) ]
+            | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
+            | NotInsertMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
+            | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
+            | NotInsertMode, [ "." ] -> state.lastAction
+            | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, [ Movement m ] -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
@@ -718,11 +732,11 @@ module Vim =
             | NotInsertMode, [ "<C-w>"; "<C-s>" ] 
                 -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
-            | _, [] when multiplier > 1 -> wait
+            | _, [] when numericArgument.IsSome  -> wait
             | _ -> [ run ResetKeys Nothing ]
-        multiplier, action, newState
+        action, newState
 
-    let handleKeyPress state (keyPress:KeyDescriptor) editorData =
+    let handleKeyPress state (keyPress:KeyDescriptor) editor =
         let newKeys =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
@@ -738,8 +752,8 @@ module Vim =
                 | SpecialKey.Right -> ["l"]
                 | _ -> state.keys
         let newState = { state with keys = newKeys }
-        let multiplier, action, newState = parseKeys newState
-        LoggingService.LogDebug (sprintf "%A %A" multiplier action)
+        let action, newState = parseKeys newState
+        LoggingService.LogDebug (sprintf "%A" action)
         let rec performActions actions' state handled =
             match actions' with
             | [] -> state, handled
@@ -747,7 +761,7 @@ module Vim =
                 if h.commandType = DoNothing then
                     newState, true
                 else
-                    let newState = runCommand state editorData h
+                    let newState = runCommand state editor h
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
