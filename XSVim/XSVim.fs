@@ -720,7 +720,7 @@ module Vim =
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
             | _, [] when multiplier > 1 -> wait
             | _ -> [ run ResetKeys Nothing ]
-        multiplier, action, newState
+        action, newState
 
     let handleKeyPress state (keyPress:KeyDescriptor) editorData =
         let newKeys =
@@ -738,8 +738,8 @@ module Vim =
                 | SpecialKey.Right -> ["l"]
                 | _ -> state.keys
         let newState = { state with keys = newKeys }
-        let multiplier, action, newState = parseKeys newState
-        LoggingService.LogDebug (sprintf "%A %A" multiplier action)
+        let action, newState = parseKeys newState
+        LoggingService.LogDebug (sprintf "%A" action)
         let rec performActions actions' state handled =
             match actions' with
             | [] -> state, handled
