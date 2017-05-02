@@ -780,12 +780,15 @@ type XSVim() =
         EditActions.SwitchCaretMode x.Editor
 
     override x.KeyPress descriptor =
-        let vimState = editorStates.[x.Editor.FileName]
-        let oldState = vimState
+        match descriptor.ModifierKeys with
+        | ModifierKeys.Command -> false
+        | _ ->
+            let vimState = editorStates.[x.Editor.FileName]
+            let oldState = vimState
 
-        let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
-        editorStates.[x.Editor.FileName] <- newState
-        match oldState.mode with
-        | InsertMode -> base.KeyPress descriptor
-        | VisualMode -> false
-        | _ -> not handledKeyPress
+            let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
+            editorStates.[x.Editor.FileName] <- newState
+            match oldState.mode with
+            | InsertMode -> base.KeyPress descriptor
+            | VisualMode -> false
+            | _ -> not handledKeyPress
