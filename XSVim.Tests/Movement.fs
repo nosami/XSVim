@@ -40,5 +40,9 @@ module ``Movement tests`` =
         assertText "12345$6\n123\n123456" "j" "123456\n123$\n123456"
 
     [<Test>]
+    let ``Move across then down``() =
+        assertText "1$2\n12\n" "lj" "12\n12$\n"
+
+    [<Test>]
     let ``Move ten right``() =
         assertText "a$bcdefghijkl" "10l" "abcdefghijk$l"

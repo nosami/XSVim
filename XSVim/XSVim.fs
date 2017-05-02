@@ -101,7 +101,7 @@ type VimState = {
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
     clipboard: string
-    desiredColumn: int
+    desiredColumn: int option
 }
 
 [<AutoOpen>]
@@ -230,8 +230,9 @@ module VimHelpers =
             if editor.CaretLine > DocumentLocation.MinLine then
                 let column =
                     let line = editor.GetLine (editor.CaretLine - 1)
-                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= line.Length then
-                        vimState.desiredColumn
+                    let desiredColumn = vimState.desiredColumn |> Option.defaultValue editor.CaretColumn
+                    if desiredColumn <= line.Length then
+                        desiredColumn
                     else
                         line.Length
 
@@ -243,8 +244,9 @@ module VimHelpers =
             if editor.CaretLine < editor.LineCount then
                 let column =
                     let line = editor.GetLine (editor.CaretLine + 1)
-                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= line.Length then
-                        vimState.desiredColumn
+                    let desiredColumn = vimState.desiredColumn |> Option.defaultValue editor.CaretColumn
+                    if desiredColumn <= line.Length then
+                        desiredColumn
                     else
                         line.Length
 
@@ -426,11 +428,18 @@ module Vim =
                         setSelection vimState editor command start finish
                     | _ -> ()
                     let newState =
-                        match command, vimState.lastAction with
+                        match command, vimState.desiredColumn with
                         // don't change desired column if we already started moving up or down
-                        | MoveUpOrDown, [ MoveUpOrDown ] -> vimState 
-                        | _ -> { vimState with desiredColumn = editor.CaretColumn }
-                    editor.CaretOffset <- finish
+                        | MoveUpOrDown, Some _c ->
+                            editor.CaretOffset <- finish
+                            vimState
+                        | MoveUpOrDown, None ->
+                            let res = { vimState with desiredColumn = Some editor.CaretColumn }
+                            editor.CaretOffset <- finish
+                            res
+                        | _ ->
+                            editor.CaretOffset <- finish
+                            { vimState with desiredColumn = Some editor.CaretColumn }
                     newState
 
                 | Delete -> delete vimState start finish
@@ -776,7 +785,7 @@ type XSVim() =
 
     override x.Initialize() =
         if not (editorStates.ContainsKey x.Editor.FileName) then
-            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=0 })
+            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=None })
         EditActions.SwitchCaretMode x.Editor
 
     override x.KeyPress descriptor =
