@@ -130,7 +130,7 @@ module VimHelpers =
 
     let findCharForwards (editor:TextEditor) character =
         let ch = Char.Parse character
-        seq { editor.CaretOffset+1 .. editor.Text.Length }
+        seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
         |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
 
     let findCharBackwards (editor:TextEditor) character =
@@ -143,19 +143,25 @@ module VimHelpers =
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
 
+    let (|InvisibleChar|_|) c =
+        if Char.IsWhiteSpace c || c = '\r' || c = '\n' then
+            Some InvisibleChar
+        else
+            None
+
     let findWordForwards (editor:TextEditor) =
         let findFromNonLetterChar index =
             match editor.Text.[index] with
-            | ' ' ->
-                seq { index+1 .. editor.Text.Length } 
+            | InvisibleChar ->
+                seq { index+1 .. editor.Text.Length-1 } 
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.Text.[index]))
             | _ -> Some index
 
         if not (isWordChar editor.Text.[editor.CaretOffset]) && isWordChar editor.Text.[editor.CaretOffset + 1] then 
             editor.CaretOffset + 1 |> Some
         else
-            seq { editor.CaretOffset+1 .. editor.Text.Length }
-            |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index]))
+            seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
+            |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (isWordChar editor.Text.[index]))
             |> Option.bind findFromNonLetterChar
 
     let findPrevWord (editor:TextEditor) =
@@ -172,7 +178,7 @@ module VimHelpers =
         findStartBackwards result previous previous
 
     let findWordEnd (editor:TextEditor) =
-        let result = Math.Min(editor.CaretOffset+1, editor.Text.Length)
+        let result = Math.Min(editor.CaretOffset+1, editor.Text.Length-1)
         let previous = isWordChar editor.Text.[result]
 
         let rec findEnd index previous isInIdentifier =

@@ -8,6 +8,14 @@ module ``Movement tests`` =
         assertText "aa$a bbb" "w" "aaa b$bb"
 
     [<Test>]
+    let ``Move to next word on next line``() =
+        assertText "aa$a\nbbb" "w" "aaa\nb$bb"
+
+    [<Test>]
+    let ``Moves to EOF when there is no next word``() =
+        assertText "aa$aa" "w" "aaaa$"
+
+    [<Test>]
     let ``Move to word end``() =
         assertText "aa$a bbb" "e" "aaa$ bbb"
 
