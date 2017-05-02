@@ -80,6 +80,7 @@
 		<Compile Include="Movement.fs" />
 		<Compile Include="VisualTests.fs" />
 		<Compile Include="KeyParsing.fs" />
+		<Compile Include="MiscTests.fs" />
 	</ItemGroup>
 	<Import Project="$(FSharpTargetsPath)" />
 </Project>

@@ -217,10 +217,10 @@ module VimHelpers =
         match motion with
         | Right ->
             let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset + 1 else editor.CaretOffset
+            editor.CaretOffset, if editor.CaretColumn <= line.Length then editor.CaretOffset + 1 else editor.CaretOffset
         | RightIncludingDelimiter ->
             let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn < line.LengthIncludingDelimiter then editor.CaretOffset + 1 else editor.CaretOffset
+            editor.CaretOffset, if editor.CaretColumn <= line.LengthIncludingDelimiter then editor.CaretOffset + 1 else editor.CaretOffset
         | EnsureCursorBeforeDelimiter ->
             let line = editor.GetLine editor.CaretLine
             editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
@@ -254,7 +254,7 @@ module VimHelpers =
             else
                 editor.CaretOffset
         | EndOfLine -> editor.CaretOffset, line.EndOffset-1
-        | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter
+        | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter-1
         | StartOfLine -> editor.CaretOffset, line.Offset
         | StartOfLineNumber lineNumber ->
             let line = editor.GetLine lineNumber
@@ -698,7 +698,7 @@ module Vim =
             | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
             | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
-            | NormalMode, [ "A" ] -> [ run Move EndOfLine; switchMode InsertMode ]
+            | NormalMode, [ "A" ] -> [ run Move EndOfLineIncludingDelimiter; switchMode InsertMode ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
             | NormalMode, [ "I" ] -> [ run Move FirstNonWhitespace; switchMode InsertMode ]

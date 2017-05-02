@@ -107,10 +107,13 @@ module TestHelpers =
                 newState) state
 
         let cursor = if newState.mode = InsertMode then "|" else "$"
-        let test = editor.Text.Insert(editor.CaretOffset+1, cursor)
-        test, newState
+        let text =
+            if newState.mode = InsertMode then
+                editor.Text.Insert(editor.CaretOffset, "|")
+            else
+                editor.Text.Insert(editor.CaretOffset+1, "$")
+        text, newState
 
     let assertText (source:string) (keys:string) expected =
         let actual, _ = test source keys
         Assert.AreEqual(expected, actual)
-
