@@ -229,10 +229,11 @@ module VimHelpers =
             editor.CaretOffset,
             if editor.CaretLine > DocumentLocation.MinLine then
                 let column =
-                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= editor.Length then
+                    let line = editor.GetLine (editor.CaretLine - 1)
+                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= line.Length then
                         vimState.desiredColumn
                     else
-                        editor.CaretColumn
+                        line.Length
 
                 editor.LocationToOffset (new DocumentLocation(editor.CaretLine - 1, column))
             else
@@ -241,10 +242,11 @@ module VimHelpers =
             editor.CaretOffset,
             if editor.CaretLine < editor.LineCount then
                 let column =
-                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= editor.Length then
+                    let line = editor.GetLine (editor.CaretLine + 1)
+                    if vimState.desiredColumn > editor.CaretColumn && vimState.desiredColumn <= line.Length then
                         vimState.desiredColumn
                     else
-                        editor.CaretColumn
+                        line.Length
 
                 editor.LocationToOffset (new DocumentLocation(editor.CaretLine + 1, column))
             else
