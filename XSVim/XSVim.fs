@@ -264,7 +264,12 @@ module VimHelpers =
             else
                 editor.CaretOffset
         | EndOfLine -> editor.CaretOffset, line.EndOffset-1
-        | EndOfLineIncludingDelimiter -> editor.CaretOffset, line.EndOffsetIncludingDelimiter-1
+        | EndOfLineIncludingDelimiter ->
+            editor.CaretOffset,
+            if line.EndOffset = line.EndOffsetIncludingDelimiter then
+                line.EndOffsetIncludingDelimiter
+            else
+                line.EndOffsetIncludingDelimiter-1
         | StartOfLine -> editor.CaretOffset, line.Offset
         | StartOfLineNumber lineNumber ->
             let line = editor.GetLine lineNumber

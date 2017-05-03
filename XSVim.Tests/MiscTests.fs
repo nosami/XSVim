@@ -8,6 +8,10 @@ module ``Miscellaneous tests`` =
         assertText "abc$def\n" "A" "abcdef|\n"
 
     [<Test>]
+    let ``'A' should put caret at EOF``() =
+        assertText "abc$def" "A" "abcdef|"
+
+    [<Test>]
     let ``'a' should append after``() =
         assertText "a$bcdef" "a" "a|bcdef"
 
