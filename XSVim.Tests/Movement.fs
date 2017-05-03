@@ -1,4 +1,5 @@
-﻿namespace XSVim.Tests
+﻿
+namespace XSVim.Tests
 open NUnit.Framework
 
 [<TestFixture>]
@@ -54,3 +55,7 @@ module ``Movement tests`` =
     [<Test>]
     let ``Move ten right``() =
         assertText "a$bcdefghijkl" "10l" "abcdefghijk$l"
+
+    [<Test>]
+    let ``Does not move right past delimiter``() =
+        assertText "a$b\n" "ll" "ab$\n"

@@ -223,10 +223,14 @@ module VimHelpers =
         match motion with
         | Right ->
             let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn <= line.Length then editor.CaretOffset + 1 else editor.CaretOffset
+            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset + 1 else editor.CaretOffset
         | RightIncludingDelimiter ->
             let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn <= line.LengthIncludingDelimiter then editor.CaretOffset + 1 else editor.CaretOffset
+            editor.CaretOffset,
+            if line.Length > 0 && editor.CaretColumn <= line.LengthIncludingDelimiter then
+                editor.CaretOffset + 1
+            else
+                editor.CaretOffset
         | EnsureCursorBeforeDelimiter ->
             let line = editor.GetLine editor.CaretLine
             editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1

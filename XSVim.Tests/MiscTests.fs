@@ -20,5 +20,9 @@ module ``Miscellaneous tests`` =
         assertText "abcdef$" "a" "abcdef|"
 
     [<Test>]
+    let ``'a' on empty line should keep cursor on the current line``() =
+        assertText "\n$abc" "a" "|\nabc"
+
+    [<Test>]
     let ``'I' should insert at first non whitespace``() =
         assertText "   abcdef$" "I" "   |abcdef"
