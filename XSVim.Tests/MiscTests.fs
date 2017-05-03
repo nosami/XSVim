@@ -30,3 +30,7 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``'I' should insert at first non whitespace``() =
         assertText "   abcdef$" "I" "   |abcdef"
+
+    [<Test>]
+    let ``Undo repeat``() =
+        assertText "a$bc def ghi" "3dwu" "a$bc def ghi"

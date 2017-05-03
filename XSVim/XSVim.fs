@@ -545,6 +545,8 @@ module Vim =
             match command.repeat with
             | Some r -> r
             | None -> 1
+
+        use _group = editor.OpenUndoGroup()
         processCommands count vimState
 
     let (|Digit|_|) character =
