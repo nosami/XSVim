@@ -34,3 +34,8 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``Undo repeat``() =
         assertText "a$bc def ghi" "3dwu" "a$bc def ghi"
+
+    [<Test>]
+    let ``Undo insert mode``() =
+        assertText "abc$" "adef<esc>u" "abc$"
+    

@@ -91,19 +91,32 @@ module FixtureSetup =
 
 [<AutoOpen>]
 module TestHelpers =
+    let groupToKeys =
+        function
+        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, ' ', Gdk.ModifierType.None) |]
+        | keys ->
+            keys.ToCharArray() 
+            |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
+
+    let parseKeys (keys:string) =
+        let delimChars = [|'<'; '>'|]
+        let groups = keys.Split delimChars
+        groups |> Array.collect groupToKeys
+          
     let test (source:string) (keys:string) =
         FixtureSetup.initialiseMonoDevelop()
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
-        //editor.Caret.UpdateCaretOffset()
+
         let plugin = new XSVim()
         let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=None }
+        let keyDescriptors = parseKeys keys
         let newState =
-            keys |> Seq.fold(fun state c ->
-                let descriptor = KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None)
-                let newState, handledKeyPress = Vim.handleKeyPress state descriptor editor
+            keyDescriptors 
+            |> Array.fold(fun state c ->
+                let newState, handledKeyPress = Vim.handleKeyPress state c editor
                 newState) state
 
         let cursor = if newState.mode = InsertMode then "|" else "$"

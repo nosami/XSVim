@@ -546,7 +546,7 @@ module Vim =
             | Some r -> r
             | None -> 1
 
-        use _group = editor.OpenUndoGroup()
+        use _ = editor.OpenUndoGroup()
         processCommands count vimState
 
     let (|Digit|_|) character =
