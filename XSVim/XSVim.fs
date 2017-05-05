@@ -100,7 +100,6 @@ type VimState = {
     visualStartOffset: int
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
-    clipboard: string
     desiredColumn: int option
 }
 
@@ -360,6 +359,7 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
+    let mutable clipboard = ""
     let (|VisualModes|_|) mode =
         match mode with
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
@@ -413,9 +413,9 @@ module Vim =
                 | _ -> finish
             if command.textObject <> Selection then
                 setSelection state editor command start finish
-            let clipboard = editor.SelectedText
+            clipboard <- editor.SelectedText
             EditActions.ClipboardCut editor
-            { state with clipboard = clipboard }
+            state
 
         let setCaretMode caretMode =
             match vimState.mode, caretMode with
@@ -472,13 +472,13 @@ module Vim =
                         | _ -> finish
                     if command.textObject <> Selection then
                         setSelection vimState editor command start finish
-                    let clipboard = editor.SelectedText
+                    clipboard <- editor.SelectedText
                     EditActions.ClipboardCopy editor
                     LoggingService.LogDebug (sprintf "Yanked - %s" clipboard)
                     editor.ClearSelection()
-                    { vimState with clipboard = clipboard }
+                    vimState
                 | Put Before -> 
-                    if vimState.clipboard.EndsWith "\n" then
+                    if clipboard.EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
@@ -486,7 +486,7 @@ module Vim =
                         EditActions.ClipboardPaste editor
                     vimState
                 | Put After ->
-                    if vimState.clipboard.EndsWith "\n" then
+                    if clipboard.EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
@@ -546,7 +546,7 @@ module Vim =
             | Some r -> r
             | None -> 1
 
-        use _ = editor.OpenUndoGroup()
+        use _group = editor.OpenUndoGroup()
         processCommands count vimState
 
     let (|Digit|_|) character =
@@ -802,7 +802,7 @@ type XSVim() =
 
     override x.Initialize() =
         if not (editorStates.ContainsKey x.Editor.FileName) then
-            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=None })
+            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None })
         EditActions.SwitchCaretMode x.Editor
 
     override x.KeyPress descriptor =

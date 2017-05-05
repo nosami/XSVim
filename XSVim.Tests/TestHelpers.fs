@@ -111,10 +111,10 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
 
         let plugin = new XSVim()
-        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; clipboard=""; desiredColumn=None }
+        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None }
         let keyDescriptors = parseKeys keys
         let newState =
-            keyDescriptors 
+            keyDescriptors
             |> Array.fold(fun state c ->
                 let newState, handledKeyPress = Vim.handleKeyPress state c editor
                 newState) state
