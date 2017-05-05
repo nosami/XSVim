@@ -83,16 +83,12 @@ module FixtureSetup =
             firstRun := false
             Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
             //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
-            //MonoDevelop.FSharp.MDLanguageService.DisableVirtualFileSystem()
             Runtime.Initialize (true)
             MonoDevelop.Ide.DesktopService.Initialize()
 
-            //GuiUnit.TestRunner.ExitCode |> ignore // hack to get GuiUnit into the AppDomain
-
 [<AutoOpen>]
 module TestHelpers =
-    let groupToKeys =
-        function
+    let groupToKeys = function
         | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, ' ', Gdk.ModifierType.None) |]
         | keys ->
             keys.ToCharArray() 

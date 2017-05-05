@@ -219,6 +219,10 @@ module VimHelpers =
         //        topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
         //bottomVisibleLine - topVisibleLine
         40
+
+    let eofOnLine (line: IDocumentLine) =
+        line.EndOffset = line.EndOffsetIncludingDelimiter
+
     let getRange (vimState:VimState) (editor:TextEditor) motion =
         let line = editor.GetLine editor.CaretLine
         match motion with
@@ -267,7 +271,7 @@ module VimHelpers =
         | EndOfLine -> editor.CaretOffset, line.EndOffset-1
         | EndOfLineIncludingDelimiter ->
             editor.CaretOffset,
-            if line.EndOffset = line.EndOffsetIncludingDelimiter then
+            if eofOnLine line then
                 line.EndOffsetIncludingDelimiter
             else
                 line.EndOffsetIncludingDelimiter-1
@@ -278,7 +282,11 @@ module VimHelpers =
         | StartOfDocument -> editor.CaretOffset, 0
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine -> line.Offset, line.EndOffset
-        | WholeLineIncludingDelimiter -> line.Offset, line.EndOffsetIncludingDelimiter
+        | WholeLineIncludingDelimiter ->
+            if eofOnLine line && line.LineNumber <> 1 then
+                line.Offset-1, line.EndOffsetIncludingDelimiter
+            else
+                line.Offset, line.EndOffsetIncludingDelimiter
         | WholeLineToEndOfDocument -> line.Offset, editor.Text.Length
         | LastLine ->
             let lastLine = editor.GetLine editor.LineCount
@@ -699,7 +707,7 @@ module Vim =
             | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
-            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
+            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]

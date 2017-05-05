@@ -4,8 +4,7 @@ open NUnit.Framework
 [<TestFixture>]
 module ``Delete tests`` =
     [<Test>]
-    let ``dd test``() =
-        //TODO - caret finishes in wrong position
+    let ``Vjd test``() =
         let source =
             @"aaaaaa
               bb$bbbb
@@ -17,8 +16,19 @@ module ``Delete tests`` =
             @"aaaaaa
  $             dddddd
               eeeeee";
-        //Assert.False true
         assertText source "Vjd" expected
+
+    [<Test>]
+    let ``dd first line``() =
+        assertText "ab$c\ndef" "dd" "d$ef"
+
+    [<Test>]
+    let ``dd last line at EOF``() =
+        assertText "abc\nd$ef" "dd" "a$bc"
+
+    [<Test>]
+    let ``dd only line``() =
+        assertText "a$bc" "dd" "$"
 
     [<Test>]
     let ``Delete char under caret``() =
