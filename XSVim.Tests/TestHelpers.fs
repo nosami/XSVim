@@ -124,7 +124,10 @@ module TestHelpers =
             if newState.mode = InsertMode then
                 editor.Text.Insert(editor.CaretOffset, "|")
             else
-                editor.Text.Insert(editor.CaretOffset+1, "$")
+                if editor.CaretOffset = editor.Text.Length then
+                    editor.Text + "$"
+                else
+                    editor.Text.Insert(editor.CaretOffset+1, "$")
         text, newState
 
     let assertText (source:string) (keys:string) expected =

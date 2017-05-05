@@ -28,3 +28,23 @@ module ``Visual tests`` =
     let ``Visual line``() =
         let _, state = test "aaa\nbb$b\nddd" "Vy"
         Vim.clipboard |> should equal "bbb\n"
+
+    [<Test>]
+    let ``Visual to end of document``() =
+        let _, state = test "abc\nde$f\nghi" "vGy"
+        Vim.clipboard |> should equal "ef\ng"
+
+    [<Test>]
+    let ``Visual to start of document``() =
+        let _, state = test "abc\nde$f\nghi" "vggy" 
+        Vim.clipboard |> should equal "abc\nde"
+
+    [<Test>]
+    let ``Visual line to end of document``() =
+        let _, state = test "abc\nde$f\nghi" "VGy"
+        Vim.clipboard |> should equal "def\nghi"
+
+    [<Test>]
+    let ``Visual line to start of document``() =
+        let _, state = test "abc\nde$f\nghi" "Vggy" 
+        Vim.clipboard |> should equal "abc\ndef\n"

@@ -33,6 +33,14 @@ module ``Delete tests`` =
         assertText "abc$ def\nghi" "d$" "ab\n$ghi"
 
     [<Test>]
+    let ``Delete to end of document``() =
+        assertText "abc\nde$f\nghi" "dG" "abc\n$"
+
+    [<Test>]
+    let ``Delete to start of document``() =
+        assertText "abc\nde$f\nghi" "dgg" "g$hi"
+
+    [<Test>]
     let ``Delete to end of line using D``() =
         assertText "abc$ def\nghi" "D" "ab\n$ghi"
 

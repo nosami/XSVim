@@ -23,6 +23,7 @@ type CommandType =
     | Yank
     | Put of BeforeOrAfter
     | Delete
+    | DeleteWholeLines
     | DeleteLeft
     | BlockInsert
     | Change
@@ -50,6 +51,7 @@ type TextObject =
     | InnerBlock of string * string
     | WholeLine
     | WholeLineIncludingDelimiter
+    | WholeLineToEndOfDocument
     | LastLine
     // motions
     | Up
@@ -277,6 +279,7 @@ module VimHelpers =
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine -> line.Offset, line.EndOffset
         | WholeLineIncludingDelimiter -> line.Offset, line.EndOffsetIncludingDelimiter
+        | WholeLineToEndOfDocument -> line.Offset, editor.Text.Length
         | LastLine ->
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
@@ -458,6 +461,12 @@ module Vim =
                     newState
 
                 | Delete -> delete vimState start finish
+                | DeleteWholeLines ->
+                    let min = Math.Min(start, finish)
+                    let max = Math.Max(start, finish)
+                    let start = editor.GetLineByOffset(min).Offset
+                    let finish = editor.GetLineByOffset(max).EndOffsetIncludingDelimiter
+                    delete vimState start finish
                 | DeleteLeft -> if editor.CaretColumn > 1 then delete vimState (editor.CaretOffset - 1) editor.CaretOffset else vimState
                 | Change -> 
                     let state = delete vimState start finish
@@ -582,26 +591,26 @@ module Vim =
 
     let (|Movement|_|) character =
         match character with
-        | "h" -> Some Left
-        | "j" -> Some Down
-        | "k" -> Some Up
-        | "l" -> Some Right
-        | "$" -> Some EndOfLine
-        | "^" -> Some FirstNonWhitespace
-        | "0" -> Some StartOfLine
-        | "_" -> Some FirstNonWhitespace
-        | "w" -> Some WordForwards
-        | "b" -> Some WordBackwards
-        | "e" -> Some ForwardToEndOfWord
-        | "E" -> Some BackwardToEndOfWord
-
-        | "{" -> Some ParagraphBackwards
-        | "}" -> Some ParagraphForwards
-        | "%" -> Some MatchingBrace
-        | "<C-d>" -> Some HalfPageDown
-        | "<C-u>" -> Some HalfPageUp
-        | "<C-f>" -> Some PageDown
-        | "<C-b>" -> Some PageUp
+        | ["h"] -> Some Left
+        | ["j"] -> Some Down
+        | ["k"] -> Some Up
+        | ["l"] -> Some Right
+        | ["$"] -> Some EndOfLine
+        | ["^"] -> Some FirstNonWhitespace
+        | ["0"] -> Some StartOfLine
+        | ["_"] -> Some FirstNonWhitespace
+        | ["w"] -> Some WordForwards
+        | ["b"] -> Some WordBackwards
+        | ["e"] -> Some ForwardToEndOfWord
+        | ["E"] -> Some BackwardToEndOfWord
+        | ["{"] -> Some ParagraphBackwards
+        | ["}"] -> Some ParagraphForwards
+        | ["%"] -> Some MatchingBrace
+        | ["G"] -> Some LastLine
+        | ["<C-d>"] -> Some HalfPageDown
+        | ["<C-u>"] -> Some HalfPageUp
+        | ["<C-f>"] -> Some PageDown
+        | ["<C-b>"] -> Some PageUp
         | _ -> None
 
     let (|FindChar|_|) character =
@@ -678,9 +687,16 @@ module Vim =
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
             | NormalMode, [ Escape ] -> [ run ResetKeys Nothing ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
-            | NotInsertMode, [ Movement m ] -> [ run Move m ]
+            | NotInsertMode, [ "G" ] ->
+                match numericArgument with
+                | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
+                | None -> [ runOnce Move LastLine ]
+            | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
+            | NormalMode, [ "d"; "g" ] -> wait
+            | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
+            | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
-            | NormalMode, [ Action action; Movement m ] -> [ run action m ]
+            | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter ]
@@ -725,10 +741,6 @@ module Vim =
             | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
-            | NotInsertMode, [ "G" ] ->
-                match numericArgument with
-                | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
-                | None -> [ runOnce Move LastLine ]
             | NotInsertMode, [ "g" ] -> wait
             | NotInsertMode, [ "g"; "g" ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
@@ -738,7 +750,7 @@ module Vim =
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
             | NotInsertMode, [ "." ] -> state.lastAction
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
-            | VisualModes, [ Movement m ] -> [ run Move m ]
+            | VisualModes, Movement m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
             | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
