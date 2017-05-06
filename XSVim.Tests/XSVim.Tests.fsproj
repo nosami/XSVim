@@ -81,6 +81,7 @@
 		<Compile Include="VisualTests.fs" />
 		<Compile Include="KeyParsing.fs" />
 		<Compile Include="MiscTests.fs" />
+		<Compile Include="YankAndPut.fs" />
 	</ItemGroup>
 	<Import Project="$(FSharpTargetsPath)" />
 </Project>

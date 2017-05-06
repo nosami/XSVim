@@ -2,6 +2,7 @@
 open System
 open System.Collections.Generic
 open MonoDevelop.Core
+open MonoDevelop.Core.Text
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
@@ -504,9 +505,18 @@ module Vim =
                     vimState
                 | Put After ->
                     if clipboard.EndsWith "\n" then
-                        editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
-                        EditActions.ClipboardPaste editor
-                        EditActions.MoveCaretUp editor
+                        if editor.CaretLine = editor.LineCount then
+                            let line = editor.GetLine(editor.CaretLine-1)
+                            let delimiter = NewLine.GetString line.UnicodeNewline
+                            editor.InsertText(editor.Text.Length, delimiter)
+                            editor.CaretOffset <- editor.Text.Length
+                            EditActions.ClipboardPaste editor
+                            editor.RemoveText(editor.Text.Length-line.DelimiterLength, line.DelimiterLength)
+                            EditActions.MoveCaretToLineStart editor
+                        else
+                            editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
+                            EditActions.ClipboardPaste editor
+                            EditActions.MoveCaretUp editor
                     else
                         EditActions.MoveCaretRight editor
                         EditActions.ClipboardPaste editor
