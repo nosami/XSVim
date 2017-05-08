@@ -39,3 +39,8 @@ module ``Miscellaneous tests`` =
     let ``Undo insert mode``() =
         assertText "abc$" "adef<esc>u" "abc$"
     
+
+    [<Test>]
+    let ``J puts caret between joined lines``() =
+        assertText "a$bc\ndef" "J" "abc $def"
+    

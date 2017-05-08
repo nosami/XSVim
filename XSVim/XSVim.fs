@@ -530,7 +530,11 @@ module Vim =
                     editor.SetSelection(start, finish); vimState
                 | Undo -> EditActions.Undo editor; vimState
                 | Redo -> EditActions.Redo editor; vimState
-                | JoinLines -> EditActions.JoinLines editor; vimState
+                | JoinLines ->
+                    let lastColumn = editor.GetLine(editor.CaretLine).EndOffsetIncludingDelimiter
+                    EditActions.JoinLines editor
+                    editor.CaretColumn <- lastColumn
+                    vimState
                 | ReplaceChar c ->
                     editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)
                     EditActions.Delete editor
