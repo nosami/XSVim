@@ -283,7 +283,8 @@ module VimHelpers =
             editor.CaretOffset, line.Offset
         | StartOfDocument -> editor.CaretOffset, 0
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
-        | WholeLine -> line.Offset, line.EndOffset
+        | WholeLine ->
+            line.Offset, line.EndOffset
         | WholeLineIncludingDelimiter ->
             if eofOnLine line && line.LineNumber <> 1 then
                 line.Offset-1, line.EndOffsetIncludingDelimiter
@@ -479,7 +480,11 @@ module Vim =
                     delete vimState start finish
                 | DeleteLeft -> if editor.CaretColumn > 1 then delete vimState (editor.CaretOffset - 1) editor.CaretOffset else vimState
                 | Change -> 
-                    let state = delete vimState start finish
+                    let state =
+                        if start <> finish then
+                            delete vimState start finish
+                        else
+                            vimState
                     switchToInsertMode state
                 | Yank ->
                     let finish =
