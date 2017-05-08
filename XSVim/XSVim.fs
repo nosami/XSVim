@@ -531,7 +531,7 @@ module Vim =
                 | Undo -> EditActions.Undo editor; vimState
                 | Redo -> EditActions.Redo editor; vimState
                 | JoinLines ->
-                    let lastColumn = editor.GetLine(editor.CaretLine).EndOffsetIncludingDelimiter
+                    let lastColumn = editor.GetLine(editor.CaretLine).LengthIncludingDelimiter
                     EditActions.JoinLines editor
                     editor.CaretColumn <- lastColumn
                     vimState
