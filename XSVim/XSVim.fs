@@ -3,6 +3,7 @@ open System
 open System.Collections.Generic
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
+open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
@@ -828,23 +829,34 @@ module Vim =
 
 type XSVim() =
     inherit TextEditorExtension()
-    static let editorStates = Dictionary<FilePath, VimState>()
+    static let editorStates = Dictionary<string, VimState>()
+    let mutable disposable : IDisposable option = None
+
+    member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
-        if not (editorStates.ContainsKey x.Editor.FileName) then
-            editorStates.Add(x.Editor.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None })
+        if not (editorStates.ContainsKey x.FileName) then
+            editorStates.Add(x.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None })
         EditActions.SwitchCaretMode x.Editor
+        disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
+            (fun e -> let documentName = e.Document.Name
+                      if editorStates.ContainsKey documentName then
+                          editorStates.Remove documentName |> ignore))
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
         | ModifierKeys.Command -> false
         | _ ->
-            let vimState = editorStates.[x.Editor.FileName]
+            let vimState = editorStates.[x.FileName]
             let oldState = vimState
 
             let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
-            editorStates.[x.Editor.FileName] <- newState
+            editorStates.[x.FileName] <- newState
             match oldState.mode with
             | InsertMode -> base.KeyPress descriptor
             | VisualMode -> false
             | _ -> not handledKeyPress
+
+    override x.Dispose() =
+        base.Dispose()
+        disposable |> Option.iter(fun d -> d.Dispose())
