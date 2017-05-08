@@ -374,8 +374,7 @@ module VimHelpers =
 
 module Vim =
     let mutable clipboard = ""
-    let (|VisualModes|_|) mode =
-        match mode with
+    let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
 
@@ -410,10 +409,9 @@ module Vim =
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
         | _ -> editor.SetSelection(start, finish)
 
-    let (|MoveUpOrDown|_|) command =
-        match command with
-        | { commandType=Move; textObject=Up}
-        | { commandType=Move; textObject=Down} -> Some MoveUpOrDown
+    let (|MoveUpOrDown|_|) = function
+        | { commandType=Move; textObject=Up }
+        | { commandType=Move; textObject=Down } -> Some MoveUpOrDown
         | _ -> None
 
     let runCommand vimState editor command =
@@ -613,8 +611,8 @@ module Vim =
         else
             None
 
-    let (|Movement|_|) character =
-        match character with
+    let (|Movement|_|) =
+        function
         | ["h"] -> Some Left
         | ["j"] -> Some Down
         | ["k"] -> Some Up
@@ -637,32 +635,28 @@ module Vim =
         | ["<C-b>"] -> Some PageUp
         | _ -> None
 
-    let (|FindChar|_|) character =
-        match character with
+    let (|FindChar|_|) = function
         | "f" -> Some ToCharInclusive
         | "F" -> Some ToCharInclusiveBackwards
         | "t" -> Some ToCharExclusive
         | "T" -> Some ToCharExclusiveBackwards
         | _ -> None
 
-    let (|Action|_|) character =
-        match character with
+    let (|Action|_|) = function
         | "d" -> Some Delete
         | "c" -> Some Change
         | "v" -> Some Visual
         | "y" -> Some Yank
         | _ -> None
 
-    let (|ModeChange|_|) character =
-        match character with
+    let (|ModeChange|_|) = function
         | "i" -> Some InsertMode
         | "v" -> Some VisualMode
         | "<C-v>" -> Some VisualBlockMode
         | "V" -> Some VisualLineMode
         | _ -> None
 
-    let (|Escape|_|) character =
-        match character with
+    let (|Escape|_|) = function
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
