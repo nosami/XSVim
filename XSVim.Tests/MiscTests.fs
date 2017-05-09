@@ -38,7 +38,6 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``Undo insert mode``() =
         assertText "abc$" "adef ghi jkl<esc>u" "abc$"
-    
 
     [<Test>]
     let ``J puts caret between joined lines``() =

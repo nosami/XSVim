@@ -845,11 +845,11 @@ type XSVim() =
     override x.Initialize() =
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None })
-        EditActions.SwitchCaretMode x.Editor
-        disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
-            (fun e -> let documentName = e.Document.Name
-                      if editorStates.ContainsKey documentName then
-                          editorStates.Remove documentName |> ignore))
+            EditActions.SwitchCaretMode x.Editor
+            disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
+                (fun e -> let documentName = e.Document.Name
+                          if editorStates.ContainsKey documentName then
+                              editorStates.Remove documentName |> ignore))
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
