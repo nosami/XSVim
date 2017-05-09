@@ -37,7 +37,7 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``Undo insert mode``() =
-        assertText "abc$" "adef<esc>u" "abc$"
+        assertText "abc$" "adef ghi jkl<esc>u" "abc$"
     
 
     [<Test>]

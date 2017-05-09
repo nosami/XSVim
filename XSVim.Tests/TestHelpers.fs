@@ -107,12 +107,14 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
 
         let plugin = new XSVim()
-        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None }
+        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None }
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
             |> Array.fold(fun state c ->
                 let newState, handledKeyPress = Vim.handleKeyPress state c editor
+                if state.mode = InsertMode && c.SpecialKey <> SpecialKey.Escape then
+                    editor.InsertAtCaret (c.KeyChar.ToString())
                 newState) state
 
         let cursor = if newState.mode = InsertMode then "|" else "$"

@@ -105,6 +105,7 @@ type VimState = {
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
     desiredColumn: int option
+    undoGroup: IDisposable option
 }
 
 [<AutoOpen>]
@@ -435,9 +436,10 @@ module Vim =
             | InsertMode, Block -> EditActions.SwitchCaretMode editor
             | _ -> ()
 
-        let switchToInsertMode state =
+        let switchToInsertMode (editor:TextEditor) state =
+            let group = editor.OpenUndoGroup()
             setCaretMode Insert
-            { state with mode = InsertMode; keys = [] }
+            { state with mode = InsertMode; keys = []; undoGroup = Some group }
 
         let rec processCommands count vimState = 
             let start, finish = VimHelpers.getRange vimState editor command.textObject
@@ -483,7 +485,7 @@ module Vim =
                             delete vimState start finish
                         else
                             vimState
-                    switchToInsertMode state
+                    switchToInsertMode editor state
                 | Yank ->
                     let finish =
                         match command.textObject with
@@ -556,13 +558,14 @@ module Vim =
                     editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
                     editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
                     if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
-                    switchToInsertMode vimState
+                    switchToInsertMode editor vimState
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode -> 
                         editor.ClearSelection()
                         setCaretMode Block
-                        { vimState with mode = mode }
+                        vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+                        { vimState with mode = mode; undoGroup = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode Block
                         let start, finish = VimHelpers.getRange vimState editor command.textObject
@@ -573,7 +576,8 @@ module Vim =
                         | _, SelectionMode.Block -> dispatch TextEditorCommands.ToggleBlockSelectionMode
                         | _ -> ()
                         newState
-                    | InsertMode -> switchToInsertMode vimState
+                    | InsertMode ->
+                        switchToInsertMode editor vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState
         let count =
@@ -581,7 +585,8 @@ module Vim =
             | Some r -> r
             | None -> 1
 
-        use _group = editor.OpenUndoGroup()
+        use group = editor.OpenUndoGroup()
+
         processCommands count vimState
 
     let (|Digit|_|) character =
@@ -839,7 +844,7 @@ type XSVim() =
 
     override x.Initialize() =
         if not (editorStates.ContainsKey x.FileName) then
-            editorStates.Add(x.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None })
+            editorStates.Add(x.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None })
         EditActions.SwitchCaretMode x.Editor
         disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
             (fun e -> let documentName = e.Document.Name
