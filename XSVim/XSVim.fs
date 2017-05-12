@@ -8,7 +8,7 @@ open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 
-type BeforeOrAfter = Before | After
+type BeforeOrAfter = Before | After | OverSelection
 
 type CaretMode = Insert | Block
 
@@ -500,6 +500,7 @@ module Vim =
                     EditActions.ClipboardCopy editor
                     LoggingService.LogDebug (sprintf "Yanked - %s" clipboard)
                     editor.ClearSelection()
+                    editor.CaretOffset <- vimState.visualStartOffset
                     vimState
                 | Put Before -> 
                     if clipboard.EndsWith "\n" then
@@ -528,6 +529,9 @@ module Vim =
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretLeft editor
                     vimState
+                | Put OverSelection ->
+                    EditActions.ClipboardPaste editor
+                    { vimState with mode = NormalMode }
                 | Visual ->
                     editor.SetSelection(start, finish); vimState
                 | Undo -> EditActions.Undo editor; vimState
@@ -544,7 +548,7 @@ module Vim =
                     EditActions.MoveCaretLeft editor
                     vimState
                 | InsertLine Before -> EditActions.InsertNewLineAtEnd editor; vimState
-                | InsertLine After -> 
+                | InsertLine After ->
                     editor.CaretColumn <- 1
                     EditActions.InsertNewLine editor
                     EditActions.MoveCaretUp editor
@@ -737,6 +741,8 @@ module Vim =
             | NormalMode, [ "s"] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
+            | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
+            | VisualModes, [ "P" ] -> [ run (Put OverSelection) Nothing ]
             | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
             | NormalMode, [ "/" ] -> [ dispatch SearchCommands.Find ]
             | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
