@@ -8,111 +8,9 @@ open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 
-type BeforeOrAfter = Before | After | OverSelection
-
-type CaretMode = Insert | Block
-
-type VimMode =
-    | NormalMode
-    | VisualMode
-    | VisualBlockMode
-    | VisualLineMode
-    | InsertMode
-
-type CommandType =
-    | Move
-    | Visual
-    | Yank
-    | Put of BeforeOrAfter
-    | Delete
-    | DeleteWholeLines
-    | DeleteLeft
-    | BlockInsert
-    | Change
-    | SwitchMode of VimMode
-    | Undo
-    | Redo
-    | JoinLines
-    | Dispatch of obj
-    | InsertLine of BeforeOrAfter
-    | ReplaceChar of string
-    | ResetKeys
-    | DoNothing
-    | Star of BeforeOrAfter
-
-type TextObject =
-    | Character
-    | AWord
-    | InnerWord
-    | AWORD
-    | InnerWORD
-    | ASentence
-    | InnerSentence
-    | AParagraph
-    | InnerParagraph
-    | ABlock of string * string
-    | InnerBlock of string * string
-    | WholeLine
-    | WholeLineIncludingDelimiter
-    | WholeLineToEndOfDocument
-    | LastLine
-    // motions
-    | Up
-    | Down
-    | Left
-    | Right
-    | RightIncludingDelimiter
-    | EnsureCursorBeforeDelimiter
-    | FirstNonWhitespace
-    | StartOfLine
-    | StartOfLineNumber of int
-    | StartOfDocument
-    | EndOfLine
-    | EndOfLineIncludingDelimiter
-    | ToCharInclusive of string
-    | ToCharInclusiveBackwards of string
-    | ToCharExclusive of string
-    | ToCharExclusiveBackwards of string
-    | WordForwards
-    | WORDForwards
-    | WordBackwards
-    | WORDBackwards
-    | ParagraphForwards
-    | ParagraphBackwards
-    | ForwardToEndOfWord
-    | ForwardToEndOfWORD
-    | BackwardToEndOfWord
-    | BackwardToEndOfWORD
-    | Nothing
-    | HalfPageUp
-    | HalfPageDown
-    | PageUp
-    | PageDown
-    | CurrentLocation
-    | Selection
-    | SelectionStart
-    | MatchingBrace
-
-type VimAction = {
-    repeat: int option
-    commandType: CommandType
-    textObject: TextObject
-}
-
-type VimState = {
-    keys: string list
-    mode: VimMode
-    visualStartOffset: int
-    findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
-    lastAction: VimAction list // used by . command to repeat the last action
-    desiredColumn: int option
-    undoGroup: IDisposable option
-    statusMessage: string option
-}
-
 [<AutoOpen>]
 module VimHelpers =
-    let dispatch command = MonoDevelop.Ide.IdeApp.CommandService.DispatchCommand command |> ignore
+    let dispatch command = IdeApp.CommandService.DispatchCommand command |> ignore
 
     let closingBraces = [')'; '}'; ']'] |> set
     let openingbraces = ['('; '{'; '[' ] |> set
@@ -366,7 +264,7 @@ module VimHelpers =
             let pageDown = Math.Min(editor.LineCount, editor.CaretLine + visibleLineCount)
             editor.CaretOffset, editor.GetLine(pageDown).Offset
         | CurrentLocation -> editor.CaretOffset, editor.CaretOffset+1
-        | Selection ->
+        | SelectedText ->
             let selection = editor.Selections |> Seq.head
             let lead = editor.LocationToOffset selection.Lead
             let anchor = editor.LocationToOffset selection.Anchor
@@ -438,7 +336,7 @@ module Vim =
                 | ToCharInclusive _
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
-            if command.textObject <> Selection then
+            if command.textObject <> SelectedText then
                 setSelection state editor command start finish
             clipboard <- editor.SelectedText
             EditActions.ClipboardCut editor
@@ -508,7 +406,7 @@ module Vim =
                         | ToCharInclusive _
                         | ToCharExclusive _ -> finish + 1
                         | _ -> finish
-                    if command.textObject <> Selection then
+                    if command.textObject <> SelectedText then
                         setSelection vimState editor command start finish
                     clipboard <- editor.SelectedText
                     EditActions.ClipboardCopy editor
@@ -820,10 +718,10 @@ module Vim =
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
             | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
             | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
-            | VisualModes, [ "x" ] -> [ run Delete Selection; switchMode NormalMode ]
-            | VisualModes, [ "d" ] -> [ run Delete Selection; switchMode NormalMode ]
-            | VisualModes, [ "c" ] -> [ run Change Selection ]
-            | VisualModes, [ "y" ] -> [ run Yank Selection; switchMode NormalMode ]
+            | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
+            | VisualModes, [ "d" ] -> [ run Delete SelectedText; switchMode NormalMode ]
+            | VisualModes, [ "c" ] -> [ run Change SelectedText ]
+            | VisualModes, [ "y" ] -> [ run Yank SelectedText; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
             | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]

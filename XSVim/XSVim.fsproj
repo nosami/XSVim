@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -19,10 +18,8 @@
     <ErrorReport>prompt</ErrorReport>
     <PlatformTarget></PlatformTarget>
     <StartAction>Program</StartAction>
-
     <OtherFlags>--warnon:1182</OtherFlags>
     <StartAction>Program</StartAction>
-
     <StartProgram>/Applications/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/VisualStudio.exe</StartProgram>
     <StartWorkingDirectory>/Applications/Visual Studio.app/Contents/Resources/lib/monodevelop/bin</StartWorkingDirectory>
     <Commandlineparameters>-no-redirect</Commandlineparameters>
@@ -72,6 +69,7 @@
     <Compile Include="Properties\AssemblyInfo.fs" />
     <Compile Include="Properties\AddinInfo.fs" />
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
+    <Compile Include="Types.fs" />
     <Compile Include="XSVim.fs" />
     <None Include="packages.config" />
   </ItemGroup>
