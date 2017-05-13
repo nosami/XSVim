@@ -873,12 +873,8 @@ module Vim =
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
-
-        match newState.statusMessage with
-        | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
-        | _ -> IdeApp.Workbench.StatusBar.ShowReady()
-
         { newState with lastAction = action }, handled
+
 
 type XSVim() =
     inherit TextEditorExtension()
@@ -904,6 +900,10 @@ type XSVim() =
             let oldState = vimState
 
             let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
+            match newState.statusMessage with
+            | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
+            | _ -> IdeApp.Workbench.StatusBar.ShowReady()
+
             editorStates.[x.FileName] <- newState
             match oldState.mode with
             | InsertMode -> base.KeyPress descriptor
