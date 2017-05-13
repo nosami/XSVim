@@ -659,8 +659,7 @@ module Vim =
         else
             None
 
-    let (|Movement|_|) =
-        function
+    let (|Movement|_|) = function
         | ["h"] -> Some Left
         | ["j"] -> Some Down
         | ["k"] -> Some Up
@@ -862,6 +861,7 @@ module Vim =
         let newState = { state with keys = newKeys }
         let action, newState = parseKeys newState
         LoggingService.LogDebug (sprintf "%A" action)
+
         let rec performActions actions' state handled =
             match actions' with
             | [] -> state, handled
@@ -873,9 +873,11 @@ module Vim =
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
+
         match newState.statusMessage with
         | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
         | _ -> IdeApp.Workbench.StatusBar.ShowReady()
+
         { newState with lastAction = action }, handled
 
 type XSVim() =
