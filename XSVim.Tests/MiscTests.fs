@@ -58,3 +58,11 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``* finds next word at EOF``() =
         assertText "abc abc$" "*" "a$bc abc"
+
+    [<Test>]
+    let ``# finds previous word at caret``() =
+        assertText "abc abc a$bc" "#" "abc a$bc abc"
+
+    [<Test>]
+    let ``£ wraps to end``() =
+        assertText "a$bc abc" "£" "abc a$bc"

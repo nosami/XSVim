@@ -38,7 +38,7 @@ type CommandType =
     | ReplaceChar of string
     | ResetKeys
     | DoNothing
-    | Star
+    | Star of BeforeOrAfter
 
 type TextObject =
     | Character
@@ -225,6 +225,15 @@ module VimHelpers =
         //        topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
         //bottomVisibleLine - topVisibleLine
         40
+
+    let wordAtCaret (editor:TextEditor) =
+        if isWordChar (editor.GetCharAt editor.CaretOffset) then
+            let start = findCurrentWordStart editor
+            let finish = findWordEnd editor
+            let word = editor.GetTextAt(start, finish - start)
+            Some word
+        else
+            None
 
     let eofOnLine (line: IDocumentLine) =
         line.EndOffset = line.EndOffsetIncludingDelimiter
@@ -568,7 +577,7 @@ module Vim =
                     switchToInsertMode editor vimState
                 | SwitchMode mode ->
                     match mode with
-                    | NormalMode -> 
+                    | NormalMode ->
                         editor.ClearSelection()
                         setCaretMode Block
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
@@ -585,20 +594,27 @@ module Vim =
                         newState
                     | InsertMode ->
                         switchToInsertMode editor vimState
-                | Star ->
-                    if isWordChar (editor.GetCharAt editor.CaretOffset) then
-                        let start = findCurrentWordStart editor
-                        let finish = findWordEnd editor
-                        let word = editor.GetTextAt(start, finish - start)
+                | Star After ->
+                    match wordAtCaret editor with
+                    | Some word ->
                         let offset = editor.Text.IndexOf(word, editor.CaretOffset+1)
                         if offset <> -1 then
                             editor.CaretOffset <- offset
                         else
                             editor.CaretOffset <- editor.Text.IndexOf word
                         vimState
-                    else
+                    | None ->
                         processCommands 1 vimState (runOnce Move WordForwards)
-
+                | Star Before ->
+                    match wordAtCaret editor with
+                    | Some word ->
+                        let offset = editor.Text.LastIndexOf(word, editor.CaretOffset)
+                        if offset <> -1 then
+                            editor.CaretOffset <- offset
+                        else
+                            editor.CaretOffset <- editor.Text.LastIndexOf word
+                        vimState
+                    | None -> vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command
         let count =
@@ -757,7 +773,9 @@ module Vim =
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
             | VisualModes, [ "P" ] -> [ run (Put OverSelection) Nothing ]
             | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
-            | NotInsertMode, [ "*" ] -> [ run Star Nothing ]
+            | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
+            | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
+            | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NormalMode, [ "/" ] -> [ dispatch SearchCommands.Find ]
             | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
             | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
