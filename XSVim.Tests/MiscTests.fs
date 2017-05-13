@@ -42,4 +42,19 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``J puts caret between joined lines``() =
         assertText "a$bc\ndef" "J" "abc $def"
-    
+
+    [<Test>]
+    let ``* finds next word``() =
+        assertText " $ abc" "*" "  a$bc"
+
+    [<Test>]
+    let ``* finds next word at caret``() =
+        assertText "a$bc abc" "*" "abc a$bc"
+
+    [<Test>]
+    let ``* wraps to start``() =
+        assertText "abc a$bc" "*" "a$bc abc"
+
+    [<Test>]
+    let ``* finds next word at EOF``() =
+        assertText "abc abc$" "*" "a$bc abc"

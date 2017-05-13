@@ -38,6 +38,7 @@ type CommandType =
     | ReplaceChar of string
     | ResetKeys
     | DoNothing
+    | Star
 
 type TextObject =
     | Character
@@ -198,10 +199,12 @@ module VimHelpers =
     let findCurrentWordStart (editor:TextEditor) =
         seq { editor.CaretOffset .. -1 .. 1 }
         |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index-1]))
+        |> Option.defaultValue 0
 
     let findCurrentWordEnd (editor:TextEditor) =
         seq { editor.CaretOffset .. editor.Text.Length-1 }
         |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index]))
+        |> Option.defaultValue (editor.Text.Length - 1)
 
     let paragraphBackwards (editor:TextEditor) =
         seq { editor.CaretLine-1 .. -1 .. 1 }
@@ -332,12 +335,8 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> match findCurrentWordStart editor, findCurrentWordEnd editor with
-                       | Some startpos, Some endpos -> startpos, endpos
-                       | _ -> editor.CaretOffset, editor.CaretOffset
-        | AWord -> match findCurrentWordStart editor, findCurrentWordEnd editor with
-                   | Some startpos, Some endpos -> startpos, endpos
-                   | _ -> editor.CaretOffset, editor.CaretOffset
+        | InnerWord -> findCurrentWordStart editor, findCurrentWordEnd editor
+        | AWord -> findCurrentWordStart editor, findCurrentWordEnd editor
         | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor
         //| BackwardToEndOfWord -> editor.CaretOffset, findPrevWord editor |> editor.FindCurrentWordEnd
         | HalfPageUp -> 
@@ -415,6 +414,10 @@ module Vim =
         | { commandType=Move; textObject=Down } -> Some MoveUpOrDown
         | _ -> None
 
+    let getCommand repeat commandType textObject =
+        { repeat=repeat; commandType=commandType; textObject=textObject }
+
+    let runOnce = getCommand (Some 1)
     let runCommand vimState editor command =
         let delete state start finish =
             let finish =
@@ -441,7 +444,7 @@ module Vim =
             setCaretMode Insert
             { state with mode = InsertMode; keys = []; undoGroup = Some group }
 
-        let rec processCommands count vimState = 
+        let rec processCommands count vimState command = 
             let start, finish = VimHelpers.getRange vimState editor command.textObject
             let newState =
                 match command.commandType with
@@ -582,8 +585,22 @@ module Vim =
                         newState
                     | InsertMode ->
                         switchToInsertMode editor vimState
+                | Star ->
+                    if isWordChar (editor.GetCharAt editor.CaretOffset) then
+                        let start = findCurrentWordStart editor
+                        let finish = findWordEnd editor
+                        let word = editor.GetTextAt(start, finish - start)
+                        let offset = editor.Text.IndexOf(word, editor.CaretOffset+1)
+                        if offset <> -1 then
+                            editor.CaretOffset <- offset
+                        else
+                            editor.CaretOffset <- editor.Text.IndexOf word
+                        vimState
+                    else
+                        processCommands 1 vimState (runOnce Move WordForwards)
+
                 | _ -> vimState
-            if count = 1 then newState else processCommands (count-1) newState
+            if count = 1 then newState else processCommands (count-1) newState command
         let count =
             match command.repeat with
             | Some r -> r
@@ -591,7 +608,7 @@ module Vim =
 
         use group = editor.OpenUndoGroup()
 
-        processCommands count vimState
+        processCommands count vimState command
 
     let (|Digit|_|) character =
         if character >= "0" && character <= "9" then
@@ -673,9 +690,6 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let getCommand repeat commandType textObject =
-        { repeat=repeat; commandType=commandType; textObject=textObject }
-
     let wait = [ getCommand None DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
@@ -703,7 +717,6 @@ module Vim =
             | _ -> None, keyList
 
         let run = getCommand numericArgument
-        let runOnce = getCommand (Some 1)
         let switchMode mode = run (SwitchMode mode) Nothing
         let dispatch command = run (Dispatch command) Nothing
 
@@ -744,6 +757,7 @@ module Vim =
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
             | VisualModes, [ "P" ] -> [ run (Put OverSelection) Nothing ]
             | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
+            | NotInsertMode, [ "*" ] -> [ run Star Nothing ]
             | NormalMode, [ "/" ] -> [ dispatch SearchCommands.Find ]
             | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
             | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
