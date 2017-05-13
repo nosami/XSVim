@@ -107,6 +107,7 @@ type VimState = {
     lastAction: VimAction list // used by . command to repeat the last action
     desiredColumn: int option
     undoGroup: IDisposable option
+    statusMessage: string option
 }
 
 [<AutoOpen>]
@@ -383,6 +384,7 @@ module VimHelpers =
 
 module Vim =
     let mutable clipboard = ""
+    let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None }
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
@@ -451,7 +453,7 @@ module Vim =
         let switchToInsertMode (editor:TextEditor) state =
             let group = editor.OpenUndoGroup()
             setCaretMode Insert
-            { state with mode = InsertMode; keys = []; undoGroup = Some group }
+            { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = Some group }
 
         let rec processCommands count vimState command = 
             let start, finish = VimHelpers.getRange vimState editor command.textObject
@@ -581,11 +583,11 @@ module Vim =
                         editor.ClearSelection()
                         setCaretMode Block
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
-                        { vimState with mode = mode; undoGroup = None }
+                        { vimState with mode = mode; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode Block
                         let start, finish = VimHelpers.getRange vimState editor command.textObject
-                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset }
+                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = None }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
                         | VisualBlockMode, SelectionMode.Normal -> dispatch TextEditorCommands.ToggleBlockSelectionMode
@@ -871,6 +873,9 @@ module Vim =
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
+        match newState.statusMessage with
+        | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
+        | _ -> IdeApp.Workbench.StatusBar.ShowReady()
         { newState with lastAction = action }, handled
 
 type XSVim() =
@@ -882,7 +887,7 @@ type XSVim() =
 
     override x.Initialize() =
         if not (editorStates.ContainsKey x.FileName) then
-            editorStates.Add(x.FileName, { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None })
+            editorStates.Add(x.FileName, Vim.defaultState )
             EditActions.SwitchCaretMode x.Editor
             disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
                 (fun e -> let documentName = e.Document.Name

@@ -107,7 +107,7 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
 
         let plugin = new XSVim()
-        let state = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None }
+        let state = Vim.defaultState
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
