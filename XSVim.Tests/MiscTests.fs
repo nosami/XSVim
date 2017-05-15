@@ -48,6 +48,10 @@ module ``Miscellaneous tests`` =
         assertText " $ abc" "*" "  a$bc"
 
     [<Test>]
+    let ``* does not match substring``() =
+        assertText "a$bc abcde abc" "*" "abc abcde a$bc"
+
+    [<Test>]
     let ``* finds next word at caret``() =
         assertText "a$bc abc" "*" "abc a$bc"
 
@@ -63,6 +67,10 @@ module ``Miscellaneous tests`` =
     let ``# finds previous word at caret``() =
         assertText "abc abc a$bc" "#" "abc a$bc abc"
 
+    [<Test>]
+    let ``# matches exact word``() =
+        assertText "abc abcde a$bc" "#" "a$bc abcde abc"
+    
     [<Test>]
     let ``£ wraps to end``() =
         assertText "a$bc abc" "£" "abc a$bc"

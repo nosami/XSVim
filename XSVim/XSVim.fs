@@ -1,6 +1,7 @@
 ﻿namespace XSVim
 open System
 open System.Collections.Generic
+open System.Text.RegularExpressions
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
 open MonoDevelop.Ide
@@ -128,7 +129,8 @@ module VimHelpers =
     let wordAtCaret (editor:TextEditor) =
         if isWordChar (editor.GetCharAt editor.CaretOffset) then
             let start = findCurrentWordStart editor
-            let finish = findWordEnd editor
+            let finish = (findWordEnd editor)
+            let finish = Math.Min (finish+1, editor.Text.Length)
             let word = editor.GetTextAt(start, finish - start)
             Some word
         else
@@ -497,22 +499,42 @@ module Vim =
                 | Star After ->
                     match wordAtCaret editor with
                     | Some word ->
-                        let offset = editor.Text.IndexOf(word, editor.CaretOffset+1)
-                        if offset <> -1 then
-                            editor.CaretOffset <- offset
-                        else
-                            editor.CaretOffset <- editor.Text.IndexOf word
+                        let matches = Regex.Matches(editor.Text, sprintf @"\b%s\b" word)
+                                      |> Seq.cast<Match>
+
+                        let m =
+                            matches
+                            |> Seq.tryFind(fun m -> m.Index > editor.CaretOffset)
+
+                        let offset =
+                            match m with
+                            | Some m -> m.Index
+                            | None -> 
+                                let m = matches |> Seq.head
+                                m.Index
+                        editor.CaretOffset <- offset
                         vimState
                     | None ->
                         processCommands 1 vimState (runOnce Move WordForwards)
                 | Star Before ->
                     match wordAtCaret editor with
                     | Some word ->
-                        let offset = editor.Text.LastIndexOf(word, editor.CaretOffset)
-                        if offset <> -1 then
-                            editor.CaretOffset <- offset
-                        else
-                            editor.CaretOffset <- editor.Text.LastIndexOf word
+                        let matches = Regex.Matches(editor.Text, sprintf @"\b%s\b" word)
+                                      |> Seq.cast<Match>
+
+                        let start = findCurrentWordStart editor
+
+                        let m =
+                            matches
+                            |> Seq.tryFindBack(fun m -> m.Index < start)
+
+                        let offset =
+                            match m with
+                            | Some m -> m.Index
+                            | None ->
+                                let m = matches |> Seq.last
+                                m.Index
+                        editor.CaretOffset <- offset
                         vimState
                     | None -> vimState
                 | _ -> vimState
