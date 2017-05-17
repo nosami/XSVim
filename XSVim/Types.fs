@@ -103,3 +103,9 @@ type VimState = {
     statusMessage: string option
 }
 
+// shim for the build server which runs Mono 4.6.1
+module Option =
+    let inline defaultValue value = 
+        function
+        | Some v -> v
+        | None -> value
