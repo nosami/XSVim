@@ -40,7 +40,7 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``Delete to end of line``() =
-        assertText "abc$ def\nghi" "d$" "ab\n$ghi"
+        assertText "abc$ def\nghi" "d$" "ab$\nghi"
 
     [<Test>]
     let ``Delete to end of document``() =
@@ -52,7 +52,11 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``Delete to end of line using D``() =
-        assertText "abc$ def\nghi" "D" "ab\n$ghi"
+        assertText "abc$ def\nghi" "D" "ab$\nghi"
+
+    [<Test>]
+    let ``Deleting last word doesn't delete delimiter'``() =
+        assertText "abc d$ef\nghi" "dw" "abc $\nghi"
 
     [<Test>]
     let ``Delete char to left doesn't delete past start of line``() =

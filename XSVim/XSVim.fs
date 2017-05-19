@@ -54,10 +54,10 @@ module VimHelpers =
         else
             None
 
-    let findWordForwards (editor:TextEditor) =
+    let findWordForwards (editor:TextEditor) commandType =
         let findFromNonLetterChar index =
-            match editor.Text.[index] with
-            | InvisibleChar ->
+            match editor.Text.[index], commandType with
+            | InvisibleChar, Move ->
                 seq { index+1 .. editor.Text.Length-1 } 
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.Text.[index]))
             | _ -> Some index
@@ -139,9 +139,9 @@ module VimHelpers =
     let eofOnLine (line: IDocumentLine) =
         line.EndOffset = line.EndOffsetIncludingDelimiter
 
-    let getRange (vimState:VimState) (editor:TextEditor) motion =
+    let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
-        match motion with
+        match command.textObject with
         | Right ->
             let line = editor.GetLine editor.CaretLine
             editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset + 1 else editor.CaretOffset
@@ -152,9 +152,6 @@ module VimHelpers =
                 editor.CaretOffset + 1
             else
                 editor.CaretOffset
-        | EnsureCursorBeforeDelimiter ->
-            let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
         | Left -> editor.CaretOffset, if editor.CaretColumn > DocumentLocation.MinColumn then editor.CaretOffset - 1 else editor.CaretOffset
         | Up ->
             editor.CaretOffset,
@@ -233,7 +230,7 @@ module VimHelpers =
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | WordForwards ->
-            match findWordForwards editor with
+            match findWordForwards editor command.commandType with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | WordBackwards -> editor.CaretOffset, findPrevWord editor
@@ -338,6 +335,8 @@ module Vim =
                 | ToCharInclusive _
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
+
+
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
             clipboard <- editor.SelectedText
@@ -356,7 +355,7 @@ module Vim =
             { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = Some group }
 
         let rec processCommands count vimState command = 
-            let start, finish = VimHelpers.getRange vimState editor command.textObject
+            let start, finish = VimHelpers.getRange vimState editor command
             let newState =
                 match command.commandType with
                 | Move ->
@@ -385,7 +384,12 @@ module Vim =
                             { vimState with desiredColumn = Some editor.CaretColumn }
                     newState
 
-                | Delete -> delete vimState start finish
+                | Delete -> 
+                    let newState = delete vimState start finish
+                    let line = editor.GetLine editor.CaretLine
+                    let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
+                    editor.CaretOffset <- Math.Max(offsetBeforeDelimiter, 0)
+                    newState
                 | DeleteWholeLines ->
                     let min = Math.Min(start, finish)
                     let max = Math.Max(start, finish)
@@ -486,7 +490,7 @@ module Vim =
                         { vimState with mode = mode; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode Block
-                        let start, finish = VimHelpers.getRange vimState editor command.textObject
+                        let start, finish = VimHelpers.getRange vimState editor command
                         let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = None }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
@@ -688,9 +692,9 @@ module Vim =
             | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
-            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter ]
+            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
-            | NormalMode, [ "s"] -> [ run Delete CurrentLocation; run Move EnsureCursorBeforeDelimiter; switchMode InsertMode ]
+            | NormalMode, [ "s"] -> [ run Delete CurrentLocation; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
@@ -796,7 +800,6 @@ module Vim =
 
         let newState, handled = performActions action newState false
         { newState with lastAction = action }, handled
-
 
 type XSVim() =
     inherit TextEditorExtension()

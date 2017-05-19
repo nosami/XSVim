@@ -55,7 +55,6 @@ type TextObject =
     | Left
     | Right
     | RightIncludingDelimiter
-    | EnsureCursorBeforeDelimiter
     | FirstNonWhitespace
     | StartOfLine
     | StartOfLineNumber of int
