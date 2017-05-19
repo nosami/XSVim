@@ -8,6 +8,10 @@ module ``Yank and put tests`` =
         assertText "a$bc" "vly" "a$bc"
 
     [<Test>]
+    let ``Yanking doesn't move caret when there is no selection'``() =
+        assertText "a$bcdef" "vll<esc>y$" "abc$def"
+
+    [<Test>]
     let ``Should put line at last line``() =
         assertText "  abc$\ndef" "yyjp" "  abc\ndef\n  a$bc"
 

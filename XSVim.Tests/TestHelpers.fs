@@ -89,7 +89,7 @@ module FixtureSetup =
 [<AutoOpen>]
 module TestHelpers =
     let groupToKeys = function
-        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, ' ', Gdk.ModifierType.None) |]
+        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
         | keys ->
             keys.ToCharArray() 
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))

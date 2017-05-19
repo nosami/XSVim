@@ -425,9 +425,11 @@ module Vim =
                     EditActions.ClipboardCopy editor
                     LoggingService.LogDebug (sprintf "Yanked - %s" clipboard)
                     editor.ClearSelection()
-                    editor.CaretOffset <- vimState.visualStartOffset
+                    match vimState.mode with
+                    | VisualModes -> editor.CaretOffset <- vimState.visualStartOffset
+                    | _ -> ()
                     vimState
-                | Put Before -> 
+                | Put Before ->
                     if clipboard.EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
@@ -682,6 +684,7 @@ module Vim =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
             | NormalMode, [ Escape ] -> [ run ResetKeys Nothing ]
+            | VisualModes, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
