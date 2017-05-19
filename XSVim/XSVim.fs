@@ -47,6 +47,7 @@ module VimHelpers =
         findCharBackwards editor startChar, findCharForwards editor endChar
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
+    let isWORDChar c = not (Char.IsWhiteSpace c)
 
     let (|InvisibleChar|_|) c =
         if Char.IsWhiteSpace c || c = '\r' || c = '\n' then
@@ -54,7 +55,7 @@ module VimHelpers =
         else
             None
 
-    let findWordForwards (editor:TextEditor) commandType =
+    let findWordForwards (editor:TextEditor) commandType fWordChar =
         let findFromNonLetterChar index =
             match editor.Text.[index], commandType with
             | InvisibleChar, Move ->
@@ -62,19 +63,19 @@ module VimHelpers =
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.Text.[index]))
             | _ -> Some index
 
-        if not (isWordChar editor.Text.[editor.CaretOffset]) && isWordChar editor.Text.[editor.CaretOffset + 1] then 
+        if not (fWordChar editor.Text.[editor.CaretOffset]) && fWordChar editor.Text.[editor.CaretOffset + 1] then 
             editor.CaretOffset + 1 |> Some
         else
             seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
-            |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (isWordChar editor.Text.[index]))
+            |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (fWordChar editor.Text.[index]))
             |> Option.bind findFromNonLetterChar
 
-    let findPrevWord (editor:TextEditor) =
+    let findPrevWord (editor:TextEditor) fWordChar =
         let result = Math.Max(editor.CaretOffset - 1, 0)
-        let previous = isWordChar editor.Text.[result]
+        let previous = fWordChar editor.Text.[result]
         let rec findStartBackwards index previous isInIdentifier =
             let ch = editor.Text.[index]
-            let current = isWordChar ch
+            let current = fWordChar ch
 
             match previous with
             | _ when index = 0 -> 0
@@ -82,13 +83,13 @@ module VimHelpers =
             | _ -> findStartBackwards (index - 1) current previous
         findStartBackwards result previous previous
 
-    let findWordEnd (editor:TextEditor) =
+    let findWordEnd (editor:TextEditor) fWordChar =
         let result = Math.Min(editor.CaretOffset+1, editor.Text.Length-1)
         let previous = isWordChar editor.Text.[result]
 
         let rec findEnd index previous isInIdentifier =
             let ch = editor.Text.[index]
-            let current = isWordChar ch
+            let current = fWordChar ch
 
             match previous with
             | _ when index = editor.Text.Length-1 -> editor.Text.Length
@@ -96,14 +97,14 @@ module VimHelpers =
             | _ -> findEnd (index + 1) current previous
         findEnd result previous previous
 
-    let findCurrentWordStart (editor:TextEditor) =
+    let findCurrentWordStart (editor:TextEditor) fWordChar =
         seq { editor.CaretOffset .. -1 .. 1 }
-        |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index-1]))
+        |> Seq.tryFind(fun index -> not (fWordChar editor.Text.[index-1]))
         |> Option.defaultValue 0
 
-    let findCurrentWordEnd (editor:TextEditor) =
+    let findCurrentWordEnd (editor:TextEditor) fWordChar =
         seq { editor.CaretOffset .. editor.Text.Length-1 }
-        |> Seq.tryFind(fun index -> not (isWordChar editor.Text.[index]))
+        |> Seq.tryFind(fun index -> not (fWordChar editor.Text.[index]))
         |> Option.defaultValue (editor.Text.Length - 1)
 
     let paragraphBackwards (editor:TextEditor) =
@@ -128,8 +129,8 @@ module VimHelpers =
 
     let wordAtCaret (editor:TextEditor) =
         if isWordChar (editor.GetCharAt editor.CaretOffset) then
-            let start = findCurrentWordStart editor
-            let finish = (findWordEnd editor)
+            let start = findCurrentWordStart editor isWordChar
+            let finish = (findWordEnd editor isWordChar)
             let finish = Math.Min (finish+1, editor.Text.Length)
             let word = editor.GetTextAt(start, finish - start)
             Some word
@@ -230,10 +231,15 @@ module VimHelpers =
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | WordForwards ->
-            match findWordForwards editor command.commandType with
+            match findWordForwards editor command.commandType isWordChar with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | WordBackwards -> editor.CaretOffset, findPrevWord editor
+        | WORDForwards ->
+            match findWordForwards editor command.commandType isWORDChar with
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, editor.CaretOffset
+        | WordBackwards -> editor.CaretOffset, findPrevWord editor isWordChar
+        | WORDBackwards -> editor.CaretOffset, findPrevWord editor isWORDChar
         | ParagraphBackwards ->
             match paragraphBackwards editor with
             | Some index -> editor.CaretOffset, index
@@ -242,9 +248,10 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> findCurrentWordStart editor, findCurrentWordEnd editor
-        | AWord -> findCurrentWordStart editor, findCurrentWordEnd editor
-        | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor
+        | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
+        | AWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
+        | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor isWordChar
+        | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
         //| BackwardToEndOfWord -> editor.CaretOffset, findPrevWord editor |> editor.FindCurrentWordEnd
         | HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
@@ -526,7 +533,7 @@ module Vim =
                         let matches = Regex.Matches(editor.Text, sprintf @"\b%s\b" word)
                                       |> Seq.cast<Match>
 
-                        let start = findCurrentWordStart editor
+                        let start = findCurrentWordStart editor isWordChar
 
                         let m =
                             matches
@@ -595,9 +602,11 @@ module Vim =
         | ["0"] -> Some StartOfLine
         | ["_"] -> Some FirstNonWhitespace
         | ["w"] -> Some WordForwards
+        | ["W"] -> Some WORDForwards
         | ["b"] -> Some WordBackwards
+        | ["B"] -> Some WORDBackwards
         | ["e"] -> Some ForwardToEndOfWord
-        | ["E"] -> Some BackwardToEndOfWord
+        | ["E"] -> Some ForwardToEndOfWORD
         | ["{"] -> Some ParagraphBackwards
         | ["}"] -> Some ParagraphForwards
         | ["%"] -> Some MatchingBrace
