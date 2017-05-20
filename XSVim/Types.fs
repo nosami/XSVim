@@ -32,6 +32,7 @@ type CommandType =
     | ResetKeys
     | DoNothing
     | Star of BeforeOrAfter
+    | ToggleCase
 
 type TextObject =
     | Character
