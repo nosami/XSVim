@@ -343,7 +343,6 @@ module Vim =
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
 
-
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
             clipboard <- editor.SelectedText
@@ -392,6 +391,12 @@ module Vim =
                     newState
 
                 | Delete -> 
+                    let line = editor.GetLine editor.CaretLine
+                    let finish =
+                        if command.textObject = WordForwards && finish < line.EndOffset then
+                            finish + 1
+                        else
+                            finish
                     let newState = delete vimState start finish
                     let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
