@@ -363,17 +363,14 @@ module Vim =
         let toggleCase state start finish =
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
-            let charList = editor.SelectedText.ToCharArray()
-            let swappedChars = 
-                [ for i in charList do
-                    match i with
-                    | i when Char.IsUpper(i) -> yield Char.ToLower(i) 
-                    | i when Char.IsLower(i) -> yield Char.ToUpper(i)
-                    | _ -> yield i ]
-            let swappedText = System.Text.StringBuilder(swappedChars.Length)
-            swappedChars |> List.iter(swappedText.Append >> ignore)
+            let toggleChar =
+                function
+                | c when Char.IsUpper c -> Char.ToLower c
+                | c when Char.IsLower c -> Char.ToUpper c
+                | c -> c
+            let swappedChars = editor.SelectedText |> Seq.map toggleChar |> Array.ofSeq
             EditActions.Delete editor
-            editor.InsertAtCaret (swappedText.ToString()) 
+            editor.InsertAtCaret (swappedChars |> String)
             if command.textObject = SelectedText then
                 editor.CaretOffset <- state.visualStartOffset
             state
