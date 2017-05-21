@@ -361,13 +361,6 @@ module Vim =
             { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = Some group }
 
         let toggleCase state start finish =
-            let finish = 
-                match command.textObject with
-                | ForwardToEndOfWord
-                | EndOfLine
-                | ToCharInclusive _
-                | ToCharExclusive _ -> finish + 1
-                | _ -> finish
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
             let charList = editor.SelectedText.ToCharArray()

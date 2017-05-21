@@ -81,4 +81,4 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``~ toggles case of selection``() =
-        assertText "a$bc abc" "vll~" "A$BC abc"
+        assertText "A$bC abc" "vll~" "a$Bc abc"
