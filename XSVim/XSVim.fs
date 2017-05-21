@@ -381,6 +381,8 @@ module Vim =
             swappedChars |> List.iter(swappedText.Append >> ignore)
             EditActions.Delete editor
             editor.InsertAtCaret (swappedText.ToString()) 
+            if command.textObject = SelectedText then
+                editor.CaretOffset <- state.visualStartOffset
             state
 
         let rec processCommands count vimState command = 
