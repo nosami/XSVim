@@ -360,6 +360,21 @@ module Vim =
             setCaretMode Insert
             { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = Some group }
 
+        let toggleCase state start finish =
+            if command.textObject <> SelectedText then
+                setSelection state editor command start finish
+            let toggleChar =
+                function
+                | c when Char.IsUpper c -> Char.ToLower c
+                | c when Char.IsLower c -> Char.ToUpper c
+                | c -> c
+            let swappedChars = editor.SelectedText |> Seq.map toggleChar |> Array.ofSeq
+            EditActions.Delete editor
+            editor.InsertAtCaret (swappedChars |> String)
+            if command.textObject = SelectedText then
+                editor.CaretOffset <- state.visualStartOffset
+            state
+
         let rec processCommands count vimState command = 
             let start, finish = VimHelpers.getRange vimState editor command
             let newState =
@@ -401,6 +416,9 @@ module Vim =
                     let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
                     editor.CaretOffset <- Math.Max(offsetBeforeDelimiter, 0)
+                    newState
+                | ToggleCase ->
+                    let newState = toggleCase vimState start finish
                     newState
                 | DeleteWholeLines ->
                     let min = Math.Min(start, finish)
@@ -766,6 +784,8 @@ module Vim =
             | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
             | VisualModes, [ "d" ] -> [ run Delete SelectedText; switchMode NormalMode ]
             | VisualModes, [ "c" ] -> [ run Change SelectedText ]
+            | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
+            | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run Yank SelectedText; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]

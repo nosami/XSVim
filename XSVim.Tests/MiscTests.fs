@@ -74,3 +74,11 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``£ wraps to end``() =
         assertText "a$bc abc" "£" "abc a$bc"
+
+    [<Test>]
+    let ``~ toggles case of char at caret``() =
+        assertText "a$bc abc" "~" "Ab$c abc"
+
+    [<Test>]
+    let ``~ toggles case of selection``() =
+        assertText "A$bC abc" "vll~" "a$Bc abc"
