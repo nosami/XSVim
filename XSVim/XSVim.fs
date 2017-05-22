@@ -202,7 +202,6 @@ module VimHelpers =
                 line.Offset-1, line.EndOffsetIncludingDelimiter
             else
                 line.Offset, line.EndOffsetIncludingDelimiter
-        | WholeLineToEndOfDocument -> line.Offset, editor.Text.Length
         | LastLine ->
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset

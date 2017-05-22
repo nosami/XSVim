@@ -48,7 +48,6 @@ type TextObject =
     | InnerBlock of string * string
     | WholeLine
     | WholeLineIncludingDelimiter
-    | WholeLineToEndOfDocument
     | LastLine
     // motions
     | Up
