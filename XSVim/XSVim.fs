@@ -840,18 +840,28 @@ module Vim =
 type XSVim() =
     inherit TextEditorExtension()
     static let editorStates = Dictionary<string, VimState>()
-    let mutable disposable : IDisposable option = None
-
+    let mutable disposables : IDisposable list = []
+    let mutable processingKey = false
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, Vim.defaultState )
+            let editor = x.Editor
             EditActions.SwitchCaretMode x.Editor
-            disposable <- Some (IdeApp.Workbench.DocumentClosed.Subscribe
+            let caretChanged =
+                editor.CaretPositionChanged.Subscribe
+                    (fun _e ->
+                        if not processingKey then // only interested in mouse clicks
+                            let line = editor.GetLine editor.CaretLine
+                            if line.Length > 0 && editor.CaretColumn >= line.LengthIncludingDelimiter then
+                                editor.CaretOffset <- editor.CaretOffset - 1)
+
+            disposables <- [ caretChanged;
+                IdeApp.Workbench.DocumentClosed.Subscribe
                 (fun e -> let documentName = e.Document.Name
                           if editorStates.ContainsKey documentName then
-                              editorStates.Remove documentName |> ignore))
+                              editorStates.Remove documentName |> ignore) ]
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
@@ -860,7 +870,9 @@ type XSVim() =
             let vimState = editorStates.[x.FileName]
             let oldState = vimState
 
+            processingKey <- true
             let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
+            processingKey <- false
             match newState.statusMessage with
             | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
@@ -873,4 +885,4 @@ type XSVim() =
 
     override x.Dispose() =
         base.Dispose()
-        disposable |> Option.iter(fun d -> d.Dispose())
+        disposables |> List.iter(fun d -> d.Dispose())
