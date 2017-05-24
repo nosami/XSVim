@@ -332,6 +332,8 @@ module Vim =
         { repeat=repeat; commandType=commandType; textObject=textObject }
 
     let runOnce = getCommand (Some 1)
+    let typeChar c = runOnce (InsertChar c) Nothing
+
     let runCommand vimState editor command =
         let delete state start finish =
             let finish =
@@ -572,6 +574,9 @@ module Vim =
                         editor.CaretOffset <- offset
                         vimState
                     | None -> vimState
+                | InsertChar c ->
+                    editor.InsertAtCaret c
+                    vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command
         let count =
@@ -774,7 +779,7 @@ module Vim =
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NotInsertMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
-            | NotInsertMode, [ "." ] -> state.lastAction
+            | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, Movement m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
@@ -801,25 +806,26 @@ module Vim =
             | NotInsertMode, [ "<C-w>"; "<C-s>" ] 
                 -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
+            //| InsertMode, [ c ] -> [ typeChar c ]
             | _, [] when numericArgument.IsSome  -> wait
             | _ -> [ run ResetKeys Nothing ]
         action, newState
 
     let handleKeyPress state (keyPress:KeyDescriptor) editor =
-        let newKeys =
+        let newKeys, insertChar =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
-                state.keys @ [sprintf "<C-%c>" c]
+                state.keys @ [sprintf "<C-%c>" c], None
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
-                state.keys @ [c |> string]
+                state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
-                | SpecialKey.Escape -> ["<esc>"]
-                | SpecialKey.Left -> ["h"]
-                | SpecialKey.Down -> ["j"]
-                | SpecialKey.Up -> ["k"]
-                | SpecialKey.Right -> ["l"]
-                | _ -> state.keys
+                | SpecialKey.Escape -> ["<esc>"], None
+                | SpecialKey.Left -> ["h"], None
+                | SpecialKey.Down -> ["j"], None
+                | SpecialKey.Up -> ["k"], None
+                | SpecialKey.Right -> ["l"], None
+                | _ -> state.keys, Some keyPress.KeyChar
         let newState = { state with keys = newKeys }
         let action, newState = parseKeys newState
         LoggingService.LogDebug (sprintf "%A" action)
@@ -835,7 +841,17 @@ module Vim =
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
-        { newState with lastAction = action }, handled
+        let firstAction = action |> List.head
+        let newState =
+            match insertChar, firstAction.commandType, keyPress.KeyChar with
+            | Some c, _, _ -> { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
+            | None, Delete, _
+            | None, Change, _
+            | None, _, 'a'
+            | None, _, 'i'
+            | None, _, 'A' -> { newState with lastAction = action }
+            | _ -> newState
+        newState, handled
 
 type XSVim() =
     inherit TextEditorExtension()
@@ -848,7 +864,7 @@ type XSVim() =
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, Vim.defaultState )
             let editor = x.Editor
-            EditActions.SwitchCaretMode x.Editor
+            EditActions.SwitchCaretMode editor
             let caretChanged =
                 editor.CaretPositionChanged.Subscribe
                     (fun _e ->

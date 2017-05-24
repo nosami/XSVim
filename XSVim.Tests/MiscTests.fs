@@ -36,6 +36,18 @@ module ``Miscellaneous tests`` =
         assertText "a$bc def ghi" "3dwu" "a$bc def ghi"
 
     [<Test>]
+    let ``Repeat typed chars``() =
+        assertText " $" "iabc <esc>." "abcabc  $ "
+
+    [<Test>]
+    let ``Repeat delete word``() =
+        assertText "a$bc de fgh" "dww." "de $"
+
+    [<Test>]
+    let ``Repeat change word``() =
+        assertText "a$bc de fgz " "cwxxx<esc>ww." "xxx de xxx $"
+
+    [<Test>]
     let ``Undo insert mode``() =
         assertText "abc$" "adef ghi jkl<esc>u" "abc$"
 

@@ -33,6 +33,7 @@ type CommandType =
     | DoNothing
     | Star of BeforeOrAfter
     | ToggleCase
+    | InsertChar of string
 
 type TextObject =
     | Character

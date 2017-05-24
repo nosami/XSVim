@@ -113,6 +113,8 @@ module TestHelpers =
             keyDescriptors
             |> Array.fold(fun state c ->
                 let newState, handledKeyPress = Vim.handleKeyPress state c editor
+                printfn "%A" newState
+                printfn "%s" editor.Text
                 if state.mode = InsertMode && c.SpecialKey <> SpecialKey.Escape then
                     editor.InsertAtCaret (c.KeyChar.ToString())
                 newState) state
