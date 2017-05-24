@@ -63,6 +63,10 @@ module ``Delete tests`` =
         assertText "ab$c def" "de" "a $def"
 
     [<Test>]
+    let ``Delete to end of WORD``() =
+        assertText "ab$c.def ghi" "dE" "a $ghi"
+
+    [<Test>]
     let ``Deleting last word doesn't delete delimiter'``() =
         assertText "abc d$ef\nghi" "dw" "abc $\nghi"
 
