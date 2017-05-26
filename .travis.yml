@@ -1,5 +1,7 @@
 language: objective-c
 solution: XSVim.sln
+before_install:
+    - rvm get head
 script:
 
   - wget https://dl.xamarin.com/MonoFrameworkMDK/Macx86/MonoFramework-MDK-5.0.1.1.macos10.xamarin.universal.pkg
