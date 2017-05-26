@@ -505,11 +505,12 @@ module Vim =
                     editor.InsertAtCaret c
                     EditActions.MoveCaretLeft editor
                     vimState
-                | InsertLine Before -> EditActions.InsertNewLineAtEnd editor; vimState
-                | InsertLine After ->
-                    editor.CaretColumn <- 1
-                    EditActions.InsertNewLine editor
+                | InsertLine Before -> 
+                    EditActions.InsertNewLineAtEnd editor
+                    vimState
+                | InsertLine After -> 
                     EditActions.MoveCaretUp editor
+                    EditActions.InsertNewLineAtEnd editor
                     vimState
                 | Dispatch command -> dispatch command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
@@ -845,10 +846,14 @@ module Vim =
                     newState, true
                 else
                     let newState = runCommand state editor h
+
                     performActions t { newState with keys = [] } true
 
         let newState, handled = performActions action newState false
+
         let firstAction = action |> List.head
+
+
         let newState =
             match insertChar, firstAction.commandType, keyPress.KeyChar with
             | Some c, _, _ -> { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
