@@ -1,1 +1,1 @@
-mono lib/vstool.exe XSVim.Tests/bin/Debug/XSVim.Tests.dll
+mono lib/vstool.exe run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll
