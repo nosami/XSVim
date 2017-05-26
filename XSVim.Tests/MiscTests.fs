@@ -94,3 +94,7 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``~ toggles case of selection``() =
         assertText "A$bC abc" "vll~" "a$Bc abc"
+
+    [<Test>]
+    let ``<esc> doesn't move caret left onto newline'``() =
+        assertText "A$bC abc" "o<esc>" "AbC abc\n$"

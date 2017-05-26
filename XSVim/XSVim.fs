@@ -153,7 +153,12 @@ module VimHelpers =
                 editor.CaretOffset + 1
             else
                 editor.CaretOffset
-        | Left -> editor.CaretOffset, if editor.CaretColumn > DocumentLocation.MinColumn then editor.CaretOffset - 1 else editor.CaretOffset
+        | Left ->
+           editor.CaretOffset,
+           if editor.CaretColumn > DocumentLocation.MinColumn && editor.Text.[editor.CaretOffset-1] <> '\n' then
+               editor.CaretOffset - 1
+           else
+               editor.CaretOffset
         | Up ->
             editor.CaretOffset,
             if editor.CaretLine > DocumentLocation.MinLine then
