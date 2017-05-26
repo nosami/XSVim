@@ -6,7 +6,6 @@ script:
   - sudo installer -pkg MonoFramework-MDK-5.0.1.1.macos10.xamarin.universal.pkg -target /
   - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
   - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
-  - source ~/.bash_profile
   - ./build.sh
   - ls -la /Volumes/
   - /Library/Frameworks/Mono.framework/Versions/Current/Commands/mono "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll
