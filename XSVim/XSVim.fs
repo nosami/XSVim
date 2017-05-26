@@ -476,11 +476,13 @@ module Vim =
                     editor.InsertAtCaret c
                     EditActions.MoveCaretLeft editor
                     vimState
-                | InsertLine Before -> EditActions.InsertNewLineAtEnd editor; vimState
+                | InsertLine Before -> 
+                    EditActions.InsertNewLineAtEnd editor
+                    vimState
+
                 | InsertLine After -> 
-                    editor.CaretColumn <- 1
-                    EditActions.InsertNewLine editor
                     EditActions.MoveCaretUp editor
+                    EditActions.InsertNewLineAtEnd editor
                     vimState
                 | Dispatch command -> dispatch command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
