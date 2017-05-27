@@ -9,4 +9,4 @@ script:
   - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
   - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
   - ./build.sh
-  - /Library/Frameworks/Mono.framework/Versions/Current/Commands/mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll
+  - /Library/Frameworks/Mono.framework/Versions/Current/Commands/mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
