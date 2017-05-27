@@ -10,7 +10,6 @@ before_install:
 
 install:
     - nuget restore XSVim.sln
-    - nuget install NUnit.Runners
     - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
     - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
 
