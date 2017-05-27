@@ -9,10 +9,11 @@ before_install:
     - rvm get head
 
 install:
-  - wget https://dl.xamarin.com/MonoFrameworkMDK/Macx86/MonoFramework-MDK-5.0.1.1.macos10.xamarin.universal.pkg
-  - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
-  - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
+    - nuget restore XSVim.sln
+    - nuget install NUnit.Runners
+    - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
+    - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
 
 script:
-
-  - /Library/Frameworks/Mono.framework/Versions/Current/Commands/mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
+  - xbuild
+  - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
