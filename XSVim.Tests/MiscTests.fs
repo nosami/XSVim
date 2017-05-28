@@ -98,3 +98,11 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``<esc> doesn't move caret left onto newline'``() =
         assertText "A$bC abc" "o<esc>" "AbC abc\n$"
+
+    [<Test>]
+    let ``<C-a> increments next number``() =
+        assertText "a$bc 9" "<C-a>" "abc 10$"
+
+    [<Test>]
+    let ``<C-a> increments next negative number``() =
+        assertText "a$bc -1" "<C-a>" "abc 0$"
