@@ -542,7 +542,13 @@ module Vim =
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode vimState Block
                         let start, finish = VimHelpers.getRange vimState editor command
-                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = None }
+                        let statusMessage =
+                            match mode with
+                            | VisualMode -> Some "-- VISUAL --"
+                            | VisualLineMode -> Some "-- VISUAL LINE --"
+                            | VisualBlockMode -> Some "-- VISUAL BLOCK --"
+                            | _ -> None
+                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
                         | VisualBlockMode, SelectionMode.Normal -> dispatch TextEditorCommands.ToggleBlockSelectionMode
