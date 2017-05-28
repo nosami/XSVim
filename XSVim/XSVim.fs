@@ -686,6 +686,7 @@ module Vim =
         let numericArgument, keyList =
             match keyList with
             | "r" :: _ -> None, keyList
+            | FindChar _ :: _ -> None, keyList
             // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
