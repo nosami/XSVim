@@ -1,5 +1,4 @@
-﻿
-namespace XSVim.Tests
+﻿namespace XSVim.Tests
 open NUnit.Framework
 
 [<TestFixture>]
@@ -59,3 +58,19 @@ module ``Movement tests`` =
     [<Test>]
     let ``Does not move right past delimiter``() =
         assertText "a$b\n" "ll" "ab$\n"
+
+    [<Test>]
+    let ``Find moves to digit``() =
+        assertText "abc$ d1 d2 d3" "f2" "abc d1 d2$ d3"
+
+    [<Test>]
+    let ``Reverse find moves to digit``() =
+        assertText "abc d1 d2 d$3" "F1" "abc d1$ d2 d3"
+
+    [<Test>]
+    let ``Till moves to digit``() =
+        assertText "abc$ d1 d2 d3" "t2" "abc d1 d$2 d3"
+
+    [<Test>]
+    let ``Reverse till moves to digit``() =
+        assertText "abc d1 d2 d$3" "T1" "abc d1 $d2 d3"
