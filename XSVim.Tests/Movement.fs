@@ -74,3 +74,7 @@ module ``Movement tests`` =
     [<Test>]
     let ``Reverse till moves to digit``() =
         assertText "abc d1 d2 d$3" "T1" "abc d1 $d2 d3"
+
+    [<Test>]
+    let ``2fd moves to second d``() =
+        assertText "abc$ d1 d2 d3" "2fd" "abc d1 d$2 d3"
