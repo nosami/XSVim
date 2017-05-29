@@ -21,17 +21,24 @@ module VimHelpers =
             Some editor.CaretOffset
         else
             seq { editor.CaretOffset .. line.EndOffset }
-            |> Seq.tryFind(fun index -> openingbraces.Contains(editor.Text.[index]))
+            |> Seq.tryFind(fun index -> openingbraces.Contains(editor.[index]))
 
     let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
         let ch = Char.Parse character
         seq { editor.CaretOffset+1 .. line.EndOffset }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
+        |> Seq.tryFind(fun index -> editor.[index] = ch)
 
-    let findCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
+    let findCharBackwardsOnLine startOffset (editor:TextEditor) (line:IDocumentLine) matcher =
+        seq { startOffset .. -1 .. line.Offset }
+        |> Seq.tryFind (fun i -> matcher editor.[i])
+
+    let findCharBackwardsOnLineExclusive (editor:TextEditor) = findCharBackwardsOnLine (editor.CaretOffset-1) editor
+    let findCharBackwardsOnLineInclusive (editor:TextEditor) = findCharBackwardsOnLine editor.CaretOffset editor
+
+    let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
         let ch = Char.Parse character
-        seq { editor.CaretOffset-1 .. -1 .. line.Offset }
-        |> Seq.tryFind(fun index -> editor.Text.[index] = ch)
+        let f = findCharBackwardsOnLineExclusive editor
+        f line ((=) ch)
 
     let findCharForwards (editor:TextEditor) character =
         let ch = Char.Parse character
@@ -85,10 +92,10 @@ module VimHelpers =
 
     let findWordEnd (editor:TextEditor) fWordChar =
         let result = Math.Min(editor.CaretOffset+1, editor.Text.Length-1)
-        let previous = isWordChar editor.Text.[result]
+        let previous = isWordChar editor.[result]
 
         let rec findEnd index previous isInIdentifier =
-            let ch = editor.Text.[index]
+            let ch = editor.[index]
             let current = fWordChar ch
 
             match previous with
@@ -99,7 +106,7 @@ module VimHelpers =
 
     let findCurrentWordStart (editor:TextEditor) fWordChar =
         seq { editor.CaretOffset .. -1 .. 1 }
-        |> Seq.tryFind(fun index -> not (fWordChar editor.Text.[index-1]))
+        |> Seq.tryFind(fun index -> not (fWordChar editor.[index-1]))
         |> Option.defaultValue 0
 
     let findCurrentWordEnd (editor:TextEditor) fWordChar =
@@ -211,11 +218,11 @@ module VimHelpers =
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
-            match findCharBackwardsOnLine editor line c with
+            match findStringCharBackwardsOnLine editor line c with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusiveBackwards c ->
-            match findCharBackwardsOnLine editor line c with
+            match findStringCharBackwardsOnLine editor line c with
             | Some index -> editor.CaretOffset, index+1
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharInclusive c ->
@@ -363,7 +370,6 @@ module Vim =
             | _ -> ()
 
         let switchToInsertMode (editor:TextEditor) state isInitial =
-            //let group = state.undoGroup |> Option.orElse (editor.OpenUndoGroup() |> Some)
             let group = 
                 if isInitial 
                     then editor.OpenUndoGroup() |> Some
@@ -386,6 +392,28 @@ module Vim =
             if command.textObject = SelectedText then
                 editor.CaretOffset <- state.visualStartOffset
             state
+
+        let modifyNumber f =
+            let line = editor.GetLine editor.CaretLine
+            let startOffset =
+                let f = findCharBackwardsOnLineInclusive editor
+                f line (fun c -> (c < '0' || c > '9') && c <> '-')
+            let offset = 
+                match startOffset with
+                | Some i -> i+1
+                | None -> editor.CaretOffset
+            let lineToEnd = editor.Text.[offset .. line.EndOffset-1]
+            let matches = Regex.Matches(lineToEnd, "-?[0-9]+", RegexOptions.Compiled) |> Seq.cast<Match>
+
+            match matches |> Seq.tryHead with
+            | Some m ->
+                let i = Convert.ToInt32 (lineToEnd.[m.Index .. m.Index+m.Length-1])
+                let replacement = (f i) |> string
+                editor.ReplaceText(line.Offset+m.Index+(line.Length-lineToEnd.Length), m.Length, replacement)
+                let line = editor.GetLine editor.CaretLine
+                editor.CaretOffset <- line.Offset + m.Index+(line.Length-lineToEnd.Length)+m.Length-1
+                vimState
+            | None -> vimState
 
         let rec processCommands count vimState command isInitial =
             let start, finish = VimHelpers.getRange vimState editor command
@@ -601,6 +629,8 @@ module Vim =
                 | InsertChar c ->
                     editor.InsertAtCaret c
                     vimState
+                | IncrementNumber -> modifyNumber (fun i -> i + 1)
+                | DecrementNumber -> modifyNumber (fun i -> i - 1)
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -828,7 +858,8 @@ module Vim =
             | NotInsertMode, [ "<C-w>"; "<C-s>" ] 
                 -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
-            //| InsertMode, [ c ] -> [ typeChar c ]
+            | NotInsertMode, [ "<C-a>" ] -> [ run IncrementNumber Nothing; switchMode NormalMode ]
+            | NotInsertMode, [ "<C-x>" ] -> [ run DecrementNumber Nothing; switchMode NormalMode ]
             | _, [] when numericArgument.IsSome  -> wait
             | _ -> [ run ResetKeys Nothing ]
         action, newState
@@ -866,7 +897,6 @@ module Vim =
         let newState, handled = performActions action newState false
 
         let firstAction = action |> List.head
-
 
         let newState =
             match insertChar, firstAction.commandType, keyPress.KeyChar with

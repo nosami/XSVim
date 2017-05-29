@@ -34,6 +34,8 @@ type CommandType =
     | Star of BeforeOrAfter
     | ToggleCase
     | InsertChar of string
+    | IncrementNumber
+    | DecrementNumber
 
 type TextObject =
     | Character

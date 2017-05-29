@@ -101,8 +101,28 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``<C-a> increments next number``() =
-        assertText "a$bc 9" "<C-a>" "abc 10$"
+        assertText "a$bc 9 " "<C-a>" "abc 10$ "
+
+    [<Test>]
+    let ``<C-a> increments second number``() =
+        assertText "abc 0 $1 " "<C-a>" "abc 0 2$ "
+
+    [<Test>]
+    let ``<C-a> increments same width number``() =
+        assertText "a$bc 0 " "<C-a>" "abc 1$ "
+
+    [<Test>]
+    let ``<C-a> increments number at caret``() =
+        assertText "abc 9$ " "<C-a>" "abc 10$ "
 
     [<Test>]
     let ``<C-a> increments next negative number``() =
-        assertText "a$bc -1" "<C-a>" "abc 0$"
+        assertText "a$bc -1 " "<C-a>" "abc 0$ "
+
+    [<Test>]
+    let ``<C-x> decrements next number``() =
+        assertText "a$bc 10 " "<C-x>" "abc 9$ "
+
+    [<Test>]
+    let ``<C-x> decrements -1``() =
+        assertText "abc -1$ " "<C-x>" "abc -2$ "
