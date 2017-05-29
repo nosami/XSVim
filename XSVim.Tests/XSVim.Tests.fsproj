@@ -8,7 +8,7 @@
 		<RootNamespace>XSVim.Tests</RootNamespace>
 		<AssemblyName>XSVim.Tests</AssemblyName>
 		<TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
-		<TestRunnerCommand>..\..\monodevelop\main\build\bin\mdtool.exe</TestRunnerCommand>
+		<TestRunnerCommand>/Applications/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe</TestRunnerCommand>
 		<TestRunnerArgs>run-md-tests</TestRunnerArgs>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
