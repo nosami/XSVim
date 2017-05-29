@@ -78,3 +78,7 @@ module ``Movement tests`` =
     [<Test>]
     let ``2fd moves to second d``() =
         assertText "abc$ d1 d2 d3" "2fd" "abc d1 d$2 d3"
+
+    [<Test>]
+    let ``F finds previous char``() =
+        assertText "a a$" "Fa" "a$ a"
