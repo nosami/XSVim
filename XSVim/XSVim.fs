@@ -380,9 +380,26 @@ module Vim =
                 | c when Char.IsUpper c -> Char.ToLower c
                 | c when Char.IsLower c -> Char.ToUpper c
                 | c -> c
-            let swappedChars = editor.SelectedText |> Seq.map toggleChar |> Array.ofSeq
-            EditActions.Delete editor
-            editor.InsertAtCaret (swappedChars |> String)
+            match state.mode with
+            | VisualBlockMode ->
+                let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
+                let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine) 
+                let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
+                editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
+                let offsets = [ topLine .. bottomLine ] |> List.map (fun c -> editor.LocationToOffset(c, editor.CaretColumn))
+                for i in offsets do
+                    let currentLetter = (editor.GetCharAt(i))
+                    let isLetter = Char.IsLetter(editor.GetCharAt(i))
+                    if isLetter then
+                        let c = toggleChar currentLetter
+                        editor.SetSelection(i, i+1)
+                        EditActions.Delete editor
+                        editor.InsertAtCaret (c.ToString())
+                        EditActions.MoveCaretLeft editor
+            | _ ->
+                let swappedChars = editor.SelectedText |> Seq.map toggleChar |> Array.ofSeq
+                EditActions.Delete editor
+                editor.InsertAtCaret (swappedChars |> String)
             if command.textObject = SelectedText then
                 editor.CaretOffset <- state.visualStartOffset
             state
