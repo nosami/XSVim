@@ -356,16 +356,21 @@ module Vim =
             EditActions.ClipboardCut editor
             state
 
-        let setCaretMode caretMode =
-            match vimState.mode, caretMode with
+        let setCaretMode state caretMode =
+            match state.mode, caretMode with
             | NotInsertMode, Insert -> EditActions.SwitchCaretMode editor
             | InsertMode, Block -> EditActions.SwitchCaretMode editor
             | _ -> ()
 
-        let switchToInsertMode (editor:TextEditor) state =
-            let group = editor.OpenUndoGroup()
-            setCaretMode Insert
-            { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = Some group }
+        let switchToInsertMode (editor:TextEditor) state isInitial =
+            //let group = state.undoGroup |> Option.orElse (editor.OpenUndoGroup() |> Some)
+            let group = 
+                if isInitial 
+                    then editor.OpenUndoGroup() |> Some
+                else
+                    state.undoGroup
+            setCaretMode state Insert
+            { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = group }
 
         let toggleCase state start finish =
             if command.textObject <> SelectedText then
@@ -382,7 +387,7 @@ module Vim =
                 editor.CaretOffset <- state.visualStartOffset
             state
 
-        let rec processCommands count vimState command = 
+        let rec processCommands count vimState command isInitial =
             let start, finish = VimHelpers.getRange vimState editor command
             let newState =
                 match command.commandType with
@@ -434,13 +439,18 @@ module Vim =
                     let finish = editor.GetLineByOffset(max).EndOffsetIncludingDelimiter
                     delete vimState start finish
                 | DeleteLeft -> if editor.CaretColumn > 1 then delete vimState (editor.CaretOffset - 1) editor.CaretOffset else vimState
-                | Change -> 
+                | Change ->
+                    let finish =
+                        if count <> 1 && editor.[finish] = ' ' then
+                            finish + 1
+                        else
+                            finish
                     let state =
                         if start <> finish then
                             delete vimState start finish
                         else
                             vimState
-                    switchToInsertMode editor state
+                    switchToInsertMode editor state isInitial
                 | Yank ->
                     let finish =
                         match command.textObject with
@@ -521,18 +531,24 @@ module Vim =
                     editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
                     editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
                     if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
-                    switchToInsertMode editor vimState
+                    switchToInsertMode editor vimState isInitial
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode ->
                         editor.ClearSelection()
-                        setCaretMode Block
+                        setCaretMode vimState Block
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
                         { vimState with mode = mode; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
-                        setCaretMode Block
+                        setCaretMode vimState Block
                         let start, finish = VimHelpers.getRange vimState editor command
-                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = None }
+                        let statusMessage =
+                            match mode with
+                            | VisualMode -> Some "-- VISUAL --"
+                            | VisualLineMode -> Some "-- VISUAL LINE --"
+                            | VisualBlockMode -> Some "-- VISUAL BLOCK --"
+                            | _ -> None
+                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
                         | VisualBlockMode, SelectionMode.Normal -> dispatch TextEditorCommands.ToggleBlockSelectionMode
@@ -540,7 +556,7 @@ module Vim =
                         | _ -> ()
                         newState
                     | InsertMode ->
-                        switchToInsertMode editor vimState
+                        switchToInsertMode editor vimState isInitial
                 | Star After ->
                     match wordAtCaret editor with
                     | Some word ->
@@ -560,7 +576,7 @@ module Vim =
                         editor.CaretOffset <- offset
                         vimState
                     | None ->
-                        processCommands 1 vimState (runOnce Move WordForwards)
+                        processCommands 1 vimState (runOnce Move WordForwards) isInitial
                 | Star Before ->
                     match wordAtCaret editor with
                     | Some word ->
@@ -586,15 +602,12 @@ module Vim =
                     editor.InsertAtCaret c
                     vimState
                 | _ -> vimState
-            if count = 1 then newState else processCommands (count-1) newState command
-        let count =
-            match command.repeat with
-            | Some r -> r
-            | None -> 1
+            if count = 1 then newState else processCommands (count-1) newState command false
+        let count = command.repeat |> Option.defaultValue 1
 
         use group = editor.OpenUndoGroup()
 
-        processCommands count vimState command
+        processCommands count vimState command true
 
     let (|Digit|_|) character =
         if character >= "0" && character <= "9" then
@@ -686,6 +699,7 @@ module Vim =
         let numericArgument, keyList =
             match keyList with
             | "r" :: _ -> None, keyList
+            | FindChar _ :: _ -> None, keyList
             // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
