@@ -21,7 +21,8 @@ script:
 deploy:
   provider: releases
   api_key: "f8c67a46952f852ba95af8207949d8f59cf04b44"
-  file: "XSVim/bin/Debug/XSVim.dll"
+  file_glob: true
+  file: XSVim/bin/Debug/*
   skip_cleanup: true
   on:
     tags: true
