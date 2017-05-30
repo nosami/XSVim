@@ -88,8 +88,14 @@ module FixtureSetup =
 
 [<AutoOpen>]
 module TestHelpers =
+    let (|CtrlKey|_|) (s:string) =
+        match s with
+        | s when s.Length = 3 && s.StartsWith "C-" -> Some s.[2]
+        | _ -> None
+
     let groupToKeys = function
         | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
+        | CtrlKey ch -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
         | keys ->
             keys.ToCharArray() 
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
