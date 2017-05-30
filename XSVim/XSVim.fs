@@ -563,9 +563,15 @@ module Vim =
                     EditActions.InsertNewLineAtEnd editor
                     vimState
                 | InsertLine After -> 
-                    EditActions.MoveCaretToLineStart editor
-                    EditActions.InsertNewLinePreserveCaretPosition editor
-                    vimState
+                    if editor.CaretLine = 1 then
+                        EditActions.MoveCaretToLineStart editor
+                        EditActions.InsertNewLine editor
+                        EditActions.MoveCaretUp editor
+                        vimState
+                    else
+                        EditActions.MoveCaretUp editor
+                        EditActions.InsertNewLineAtEnd editor
+                        vimState
                 | Dispatch command -> dispatch command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
                 | BlockInsert ->

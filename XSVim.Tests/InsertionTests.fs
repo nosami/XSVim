@@ -9,5 +9,5 @@ module ``Insertion tests`` =
         assertText " \n a$bcdef" "O" "\n|\n abcdef"
 
     [<Test>]
-    let ``'O' should work on the first line``()=
-        assertText " a$bcdef" "O" "|\n abcdef"
+    let ``'O' inserts line above``() =
+        assertText "abc$def\n" "O" "|\nabcdef\n"
