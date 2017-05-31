@@ -299,7 +299,7 @@ module VimHelpers =
 
 module Vim =
     let registers = new Dictionary<char, string>()
-    registers.Add('+',"")
+    //registers.Add('+',"")
 
     let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None }
     let (|VisualModes|_|) = function
@@ -948,6 +948,7 @@ type XSVim() =
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
+        Vim.registers.['+'] <- ""
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, Vim.defaultState )
             let editor = x.Editor
