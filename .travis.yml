@@ -1,28 +1,32 @@
 language: csharp
-
 os: osx
 mono: latest
-
 solution: XSVim.sln
-
 before_install:
-    - rvm get head
-
+- rvm get head
 install:
-    - nuget restore XSVim.sln
-    - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
-    - sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
-
+- nuget restore XSVim.sln
+- wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
+- sudo hdiutil attach VisualStudioForMac-7.0.1.24.dmg
 script:
-  - msbuild
-  - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
-  - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe" setup pack XSVim/bin/Debug/XSVim.dll 
+- msbuild
+- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
+  run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
+- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
+  setup pack XSVim/bin/Debug/XSVim.dll
+deploy:
+  provider: releases
+  api_key:
+    secure: GMgK73gqQxvaMXXtgZTVypt2nTmmY/uNOFc3f6pHqe31nvLtDgdwRgaqGC4uFHK/YspWujMXkmdo0OplyWZarZcGTSPJYcJ9/k9bEY4uXDVbLAGve2n7qIyhngprd1Mk9g+3zPEoi+xu7Ugc1y0GEFLy9Z3CXgr9A1AcEM49LsqpV2rqtjP8AjstmpVUgLXv5+6w5MlcJyoi0PulVE3B4N0I9EJoD8zfaTCNyq0YaydekR173bu5iuZsVuYkyqLsrKbWDJb67MiDG5pwW5vvcPIziPXf5TMXHRbnWZHdXmx5jlbV8k0DoaeChWh1gpMtr6gg1IuBCsFV65ackHqeZyyn6iKl/SwIUGBYkTadY4Hob5ns5LC/vRB2Rb32U7MRyP8eN8PpmHpVZL28DQq3PlqvehG3vjYe8AOZrRWY7e/2iu0lrpWxbYwf9X5CjTRhTPOUvMV0u7SgLMYdcf39iZoMwQuJTG3gv79ScZBlimisybEDl88T++XsfTI7LZOE4w91RnzjvhoHAUu2+R8Tpcj2wm0df/eOcFzIZqCTGgT+WefBB4yAo2Art3Ckk8MH/uLIEzRjsVeEYUFTN5xZ6N7YRhQB6JgyEEaP8NT7wZFX6xms+AwgITQEiTf29veyPKPFL0htvAaIlu7XFse7f4JZBtXNGfOja+T0b7nvlEI=
+  file_glob: true
+  file: XSVim/bin/Debug/*.mpack
 
 deploy:
   provider: releases
   api_key: "f8c67a46952f852ba95af8207949d8f59cf04b44"
   file_glob: true
   file: XSVim/bin/Debug/*
+  
   skip_cleanup: true
   on:
     tags: true
