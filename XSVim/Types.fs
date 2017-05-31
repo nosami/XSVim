@@ -5,6 +5,10 @@ type BeforeOrAfter = Before | After | OverSelection
 
 type CaretMode = Insert | Block
 
+type Register = 
+    |Register of Char
+    |EmptyRegister
+
 type VimMode =
     | NormalMode
     | VisualMode
@@ -15,7 +19,7 @@ type VimMode =
 type CommandType =
     | Move
     | Visual
-    | Yank
+    | Yank of Register
     | Put of BeforeOrAfter
     | Delete
     | DeleteWholeLines
