@@ -298,7 +298,9 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
-    let mutable clipboard = ""
+    let registers = new Dictionary<Register, string>()
+    registers.[EmptyRegister] <- ""
+
     let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None }
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
@@ -359,7 +361,7 @@ module Vim =
 
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
-            clipboard <- editor.SelectedText
+            registers.[EmptyRegister] <- editor.SelectedText
             EditActions.ClipboardCut editor
             state
 
@@ -496,7 +498,7 @@ module Vim =
                         else
                             vimState
                     switchToInsertMode editor state isInitial
-                | Yank ->
+                | Yank register ->
                     let finish =
                         match command.textObject with
                         | ForwardToEndOfWord
@@ -507,15 +509,16 @@ module Vim =
                         | _ -> finish
                     if command.textObject <> SelectedText then
                         setSelection vimState editor command start finish
-                    clipboard <- editor.SelectedText
-                    EditActions.ClipboardCopy editor
+                    registers.[register] <- editor.SelectedText
+                    if register = EmptyRegister then
+                        EditActions.ClipboardCopy editor
                     editor.ClearSelection()
                     match vimState.mode with
                     | VisualModes -> editor.CaretOffset <- vimState.visualStartOffset
                     | _ -> ()
                     vimState
                 | Put Before ->
-                    if clipboard.EndsWith "\n" then
+                    if registers.[EmptyRegister].EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
@@ -523,7 +526,7 @@ module Vim =
                         EditActions.ClipboardPaste editor
                     vimState
                 | Put After ->
-                    if clipboard.EndsWith "\n" then
+                    if registers.[EmptyRegister].EndsWith "\n" then
                         if editor.CaretLine = editor.LineCount then
                             let line = editor.GetLine(editor.CaretLine-1)
                             let delimiter = NewLine.GetString line.UnicodeNewline
@@ -673,6 +676,9 @@ module Vim =
         else
             None
 
+    let (|RegisterMatch|_|) = function
+        | c -> Some (Register (Char.Parse c))
+
     let (|BlockDelimiter|_|) character =
         let pairs =
             [ 
@@ -730,7 +736,7 @@ module Vim =
         | "d" -> Some Delete
         | "c" -> Some Change
         | "v" -> Some Visual
-        | "y" -> Some Yank
+        | "y" -> Some (Yank EmptyRegister)
         | _ -> None
 
     let (|ModeChange|_|) = function
@@ -743,6 +749,7 @@ module Vim =
     let (|Escape|_|) = function
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
+
 
     let wait = [ getCommand None DoNothing Nothing ]
 
@@ -792,6 +799,7 @@ module Vim =
                 | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
                 | None -> [ runOnce Move LastLine ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
+            //| NormalMode, ["\"";œ r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
             | NotInsertMode, Movement m -> [ run Move m ]
@@ -801,8 +809,12 @@ module Vim =
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
-            | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
-            | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
+            | NormalMode, ["\""] -> wait
+            | NormalMode, ["\""; r ] -> wait
+            | NormalMode, ["\""; r; "y"] -> wait
+            | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
+            | NormalMode, [ "y"; "y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]
+            | NormalMode, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
@@ -864,8 +876,8 @@ module Vim =
             | VisualModes, [ "c" ] -> [ run Change SelectedText ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "y" ] -> [ run Yank SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
+            | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
+            | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter; switchMode NormalMode ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
             | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
             | NotInsertMode, [ "<C-w>" ] -> wait
