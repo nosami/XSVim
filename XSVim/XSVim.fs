@@ -799,7 +799,7 @@ module Vim =
                 | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
                 | None -> [ runOnce Move LastLine ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
-            | NormalMode, ["\""; r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
+            //| NormalMode, ["\"";œ r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
             | NotInsertMode, Movement m -> [ run Move m ]
@@ -809,6 +809,9 @@ module Vim =
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
+            | NormalMode, ["\""] -> wait
+            | NormalMode, ["\""; r ] -> wait
+            | NormalMode, ["\""; r; "y"] -> wait
             | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
             | NormalMode, [ "y"; "y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]

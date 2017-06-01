@@ -1,5 +1,6 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
+open XSVim
 
 [<TestFixture>]
 module ``Yank and put tests`` =
@@ -26,3 +27,9 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``P acts like p in visual mode``() =
         assertText "a$bc" "vlyvllP" "ab$"
+    
+    [<Test>]
+    let ``Can yank into a named register``() =
+        let _, state = test "ab$cd ef" "\"dyl"
+        System.Console.WriteLine(Vim.registers.Keys.Count)
+        Vim.registers.[Register 'd'] |> should equal "b"
