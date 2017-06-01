@@ -33,3 +33,7 @@ module ``Yank and put tests`` =
         let _, state = test "ab$cd ef" "\"dyl"
         System.Console.WriteLine(Vim.registers.Keys.Count)
         Vim.registers.[Register 'd'] |> should equal "b"
+
+    [<Test>]
+    let ``yw at the end of a line consumes entire line``()=
+        assertText "a$bc" "ywp" "aabc$bc"
