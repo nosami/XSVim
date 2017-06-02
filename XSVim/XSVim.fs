@@ -513,7 +513,7 @@ module Vim =
                     match vimState.mode with
                     | VisualModes -> editor.CaretOffset <- vimState.visualStartOffset
                     | _ -> ()
-                    vimState
+                    processCommands 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
                 | Put Before ->
                     if clipboard.EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
@@ -875,8 +875,8 @@ module Vim =
             | VisualModes, [ "c" ] -> [ run Change SelectedText ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "y" ] -> [ run Yank SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter; switchMode NormalMode ]
+            | VisualModes, [ "y" ] -> [ run Yank SelectedText ]
+            | VisualModes, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
             | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
             | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
             | NotInsertMode, [ "<C-w>" ] -> wait
