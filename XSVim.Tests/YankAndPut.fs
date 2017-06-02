@@ -1,4 +1,6 @@
 ﻿namespace XSVim.Tests
+
+open XSVim
 open NUnit.Framework
 
 [<TestFixture>]
@@ -6,6 +8,11 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Yanking puts cursor at original position before selection was made``() =
         assertText "a$bc" "vly" "a$bc"
+
+    [<Test>]
+    let ``Yanking line supports multiplier``() =
+        let _, state = test "a$bc\ndef\nghi" "2yy"
+        Vim.clipboard |> should equal "abc\ndef\n"
 
     [<Test>]
     let ``Yanking doesn't move caret when there is no selection'``() =

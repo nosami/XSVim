@@ -25,6 +25,11 @@ module ``Visual tests`` =
         Vim.clipboard |> should equal "bcd"
 
     [<Test>]
+    let ``Visual supports multipler``() =
+        let _, state = test "a$bcdef" "3vy" 
+        Vim.clipboard |> should equal "abc"       
+
+    [<Test>]
     let ``Visual line``() =
         let _, state = test "aaa\nbb$b\nddd" "Vy"
         Vim.clipboard |> should equal "bbb\n"
@@ -48,3 +53,8 @@ module ``Visual tests`` =
     let ``Visual line to start of document``() =
         let _, state = test "abc\nde$f\nghi" "Vggy" 
         Vim.clipboard |> should equal "abc\ndef\n"
+
+    [<Test>]
+    let ``Visual line supports multipler``() =
+        let _, state = test "abc\nde$f\nghi" "2Vy" 
+        Vim.clipboard |> should equal "def\nghi"       
