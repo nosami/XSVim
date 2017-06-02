@@ -791,6 +791,14 @@ module Vim =
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
                 | None -> [ runOnce Move LastLine ]
+            | NormalMode, [ "V" ] ->
+                match numericArgument with
+                | Some lines -> [ run (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down ]
+                | None -> [ run (SwitchMode VisualLineMode) Nothing ]
+            | NormalMode, [ "v" ] ->
+                match numericArgument with
+                | Some chars -> [ runOnce (SwitchMode VisualMode) Nothing; getCommand (chars-1 |> Some) Move Right ]
+                | None -> [ run (SwitchMode VisualMode) Nothing ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
@@ -801,8 +809,11 @@ module Vim =
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
-            | NormalMode, [ "y"; "y" ] -> [ run Yank WholeLineIncludingDelimiter ]
-            | NormalMode, [ "Y" ] -> [ run Yank WholeLineIncludingDelimiter ]
+            | NormalMode, [ "y"; "y" ]
+            | NormalMode, [ "Y" ] -> 
+                match numericArgument with
+                | Some lines -> [ runOnce (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down; runOnce Yank SelectedText ]
+                | None -> [ run Yank WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
