@@ -77,6 +77,21 @@ module VimHelpers =
             |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (fWordChar editor.[index]))
             |> Option.bind findFromNonLetterChar
 
+    let findWordBackwards (editor:TextEditor) commandType fWordChar =
+        let findFromNonLetterChar index =
+            match editor.[index], commandType with
+            | InvisibleChar, Move ->
+                seq { index .. -1 .. 0 } 
+                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index]))
+            | _ -> Some index
+
+        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
+            editor.CaretOffset - 1 |> Some
+        else
+            seq { editor.CaretOffset .. -1 .. 0 }
+            |> Seq.tryFind(fun index -> index = editor.Text.Length+1 || not (fWordChar editor.[index]))
+            |> Option.bind findFromNonLetterChar
+
     let findPrevWord (editor:TextEditor) fWordChar =
         let result = Math.Max(editor.CaretOffset - 1, 0)
         let previous = fWordChar editor.[result]
@@ -251,6 +266,14 @@ module VimHelpers =
             | None -> editor.CaretOffset, editor.CaretOffset
         | WordBackwards -> editor.CaretOffset, findPrevWord editor isWordChar
         | WORDBackwards -> editor.CaretOffset, findPrevWord editor isWORDChar
+        | BackwardToEndOfWord ->
+            match findWordBackwards editor command.commandType isWordChar with
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, 0
+        | BackwardToEndOfWORD ->
+            match findWordBackwards editor command.commandType isWORDChar with
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, 0
         | ParagraphBackwards ->
             match paragraphBackwards editor with
             | Some index -> editor.CaretOffset, index
@@ -712,6 +735,8 @@ module Vim =
         | ["B"] -> Some WORDBackwards
         | ["e"] -> Some ForwardToEndOfWord
         | ["E"] -> Some ForwardToEndOfWORD
+        | ["g"; "e"] -> Some BackwardToEndOfWord
+        | ["g"; "E"] -> Some BackwardToEndOfWORD
         | ["{"] -> Some ParagraphBackwards
         | ["}"] -> Some ParagraphForwards
         | ["%"] -> Some MatchingBrace
