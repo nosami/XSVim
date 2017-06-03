@@ -82,3 +82,19 @@ module ``Movement tests`` =
     [<Test>]
     let ``F finds previous char``() =
         assertText "a a$" "Fa" "a$ a"
+
+    [<Test>]
+    let ``ge moves back to end of last word``() =
+        assertText "abc de$f" "ge" "abc$ def"
+
+    [<Test>]
+    let ``ge between words moves back to end of last word``() =
+        assertText "abc $def" "ge" "abc$ def"
+
+    [<Test>]
+    let ``ge stops at first character``() =
+        assertText "abc$" "ge" "a$bc"
+
+    [<Test>]
+    let ``gE moves back to end of last WORD``() =
+        assertText "abc def.gh$i" "gE" "abc$ def.ghi"
