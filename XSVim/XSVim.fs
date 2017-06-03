@@ -433,6 +433,15 @@ module Vim =
             | None -> vimState
 
         let rec processCommands count vimState command isInitial =
+            let blockInsert fColumnSelect =
+                let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
+                let topLine = min selectionStartLocation.Line editor.CaretLine
+                let bottomLine = max selectionStartLocation.Line editor.CaretLine
+                editor.CaretColumn <- fColumnSelect editor.CaretColumn selectionStartLocation.Column
+                editor.SetSelection(new DocumentLocation (topLine, editor.CaretColumn),new DocumentLocation (bottomLine, editor.CaretColumn))
+                if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
+                switchToInsertMode editor vimState isInitial
+
             let start, finish = VimHelpers.getRange vimState editor command
             let newState =
                 match command.commandType with
@@ -574,14 +583,8 @@ module Vim =
                         vimState
                 | Dispatch command -> dispatch command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
-                | BlockInsert ->
-                    let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
-                    let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
-                    let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
-                    editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
-                    editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
-                    if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
-                    switchToInsertMode editor vimState isInitial
+                | BlockInsert Before -> blockInsert min
+                | BlockInsert After -> blockInsert (fun s f -> (max s f) + 1)
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode ->
@@ -867,7 +870,8 @@ module Vim =
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, Movement m -> [ run Move m ]
-            | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
+            | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
+            | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
             | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
             | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
             | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
