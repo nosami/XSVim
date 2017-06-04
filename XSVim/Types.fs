@@ -40,6 +40,8 @@ type CommandType =
     | InsertChar of string
     | IncrementNumber
     | DecrementNumber
+    | SetMark of string
+    | GoToMark of string
 
 type TextObject =
     | Character
@@ -98,6 +100,11 @@ type VimAction = {
     textObject: TextObject
 }
 
+type MarkLocation = {
+    offset: int
+    fileName: string
+}
+
 type VimState = {
     keys: string list
     mode: VimMode
@@ -107,6 +114,7 @@ type VimState = {
     desiredColumn: int option
     undoGroup: IDisposable option
     statusMessage: string option
+    markMap: System.Collections.Generic.Dictionary<string, MarkLocation>
 }
 
 // shim for the build server which runs Mono 4.6.1
