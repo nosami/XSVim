@@ -23,21 +23,21 @@ module VimHelpers =
             seq { editor.CaretOffset .. line.EndOffset }
             |> Seq.tryFind(fun index -> openingbraces.Contains(editor.[index]))
 
-    let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
+    let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
         let ch = Char.Parse character
-        seq { editor.CaretOffset+1 .. line.EndOffset }
+        seq { startOffset+1 .. line.EndOffset }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
     let findCharBackwardsOnLine startOffset (editor:TextEditor) (line:IDocumentLine) matcher =
         seq { startOffset .. -1 .. line.Offset }
         |> Seq.tryFind (fun i -> matcher editor.[i])
 
-    let findCharBackwardsOnLineExclusive (editor:TextEditor) = findCharBackwardsOnLine (editor.CaretOffset-1) editor
+    let findCharBackwardsOnLineExclusive (editor:TextEditor) startOffset = findCharBackwardsOnLine (startOffset-1) editor
     let findCharBackwardsOnLineInclusive (editor:TextEditor) = findCharBackwardsOnLine editor.CaretOffset editor
 
-    let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
+    let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
         let ch = Char.Parse character
-        let f = findCharBackwardsOnLineExclusive editor
+        let f = findCharBackwardsOnLineExclusive editor startOffset
         f line ((=) ch)
 
     let findCharForwards (editor:TextEditor) character =
@@ -233,19 +233,29 @@ module VimHelpers =
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
-            match findStringCharBackwardsOnLine editor line c with
+            match findStringCharBackwardsOnLine editor line (editor.CaretOffset-1) c with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusiveBackwards c ->
-            match findStringCharBackwardsOnLine editor line c with
+            let startOffset =
+                match vimState.keys with
+                | ";" :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                    editor.CaretOffset-1
+                | _ -> editor.CaretOffset
+            match findStringCharBackwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index+1
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharInclusive c ->
-            match findCharForwardsOnLine editor line c with
+            match findCharForwardsOnLine editor line editor.CaretOffset c with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusive c ->
-            match findCharForwardsOnLine editor line c with
+            let startOffset =
+                match vimState.keys with
+                | ";" :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                    editor.CaretOffset+1
+                | _ -> editor.CaretOffset
+            match findCharForwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index-1
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerBlock (startChar, endChar) ->
