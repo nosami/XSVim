@@ -34,3 +34,7 @@ module ``Change tests`` =
     [<Test>]
     let ``cc empty line``() =
         assertText "abc\n\n$def" "cc" "abc\n|\ndef"
+
+    [<Test>]
+    let ``ci backtick``() =
+        assertText "``some t$ext``" "ci`" "``|``"

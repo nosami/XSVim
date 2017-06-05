@@ -724,6 +724,7 @@ module Vim =
                 ">", ("<", ">")
                 "\"", ("\"", "\"")
                 "'", ("'", "'")
+                "`", ("`", "`")
             ] |> dict
         if pairs.ContainsKey character then
             Some pairs.[character]
