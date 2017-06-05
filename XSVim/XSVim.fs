@@ -23,21 +23,21 @@ module VimHelpers =
             seq { editor.CaretOffset .. line.EndOffset }
             |> Seq.tryFind(fun index -> openingbraces.Contains(editor.[index]))
 
-    let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
+    let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
         let ch = Char.Parse character
-        seq { editor.CaretOffset+1 .. line.EndOffset }
+        seq { startOffset+1 .. line.EndOffset }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
     let findCharBackwardsOnLine startOffset (editor:TextEditor) (line:IDocumentLine) matcher =
         seq { startOffset .. -1 .. line.Offset }
         |> Seq.tryFind (fun i -> matcher editor.[i])
 
-    let findCharBackwardsOnLineExclusive (editor:TextEditor) = findCharBackwardsOnLine (editor.CaretOffset-1) editor
+    let findCharBackwardsOnLineExclusive (editor:TextEditor) startOffset = findCharBackwardsOnLine (startOffset-1) editor
     let findCharBackwardsOnLineInclusive (editor:TextEditor) = findCharBackwardsOnLine editor.CaretOffset editor
 
-    let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) character =
+    let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
         let ch = Char.Parse character
-        let f = findCharBackwardsOnLineExclusive editor
+        let f = findCharBackwardsOnLineExclusive editor startOffset
         f line ((=) ch)
 
     let findCharForwards (editor:TextEditor) character =
@@ -75,6 +75,21 @@ module VimHelpers =
         else
             seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
             |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (fWordChar editor.[index]))
+            |> Option.bind findFromNonLetterChar
+
+    let findWordBackwards (editor:TextEditor) commandType fWordChar =
+        let findFromNonLetterChar index =
+            match editor.[index], commandType with
+            | InvisibleChar, Move ->
+                seq { index .. -1 .. 0 } 
+                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index]))
+            | _ -> Some index
+
+        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
+            editor.CaretOffset - 1 |> Some
+        else
+            seq { editor.CaretOffset .. -1 .. 0 }
+            |> Seq.tryFind(fun index -> index = editor.Text.Length+1 || not (fWordChar editor.[index]))
             |> Option.bind findFromNonLetterChar
 
     let findPrevWord (editor:TextEditor) fWordChar =
@@ -218,19 +233,29 @@ module VimHelpers =
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
-            match findStringCharBackwardsOnLine editor line c with
+            match findStringCharBackwardsOnLine editor line (editor.CaretOffset-1) c with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusiveBackwards c ->
-            match findStringCharBackwardsOnLine editor line c with
+            let startOffset =
+                match vimState.keys with
+                | ";" :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                    editor.CaretOffset-1
+                | _ -> editor.CaretOffset
+            match findStringCharBackwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index+1
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharInclusive c ->
-            match findCharForwardsOnLine editor line c with
+            match findCharForwardsOnLine editor line editor.CaretOffset c with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusive c ->
-            match findCharForwardsOnLine editor line c with
+            let startOffset =
+                match vimState.keys with
+                | ";" :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                    editor.CaretOffset+1
+                | _ -> editor.CaretOffset
+            match findCharForwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index-1
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerBlock (startChar, endChar) ->
@@ -251,6 +276,14 @@ module VimHelpers =
             | None -> editor.CaretOffset, editor.CaretOffset
         | WordBackwards -> editor.CaretOffset, findPrevWord editor isWordChar
         | WORDBackwards -> editor.CaretOffset, findPrevWord editor isWORDChar
+        | BackwardToEndOfWord ->
+            match findWordBackwards editor command.commandType isWordChar with
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, 0
+        | BackwardToEndOfWORD ->
+            match findWordBackwards editor command.commandType isWORDChar with
+            | Some index -> editor.CaretOffset, index
+            | None -> editor.CaretOffset, 0
         | ParagraphBackwards ->
             match paragraphBackwards editor with
             | Some index -> editor.CaretOffset, index
@@ -435,6 +468,15 @@ module Vim =
             | None -> vimState
 
         let rec processCommands count vimState command isInitial =
+            let blockInsert fColumnSelect =
+                let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
+                let topLine = min selectionStartLocation.Line editor.CaretLine
+                let bottomLine = max selectionStartLocation.Line editor.CaretLine
+                editor.CaretColumn <- fColumnSelect editor.CaretColumn selectionStartLocation.Column
+                editor.SetSelection(new DocumentLocation (topLine, editor.CaretColumn),new DocumentLocation (bottomLine, editor.CaretColumn))
+                if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
+                switchToInsertMode editor vimState isInitial
+
             let start, finish = VimHelpers.getRange vimState editor command
             let newState =
                 match command.commandType with
@@ -516,7 +558,7 @@ module Vim =
                     match vimState.mode with
                     | VisualModes -> editor.CaretOffset <- vimState.visualStartOffset
                     | _ -> ()
-                    vimState
+                    processCommands 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
                 | Put Before ->
                     if registers.[EmptyRegister].EndsWith "\n" then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
@@ -577,14 +619,8 @@ module Vim =
                         vimState
                 | Dispatch command -> dispatch command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
-                | BlockInsert ->
-                    let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
-                    let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
-                    let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
-                    editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
-                    editor.SetSelection(new DocumentLocation (topLine, selectionStartLocation.Column),new DocumentLocation (bottomLine, selectionStartLocation.Column))
-                    if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
-                    switchToInsertMode editor vimState isInitial
+                | BlockInsert Before -> blockInsert min
+                | BlockInsert After -> blockInsert (fun s f -> (max s f) + 1)
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode ->
@@ -715,6 +751,8 @@ module Vim =
         | ["B"] -> Some WORDBackwards
         | ["e"] -> Some ForwardToEndOfWord
         | ["E"] -> Some ForwardToEndOfWORD
+        | ["g"; "e"] -> Some BackwardToEndOfWord
+        | ["g"; "E"] -> Some BackwardToEndOfWORD
         | ["{"] -> Some ParagraphBackwards
         | ["}"] -> Some ParagraphForwards
         | ["%"] -> Some MatchingBrace
@@ -798,6 +836,14 @@ module Vim =
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
                 | None -> [ runOnce Move LastLine ]
+            | NormalMode, [ "V" ] ->
+                match numericArgument with
+                | Some lines -> [ run (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down ]
+                | None -> [ run (SwitchMode VisualLineMode) Nothing ]
+            | NormalMode, [ "v" ] ->
+                match numericArgument with
+                | Some chars -> [ runOnce (SwitchMode VisualMode) Nothing; getCommand (chars-1 |> Some) Move Right ]
+                | None -> [ run (SwitchMode VisualMode) Nothing ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
             //| NormalMode, ["\"";œ r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
             | NormalMode, [ "d"; "g" ] -> wait
@@ -813,8 +859,11 @@ module Vim =
             | NormalMode, ["\""; r ] -> wait
             | NormalMode, ["\""; r; "y"] -> wait
             | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
-            | NormalMode, [ "y"; "y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]
-            | NormalMode, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter ]
+            | NormalMode, [ "y"; "y" ]
+            | NormalMode, [ "Y" ] -> 
+                match numericArgument with
+                | Some lines -> [ runOnce (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
+                | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
@@ -868,7 +917,8 @@ module Vim =
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | VisualModes, Movement m -> [ run Move m ]
-            | VisualBlockMode, [ "I" ] -> [ run BlockInsert Nothing; ]
+            | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
+            | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
             | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
             | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
             | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]

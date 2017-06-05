@@ -82,3 +82,39 @@ module ``Movement tests`` =
     [<Test>]
     let ``F finds previous char``() =
         assertText "a a$" "Fa" "a$ a"
+
+    [<Test>]
+    let ``f is repeatable with ;``() =
+        assertText " $ a1 a2" "fa;" "  a1 a$2"
+
+    [<Test>]
+    let ``t does not move if caret is already just before search char``() =
+        assertText " $a1 a2" "ta" " $a1 a2"
+
+    [<Test>]
+    let ``T does not move if caret is already just after search char``() =
+        assertText "a1 a2$" "Ta" "a1 a2$"
+
+    [<Test>]
+    let ``t is repeatable with ;``() =
+        assertText " $a1 a2" "ta;" " a1 $a2"
+
+    [<Test>]
+    let ``T is repeatable with ;``() =
+        assertText "a1 a2$" "Ta;" "a1$ a2"
+
+    [<Test>]
+    let ``ge moves back to end of last word``() =
+        assertText "abc de$f" "ge" "abc$ def"
+
+    [<Test>]
+    let ``ge between words moves back to end of last word``() =
+        assertText "abc $def" "ge" "abc$ def"
+
+    [<Test>]
+    let ``ge stops at first character``() =
+        assertText "abc$" "ge" "a$bc"
+
+    [<Test>]
+    let ``gE moves back to end of last WORD``() =
+        assertText "abc def.gh$i" "gE" "abc$ def.ghi"

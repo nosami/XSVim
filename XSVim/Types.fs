@@ -24,7 +24,7 @@ type CommandType =
     | Delete
     | DeleteWholeLines
     | DeleteLeft
-    | BlockInsert
+    | BlockInsert of BeforeOrAfter
     | Change
     | SwitchMode of VimMode
     | Undo
