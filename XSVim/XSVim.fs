@@ -988,6 +988,7 @@ module Vim =
             | Some c, _, _ -> { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
             | None, Delete, _
             | None, Change, _
+            | None, ReplaceChar _, _
             | None, _, 'a'
             | None, _, 'i'
             | None, _, 'A' -> { newState with lastAction = action }

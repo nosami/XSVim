@@ -48,6 +48,10 @@ module ``Miscellaneous tests`` =
         assertText "a$bc de fgz " "cwxxx<esc>ww." "xxx de xxx $"
 
     [<Test>]
+    let ``r should be repeatable``() =
+        assertText "a$aaa" "rb$." "baab$"
+
+    [<Test>]
     let ``Undo insert mode``() =
         assertText "abc$" "adef ghi jkl<esc>u" "abc$"
 
