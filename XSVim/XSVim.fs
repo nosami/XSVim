@@ -1,4 +1,5 @@
 ﻿namespace XSVim
+
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
@@ -419,6 +420,7 @@ module Vim =
                     then editor.OpenUndoGroup() |> Some
                 else
                     state.undoGroup
+
             setCaretMode state Insert
             { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = group }
 
@@ -641,7 +643,9 @@ module Vim =
                     | NormalMode ->
                         editor.ClearSelection()
                         setCaretMode vimState Block
+
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+
                         { vimState with mode = mode; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode vimState Block
@@ -710,8 +714,6 @@ module Vim =
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
-
-        use group = editor.OpenUndoGroup()
 
         processCommands count vimState command true
 
@@ -1000,6 +1002,7 @@ module Vim =
 
                     performActions t { newState with keys = [] } true
 
+        use group = editor.OpenUndoGroup()
         let newState, handled = performActions action newState false
 
         let firstAction = action |> List.head
