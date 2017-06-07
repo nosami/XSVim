@@ -1,9 +1,14 @@
-﻿namespace XSVim
+namespace XSVim
 open System
 
 type BeforeOrAfter = Before | After | OverSelection
 
 type CaretMode = Insert | Block
+
+type MarkLocation = {
+    offset: int
+    fileName: string
+}
 
 type Register = 
     |Register of Char
@@ -41,7 +46,6 @@ type CommandType =
     | IncrementNumber
     | DecrementNumber
     | SetMark of string
-    | GoToMark of string
 
 type TextObject =
     | Character
@@ -93,16 +97,12 @@ type TextObject =
     | SelectedText
     | SelectionStart
     | MatchingBrace
+    | ToMark of MarkLocation
 
 type VimAction = {
     repeat: int option
     commandType: CommandType
     textObject: TextObject
-}
-
-type MarkLocation = {
-    offset: int
-    fileName: string
 }
 
 type VimState = {
@@ -114,7 +114,6 @@ type VimState = {
     desiredColumn: int option
     undoGroup: IDisposable option
     statusMessage: string option
-    markMap: System.Collections.Generic.Dictionary<string, MarkLocation>
 }
 
 // shim for the build server which runs Mono 4.6.1
