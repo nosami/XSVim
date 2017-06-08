@@ -109,6 +109,10 @@ module TestHelpers =
         FixtureSetup.initialiseMonoDevelop()
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
+        if caret = 0 then
+            failwith "$ can't be the first position. It needs to be after some char."
+        if caret = -1 then
+            failwith "No caret found in test code"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
 
