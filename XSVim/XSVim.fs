@@ -874,8 +874,8 @@ module Vim =
             | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, ["\""] -> wait
-            | NormalMode, ["\""; r ] -> wait
-            | NormalMode, ["\""; r; "y"] -> wait
+            | NormalMode, ["\""; _ ] -> wait
+            | NormalMode, ["\""; _; "y"] -> wait
             | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
             | NormalMode, [ "y"; "y" ]
             | NormalMode, [ "Y" ] -> 
