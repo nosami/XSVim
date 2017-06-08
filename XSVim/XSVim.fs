@@ -55,7 +55,7 @@ module VimHelpers =
     let findCharRange (editor:TextEditor) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
 
-    let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
+    let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'// || c = ')' || c = ';'
     let isWORDChar c = not (Char.IsWhiteSpace c)
 
     let (|InvisibleChar|_|) c =
@@ -109,8 +109,9 @@ module VimHelpers =
 
     let findWordEnd (editor:TextEditor) fWordChar =
         let result = Math.Min(editor.CaretOffset+1, editor.Text.Length-1)
-        let previous = isWordChar editor.[result]
-
+        let previous = fWordChar editor.[result]
+        // if we started from a word char, carry on until the next non word char
+        // If we started from a non word char, repeat until we hit a word char
         let rec findEnd index previous isInIdentifier =
             let ch = editor.[index]
             let current = fWordChar ch

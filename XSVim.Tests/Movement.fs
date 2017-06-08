@@ -20,6 +20,22 @@ module ``Movement tests`` =
         assertText "aa$a bbb" "e" "aaa$ bbb"
 
     [<Test>]
+    let ``Move to second word end``() =
+        assertText "aa$a bbb" "ee" "aaa bbb$"
+
+    [<Test>]
+    let ``e jumps over punctuation``() =
+        assertText "int model$);\n " "e" "int model);$\n "
+
+    [<Test>]
+    let ``e jumps over chevrons``() =
+        assertText "Task<List<SomeWord$>> nextWord" "e" "Task<List<SomeWord>>$ nextWord"
+
+    [<Test>]
+    let ``e jumps over spaces``() =
+        assertText " $  abcde" "e" "   abcde$"
+
+    [<Test>]
     let ``Move to end of line``() =
         assertText "aa$a aaa\nbbb" "$" "aaa aaa$\nbbb"
 
