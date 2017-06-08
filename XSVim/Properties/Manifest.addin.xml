@@ -5,4 +5,12 @@
     <Extension path="/MonoDevelop/Ide/TextEditorExtensions">
         <Class class="XSVim.XSVim" />
     </Extension>
+    <Extension path = "/MonoDevelop/Ide/Commands">
+        <Command id = "MonoDevelop.Ide.Commands.EditCommands.Undo"
+            _label = "_Undo"
+            icon = "gtk-undo"
+            _description = "Disable cmd-z (vim)"
+            shortcut = "Control|Z"
+            macShortcut = "Meta|Z" />
+    </Extension>
 </ExtensionModel>

@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
+open MonoDevelop.Components.Commands
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
 open MonoDevelop.Ide
@@ -1024,6 +1025,7 @@ type XSVim() =
     static let editorStates = Dictionary<string, VimState>()
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
+
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
@@ -1057,6 +1059,7 @@ type XSVim() =
             processingKey <- true
             let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
             processingKey <- false
+
             match newState.statusMessage with
             | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
@@ -1066,6 +1069,10 @@ type XSVim() =
             | InsertMode -> base.KeyPress descriptor
             | VisualMode -> false
             | _ -> not handledKeyPress
+
+    [<CommandUpdateHandler ("MonoDevelop.Ide.Commands.EditCommands.Undo")>]
+    // Disable cmd-z (see https://github.com/nosami/XSVim/issues/92)
+    member x.CanUndo(ci:CommandInfo) = ci.Enabled <- false
 
     override x.Dispose() =
         base.Dispose()
