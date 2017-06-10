@@ -38,3 +38,11 @@ module ``Change tests`` =
     [<Test>]
     let ``ci backtick``() =
         assertText "``some t$ext``" "ci`" "``|``"
+
+    [<Test>]
+    let ``S changes entire line``() =
+        assertText " line1 \n line2$ \n line3 " "S" " line1 \n|\n line3 "
+
+    [<Test>]
+    let ``2S changes two lines``() =
+        assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n|\n line4 "
