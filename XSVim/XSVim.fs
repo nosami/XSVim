@@ -898,6 +898,7 @@ module Vim =
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
             | NormalMode, [ "s"] -> [ run Delete CurrentLocation; switchMode InsertMode ]
+            | NormalMode, [ "S"] -> [ run Delete WholeLineIncludingDelimiter; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
