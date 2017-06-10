@@ -109,7 +109,7 @@ module ``Movement tests`` =
 
     [<Test>]
     let ``ge between words moves back to end of last word``() =
-        assertText "abc $def" "ge" "abc$ def"
+        assertText "abc  $def" "ge" "abc$  def"
 
     [<Test>]
     let ``ge stops at first character``() =

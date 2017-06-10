@@ -87,7 +87,7 @@ module VimHelpers =
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index]))
             | _ -> Some index
 
-        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
+        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset - 1] then 
             editor.CaretOffset - 1 |> Some
         else
             seq { editor.CaretOffset .. -1 .. 0 }
@@ -130,6 +130,12 @@ module VimHelpers =
         seq { editor.CaretOffset .. editor.Text.Length-1 }
         |> Seq.tryFind(fun index -> not (fWordChar editor.[index]))
         |> Option.defaultValue (editor.Text.Length - 1)
+
+    let findNextWordStartOnLine(editor:TextEditor) (line:IDocumentLine) fWordChar =
+        let currentWordEnd = findCurrentWordEnd editor fWordChar
+        seq { currentWordEnd .. line.EndOffset }
+        |> Seq.tryFind(fun index -> fWordChar editor.[index])
+        |> Option.defaultValue line.EndOffset
 
     let paragraphBackwards (editor:TextEditor) =
         seq { editor.CaretLine-1 .. -1 .. 1 }
@@ -295,10 +301,15 @@ module VimHelpers =
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
-        | AWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
+        | AWord -> 
+            if isWordChar (editor.[editor.CaretOffset]) then
+                findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWordChar 
+            else
+                let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
+                let nextWordEnd = findWordEnd editor isWordChar
+                prevWordEnd + 1, nextWordEnd + 1
         | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
-        //| BackwardToEndOfWord -> editor.CaretOffset, findPrevWord editor |> editor.FindCurrentWordEnd
         | HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
             let halfwayUp = Math.Max(1, editor.CaretLine - visibleLineCount / 2)
