@@ -78,6 +78,7 @@
 		<Compile Include="YankAndPut.fs" />
 		<Compile Include="ChangeTests.fs" />
 		<Compile Include="InsertionTests.fs" />
+		<Compile Include="TextObjectSelectionTests.fs" />
 	</ItemGroup>
 	<Import Project="$(FSharpTargetsPath)" />
 </Project>
