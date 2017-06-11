@@ -125,7 +125,7 @@ module TestHelpers =
                 let newState, handledKeyPress = Vim.handleKeyPress state c editor
                 printfn "%A" newState
                 printfn "%s" editor.Text
-                if state.mode = InsertMode && c.SpecialKey <> SpecialKey.Escape then
+                if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
                     editor.InsertAtCaret (c.KeyChar.ToString())
                 newState) state
 
@@ -142,4 +142,4 @@ module TestHelpers =
 
     let assertText (source:string) (keys:string) expected =
         let actual, _ = test source keys
-        Assert.AreEqual(expected, actual)
+        Assert.AreEqual(expected, actual) 
