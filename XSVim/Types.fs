@@ -10,6 +10,11 @@ type MarkLocation = {
     fileName: string
 }
 
+type Selection = {
+    linewise : bool
+    content: string
+}
+
 type Register = 
     |Register of Char
     |EmptyRegister

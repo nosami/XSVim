@@ -4,57 +4,59 @@ open XSVim
 
 [<TestFixture>]
 module ``Visual tests`` =
+    let getClipboard() = Vim.registers.[EmptyRegister].content
+
     [<Test>]
     let ``Visual to end of line``() =
         let _, state = test "abc$ def\nghi" "v$y"
-        Vim.registers.[EmptyRegister] |> should equal "c def"
+        getClipboard() |> should equal "c def"
 
     [<Test>]
     let ``Visual to end of word``() =
         let _, state = test "ab$c def\nghi" "vey"
-        Vim.registers.[EmptyRegister] |> should equal "bc"
+        getClipboard() |> should equal "bc"
 
     [<Test>]
     let ``Visual to d``() =
         let _, state = test "ab$cdef" "vtdy"
-        Vim.registers.[EmptyRegister] |> should equal "bc"
+        getClipboard() |> should equal "bc"
 
     [<Test>]
     let ``Visual to d inclusive``() =
         let _, state = test "ab$cdef" "vfdy"
-        Vim.registers.[EmptyRegister] |> should equal "bcd"
+        getClipboard() |> should equal "bcd"
 
     [<Test>]
     let ``Visual supports multipler``() =
         let _, state = test "a$bcdef" "3vy"
-        Vim.registers.[EmptyRegister] |> should equal "abc"
+        getClipboard() |> should equal "abc"
 
     [<Test>]
     let ``Visual line``() =
         let _, state = test "aaa\nbb$b\nddd" "Vy"
-        Vim.registers.[EmptyRegister] |> should equal "bbb\n"
+        getClipboard() |> should equal "bbb\n"
 
     [<Test>]
     let ``Visual to end of document``() =
         let _, state = test "abc\nde$f\nghi" "vGy"
-        Vim.registers.[EmptyRegister] |> should equal "ef\ng"
+        getClipboard() |> should equal "ef\ng"
 
     [<Test>]
     let ``Visual to start of document``() =
         let _, state = test "abc\nde$f\nghi" "vggy" 
-        Vim.registers.[EmptyRegister] |> should equal "abc\nde"
+        getClipboard() |> should equal "abc\nde"
 
     [<Test>]
     let ``Visual line to end of document``() =
         let _, state = test "abc\nde$f\nghi" "VGy"
-        Vim.registers.[EmptyRegister] |> should equal "def\nghi"
+        getClipboard() |> should equal "def\nghi"
 
     [<Test>]
     let ``Visual line to start of document``() =
         let _, state = test "abc\nde$f\nghi" "Vggy" 
-        Vim.registers.[EmptyRegister] |> should equal "abc\ndef\n"
+        getClipboard() |> should equal "abc\ndef\n"
 
     [<Test>]
     let ``Visual line supports multipler``() =
         let _, state = test "abc\nde$f\nghi" "2Vy" 
-        Vim.registers.[EmptyRegister] |> should equal "def\nghi"
+        getClipboard() |> should equal "def\nghi"

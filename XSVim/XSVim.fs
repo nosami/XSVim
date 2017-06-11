@@ -357,8 +357,8 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
-    let registers = new Dictionary<Register, string>()
-    registers.[EmptyRegister] <- ""
+    let registers = new Dictionary<Register, XSVim.Selection>()
+    registers.[EmptyRegister] <- { linewise=false; content="" }
 
     let markDict = System.Collections.Generic.Dictionary<string,MarkLocation>()
     let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
@@ -402,11 +402,28 @@ module Vim =
         | { commandType=Move; textObject=Down } -> Some MoveUpOrDown
         | _ -> None
 
+    let (|LineWise|_|) = function
+        | { textObject=WholeLine }
+        | { textObject=WholeLineIncludingDelimiter }
+        | { textObject=LastLine } -> Some LineWise
+        | _ -> None
+
     let getCommand repeat commandType textObject =
         { repeat=repeat; commandType=commandType; textObject=textObject }
 
     let runOnce = getCommand (Some 1)
     let typeChar c = runOnce (InsertChar c) Nothing
+
+    let getSelectedText vimState (editor: TextEditor) command =
+        let linewise =
+            match vimState.mode with
+            | VisualLineMode -> true
+            | _ ->
+                match command with
+                | LineWise -> true
+                | _ -> false
+
+        { linewise=linewise; content=editor.SelectedText }
 
     let runCommand vimState editor command =
         let delete state start finish =
@@ -421,7 +438,7 @@ module Vim =
 
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
-            registers.[EmptyRegister] <- editor.SelectedText
+            registers.[EmptyRegister] <- getSelectedText state editor command
             EditActions.ClipboardCut editor
             state
 
@@ -579,7 +596,7 @@ module Vim =
                         | _ -> finish
                     if command.textObject <> SelectedText then
                         setSelection vimState editor command start finish
-                    registers.[register] <- editor.SelectedText
+                    registers.[register] <- getSelectedText vimState editor command
                     if register = EmptyRegister then
                         EditActions.ClipboardCopy editor
                     editor.ClearSelection()
@@ -588,7 +605,7 @@ module Vim =
                     | _ -> ()
                     processCommands 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
                 | Put Before ->
-                    if registers.[EmptyRegister].EndsWith "\n" then
+                    if registers.[EmptyRegister].linewise then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
@@ -596,14 +613,15 @@ module Vim =
                         EditActions.ClipboardPaste editor
                     vimState
                 | Put After ->
-                    if registers.[EmptyRegister].EndsWith "\n" then
+                    if registers.[EmptyRegister].linewise then
                         if editor.CaretLine = editor.LineCount then
-                            let line = editor.GetLine(editor.CaretLine-1)
-                            let delimiter = NewLine.GetString line.UnicodeNewline
+                            let line = editor.GetLine(editor.CaretLine)
+                            let delimiter = editor.Options.DefaultEolMarker
                             editor.InsertText(editor.Text.Length, delimiter)
                             editor.CaretOffset <- editor.Text.Length
                             EditActions.ClipboardPaste editor
-                            editor.RemoveText(editor.Text.Length-line.DelimiterLength, line.DelimiterLength)
+                            if eofOnLine line && registers.[EmptyRegister].content.EndsWith delimiter then
+                                editor.RemoveText(editor.Text.Length-delimiter.Length, delimiter.Length)
                             EditActions.MoveCaretToLineStart editor
                         else
                             editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
