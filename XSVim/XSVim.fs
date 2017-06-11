@@ -112,15 +112,19 @@ module VimHelpers =
         let previous = fWordChar editor.[result]
         // if we started from a word char, carry on until the next non word char
         // If we started from a non word char, repeat until we hit a word char
-        let rec findEnd index previous isInIdentifier =
+        let rec findEnd index previous isInIdentifier previousChar =
             let ch = editor.[index]
             let current = fWordChar ch
 
-            match previous with
+            match previousChar, ch, previous, isInIdentifier, current with
             | _ when index = editor.Text.Length-1 -> editor.Text.Length
-            | false when isInIdentifier -> index - 2
-            | _ -> findEnd (index + 1) current previous
-        findEnd result previous previous
+            | InvisibleChar, InvisibleChar, false, false, false ->
+                findEnd (index + 1) current previous ch
+            | _, _, false, true, _ -> index - 2
+            | InvisibleChar, _, false, true, _ -> findEnd (index + 1) current previous ch
+            | _, InvisibleChar, false, false, false -> index - 1
+            | _ -> findEnd (index + 1) current previous ch
+        findEnd result previous previous ' '
 
     let findCurrentWordStart (editor:TextEditor) fWordChar =
         seq { editor.CaretOffset .. -1 .. 1 }
