@@ -976,6 +976,18 @@ module Vim =
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
+            | NotInsertMode, [ "," ] ->
+                match state.findCharCommand with
+                | Some command -> 
+                    let findCommand =
+                        match command.textObject with
+                        | ToCharInclusive c -> ToCharInclusiveBackwards c
+                        | ToCharInclusiveBackwards c -> ToCharInclusive c
+                        | ToCharExclusive c -> ToCharExclusiveBackwards c
+                        | ToCharExclusiveBackwards c -> ToCharExclusive c
+                        | _ -> failwith "Invalid find command"
+                    [ { command with textObject=findCommand } ] 
+                | None -> []
             | VisualModes, Movement m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
             | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
