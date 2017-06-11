@@ -567,8 +567,8 @@ module Vim =
                     let newState = toggleCase vimState start finish
                     newState
                 | DeleteWholeLines ->
-                    let min = Math.Min(start, finish)
-                    let max = Math.Max(start, finish)
+                    let min = min start finish
+                    let max = max start finish
                     let start = editor.GetLineByOffset(min).Offset
                     let finish = editor.GetLineByOffset(max).EndOffsetIncludingDelimiter
                     delete vimState start finish
@@ -617,7 +617,8 @@ module Vim =
                         if editor.CaretLine = editor.LineCount then
                             let line = editor.GetLine(editor.CaretLine)
                             let delimiter = editor.Options.DefaultEolMarker
-                            editor.InsertText(editor.Text.Length, delimiter)
+                            if not (registers.[EmptyRegister].content.StartsWith delimiter) then
+                                editor.InsertText(editor.Text.Length, delimiter)
                             editor.CaretOffset <- editor.Text.Length
                             EditActions.ClipboardPaste editor
                             if eofOnLine line && registers.[EmptyRegister].content.EndsWith delimiter then
@@ -897,7 +898,6 @@ module Vim =
                 | Some chars -> [ runOnce (SwitchMode VisualMode) Nothing; getCommand (chars-1 |> Some) Move Right ]
                 | None -> [ run (SwitchMode VisualMode) Nothing ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
-            //| NormalMode, ["\"";œ r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
             | NotInsertMode, Movement m -> [ run Move m ]

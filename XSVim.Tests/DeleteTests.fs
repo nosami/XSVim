@@ -23,6 +23,10 @@ module ``Delete tests`` =
         assertText "ab$c\ndef" "dd" "d$ef"
 
     [<Test>]
+    let ``2dd deletes 2 lines``() =
+        assertText "ab$c\ndef\nghi" "2dd" "g$hi"
+
+    [<Test>]
     let ``dd last line at EOF``() =
         assertText "abc\nd$ef" "dd" "a$bc"
 
