@@ -108,6 +108,10 @@ module ``Movement tests`` =
         assertText " $ a1 a2" "fa;" "  a1 a$2"
 
     [<Test>]
+    let ``f is reversed with ,``() =
+        assertText " $ a1 a2" "fa;," "  a$1 a2"
+
+    [<Test>]
     let ``t does not move if caret is already just before search char``() =
         assertText " $a1 a2" "ta" " $a1 a2"
 
