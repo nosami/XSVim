@@ -32,6 +32,10 @@ module ``Movement tests`` =
         assertText "Task<List<SomeWord$>> nextWord" "e" "Task<List<SomeWord>>$ nextWord"
 
     [<Test>]
+    let ``e jumps from chevron to end of next word``() =
+        assertText "Task<List<SomeWord>>$ nextWord" "e" "Task<List<SomeWord>> nextWord$"
+
+    [<Test>]
     let ``e jumps over spaces``() =
         assertText " $  abcde" "e" "   abcde$"
 
