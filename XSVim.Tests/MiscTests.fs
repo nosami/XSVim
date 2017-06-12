@@ -40,6 +40,10 @@ module ``Miscellaneous tests`` =
         assertText " $" "iabc <esc>." "abcabc  $ "
 
     [<Test>]
+    let ``<C-[> escapes``() =
+        assertText "    abc$" "i<C-[>" "    ab$c"
+
+    [<Test>]
     let ``Repeat delete word``() =
         assertText "a$bc de fgh" "dww." "de $"
 

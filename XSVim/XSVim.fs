@@ -55,7 +55,7 @@ module VimHelpers =
     let findCharRange (editor:TextEditor) startChar endChar =
         findCharBackwards editor startChar, findCharForwards editor endChar
 
-    let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
+    let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'// || c = ')' || c = ';'
     let isWORDChar c = not (Char.IsWhiteSpace c)
 
     let (|InvisibleChar|_|) c =
@@ -109,17 +109,22 @@ module VimHelpers =
 
     let findWordEnd (editor:TextEditor) fWordChar =
         let result = Math.Min(editor.CaretOffset+1, editor.Text.Length-1)
-        let previous = isWordChar editor.[result]
-
-        let rec findEnd index previous isInIdentifier =
+        let previous = fWordChar editor.[result]
+        // if we started from a word char, carry on until the next non word char
+        // If we started from a non word char, repeat until we hit a word char
+        let rec findEnd index previous isInIdentifier previousChar =
             let ch = editor.[index]
             let current = fWordChar ch
 
-            match previous with
+            match previousChar, ch, previous, isInIdentifier, current with
             | _ when index = editor.Text.Length-1 -> editor.Text.Length
-            | false when isInIdentifier -> index - 2
-            | _ -> findEnd (index + 1) current previous
-        findEnd result previous previous
+            | InvisibleChar, InvisibleChar, false, false, false ->
+                findEnd (index + 1) current previous ch
+            | _, _, false, true, _ -> index - 2
+            | InvisibleChar, _, false, true, _ -> findEnd (index + 1) current previous ch
+            | _, InvisibleChar, false, false, false -> index - 1
+            | _ -> findEnd (index + 1) current previous ch
+        findEnd result previous previous ' '
 
     let findCurrentWordStart (editor:TextEditor) fWordChar =
         seq { editor.CaretOffset .. -1 .. 1 }
@@ -352,8 +357,8 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
-    let registers = new Dictionary<Register, string>()
-    registers.[EmptyRegister] <- ""
+    let registers = new Dictionary<Register, XSVim.Selection>()
+    registers.[EmptyRegister] <- { linewise=false; content="" }
 
     let markDict = System.Collections.Generic.Dictionary<string,MarkLocation>()
     let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
@@ -397,11 +402,28 @@ module Vim =
         | { commandType=Move; textObject=Down } -> Some MoveUpOrDown
         | _ -> None
 
+    let (|LineWise|_|) = function
+        | { textObject=WholeLine }
+        | { textObject=WholeLineIncludingDelimiter }
+        | { textObject=LastLine } -> Some LineWise
+        | _ -> None
+
     let getCommand repeat commandType textObject =
         { repeat=repeat; commandType=commandType; textObject=textObject }
 
     let runOnce = getCommand (Some 1)
     let typeChar c = runOnce (InsertChar c) Nothing
+
+    let getSelectedText vimState (editor: TextEditor) command =
+        let linewise =
+            match vimState.mode with
+            | VisualLineMode -> true
+            | _ ->
+                match command with
+                | LineWise -> true
+                | _ -> false
+
+        { linewise=linewise; content=editor.SelectedText }
 
     let runCommand vimState editor command =
         let delete state start finish =
@@ -416,7 +438,7 @@ module Vim =
 
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
-            registers.[EmptyRegister] <- editor.SelectedText
+            registers.[EmptyRegister] <- getSelectedText state editor command
             EditActions.ClipboardCut editor
             state
 
@@ -545,8 +567,8 @@ module Vim =
                     let newState = toggleCase vimState start finish
                     newState
                 | DeleteWholeLines ->
-                    let min = Math.Min(start, finish)
-                    let max = Math.Max(start, finish)
+                    let min = min start finish
+                    let max = max start finish
                     let start = editor.GetLineByOffset(min).Offset
                     let finish = editor.GetLineByOffset(max).EndOffsetIncludingDelimiter
                     delete vimState start finish
@@ -574,7 +596,7 @@ module Vim =
                         | _ -> finish
                     if command.textObject <> SelectedText then
                         setSelection vimState editor command start finish
-                    registers.[register] <- editor.SelectedText
+                    registers.[register] <- getSelectedText vimState editor command
                     if register = EmptyRegister then
                         EditActions.ClipboardCopy editor
                     editor.ClearSelection()
@@ -583,7 +605,7 @@ module Vim =
                     | _ -> ()
                     processCommands 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
                 | Put Before ->
-                    if registers.[EmptyRegister].EndsWith "\n" then
+                    if registers.[EmptyRegister].linewise then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
@@ -591,14 +613,16 @@ module Vim =
                         EditActions.ClipboardPaste editor
                     vimState
                 | Put After ->
-                    if registers.[EmptyRegister].EndsWith "\n" then
+                    if registers.[EmptyRegister].linewise then
                         if editor.CaretLine = editor.LineCount then
-                            let line = editor.GetLine(editor.CaretLine-1)
-                            let delimiter = NewLine.GetString line.UnicodeNewline
-                            editor.InsertText(editor.Text.Length, delimiter)
+                            let line = editor.GetLine(editor.CaretLine)
+                            let delimiter = editor.Options.DefaultEolMarker
+                            if not (registers.[EmptyRegister].content.StartsWith delimiter) then
+                                editor.InsertText(editor.Text.Length, delimiter)
                             editor.CaretOffset <- editor.Text.Length
                             EditActions.ClipboardPaste editor
-                            editor.RemoveText(editor.Text.Length-line.DelimiterLength, line.DelimiterLength)
+                            if eofOnLine line && registers.[EmptyRegister].content.EndsWith delimiter then
+                                editor.RemoveText(editor.Text.Length-delimiter.Length, delimiter.Length)
                             EditActions.MoveCaretToLineStart editor
                         else
                             editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
@@ -874,7 +898,6 @@ module Vim =
                 | Some chars -> [ runOnce (SwitchMode VisualMode) Nothing; getCommand (chars-1 |> Some) Move Right ]
                 | None -> [ run (SwitchMode VisualMode) Nothing ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
-            //| NormalMode, ["\"";œ r; "y"; "y" ] -> [ run (Yank (Register r.[0])) WholeLineIncludingDelimiter ]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
             | NotInsertMode, Movement m -> [ run Move m ]
@@ -898,6 +921,7 @@ module Vim =
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
             | NormalMode, [ "s"] -> [ run Delete CurrentLocation; switchMode InsertMode ]
+            | NormalMode, [ "S"] -> [ run Delete WholeLineIncludingDelimiter; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
@@ -952,6 +976,18 @@ module Vim =
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
+            | NotInsertMode, [ "," ] ->
+                match state.findCharCommand with
+                | Some command -> 
+                    let findCommand =
+                        match command.textObject with
+                        | ToCharInclusive c -> ToCharInclusiveBackwards c
+                        | ToCharInclusiveBackwards c -> ToCharInclusive c
+                        | ToCharExclusive c -> ToCharExclusiveBackwards c
+                        | ToCharExclusiveBackwards c -> ToCharExclusive c
+                        | _ -> failwith "Invalid find command"
+                    [ { command with textObject=findCommand } ] 
+                | None -> []
             | VisualModes, Movement m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
             | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
@@ -1024,9 +1060,12 @@ module Vim =
             | Some c, _, _ -> { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
             | None, Delete, _
             | None, Change, _
+            | None, Put _, _
             | None, ReplaceChar _, _
             | None, _, 'a'
             | None, _, 'i'
+            | None, _, 'o'
+            | None, _, 'O'
             | None, _, 'A' -> { newState with lastAction = action }
             | _ -> newState
         newState, handled

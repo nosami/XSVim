@@ -20,6 +20,26 @@ module ``Movement tests`` =
         assertText "aa$a bbb" "e" "aaa$ bbb"
 
     [<Test>]
+    let ``Move to second word end``() =
+        assertText "aa$a bbb" "ee" "aaa bbb$"
+
+    [<Test>]
+    let ``e jumps over punctuation``() =
+        assertText "int model$);\n " "e" "int model);$\n "
+
+    [<Test>]
+    let ``e jumps over chevrons``() =
+        assertText "Task<List<SomeWord$>> nextWord" "e" "Task<List<SomeWord>>$ nextWord"
+
+    [<Test>]
+    let ``e jumps from chevron to end of next word``() =
+        assertText "Task<List<SomeWord>>$ nextWord" "e" "Task<List<SomeWord>> nextWord$"
+
+    [<Test>]
+    let ``e jumps over spaces``() =
+        assertText " $  abcde" "e" "   abcde$"
+
+    [<Test>]
     let ``Move to end of line``() =
         assertText "aa$a aaa\nbbb" "$" "aaa aaa$\nbbb"
 
@@ -86,6 +106,10 @@ module ``Movement tests`` =
     [<Test>]
     let ``f is repeatable with ;``() =
         assertText " $ a1 a2" "fa;" "  a1 a$2"
+
+    [<Test>]
+    let ``f is reversed with ,``() =
+        assertText " $ a1 a2" "fa;," "  a$1 a2"
 
     [<Test>]
     let ``t does not move if caret is already just before search char``() =

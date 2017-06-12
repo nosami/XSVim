@@ -2,7 +2,6 @@
 
 open XSVim
 open NUnit.Framework
-open XSVim
 
 [<TestFixture>]
 module ``Yank and put tests`` =
@@ -13,7 +12,7 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Yanking line supports multiplier``() =
         let _, state = test "a$bc\ndef\nghi" "2yy"
-        Vim.registers.[EmptyRegister] |> should equal "abc\ndef\n"
+        Vim.registers.[EmptyRegister].content |> should equal "abc\ndef\n"
 
     [<Test>]
     let ``Yanking doesn't move caret when there is no selection'``() =
@@ -38,11 +37,22 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Can yank into a named register``() =
         let _, state = test "ab$cd ef" "\"dyl"
-        System.Console.WriteLine(Vim.registers.Keys.Count)
-        Vim.registers.[Register 'd'] |> should equal "b"
+        Vim.registers.[Register 'd'].content |> should equal "b"
 
     [<Test>]
     [<Ignore>]
     //Todo: fix this and remove ignore attribute.
     let ``yw at the end of a line consumes entire line``()=
         assertText "a$bc" "ywp" "aabc$bc"
+
+    [<Test>]
+    let ``Visual line selection should work at EOF``() =
+        assertText "a$bc" "Vyp" "abc\na$bc"
+
+    [<Test>]
+    let ``Single line yank should work at EOF``() =
+        assertText "a$bc" "yyp" "abc\na$bc"
+
+    [<Test>]
+    let ``Line yank should work at EOF``() =
+        assertText "abc\nde$f" "yyp" "abc\ndef\nd$ef"
