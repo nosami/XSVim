@@ -354,6 +354,7 @@ module VimHelpers =
                 let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
                 IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
                 editor.CaretOffset, editor.CaretOffset
+        | Offset offset -> editor.CaretOffset, offset
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
@@ -361,7 +362,7 @@ module Vim =
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
     let markDict = System.Collections.Generic.Dictionary<string,MarkLocation>()
-    let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
+    let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; lastSelection=None; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
@@ -387,7 +388,7 @@ module Vim =
                     selectionStartLocation.Column, editor.CaretColumn+1
             let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
             let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
-            editor.SetSelection(new DocumentLocation (topLine, leftColumn), new DocumentLocation (bottomLine, rightColumn))
+            editor.SetSelection(DocumentLocation (topLine, leftColumn), DocumentLocation (bottomLine, rightColumn))
             if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
         | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
             let startPos = Math.Min(finish, vimState.visualStartOffset)
@@ -518,7 +519,7 @@ module Vim =
                 let topLine = min selectionStartLocation.Line editor.CaretLine
                 let bottomLine = max selectionStartLocation.Line editor.CaretLine
                 editor.CaretColumn <- fColumnSelect editor.CaretColumn selectionStartLocation.Column
-                editor.SetSelection(new DocumentLocation (topLine, editor.CaretColumn),new DocumentLocation (bottomLine, editor.CaretColumn))
+                editor.SetSelection(DocumentLocation (topLine, editor.CaretColumn), DocumentLocation (bottomLine, editor.CaretColumn))
                 if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
                 switchToInsertMode editor vimState isInitial
 
@@ -677,12 +678,17 @@ module Vim =
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode ->
+                        let lastSelection =
+                            match vimState.mode with
+                            | VisualModes ->
+                                Some { start = vimState.visualStartOffset; finish = editor.CaretOffset; mode = vimState.mode }
+                            | _ -> vimState.lastSelection
                         editor.ClearSelection()
                         setCaretMode vimState Block
 
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
 
-                        { vimState with mode = mode; undoGroup = None; statusMessage = None }
+                        { vimState with mode = mode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode vimState Block
                         let start, finish = VimHelpers.getRange vimState editor command
@@ -870,9 +876,9 @@ module Vim =
             | _ -> None, keyList
 
         let run = getCommand numericArgument
-        let switchMode mode = run (SwitchMode mode) Nothing
+        let switchMode mode = runOnce (SwitchMode mode) Nothing
         let dispatch command = run (Dispatch command) Nothing
-
+        let resetKeys = [ run ResetKeys Nothing ]
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -881,8 +887,8 @@ module Vim =
 
         let action =
             match state.mode, keyList with
-            | VisualBlockMode, [ Escape ] -> [ run Move SelectionStart; switchMode NormalMode ]
-            | NormalMode, [ Escape ] -> [ run ResetKeys Nothing ]
+            | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
+            | NormalMode, [ Escape ] -> resetKeys
             | VisualModes, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
             | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
             | NotInsertMode, [ "G" ] ->
@@ -974,6 +980,12 @@ module Vim =
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NotInsertMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
             | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
+            | NotInsertMode, [ "g"; "v" ] ->
+                match state.lastSelection with
+                | Some selection -> [ run Move (Offset selection.start)
+                                      switchMode selection.mode
+                                      run Move (Offset selection.finish) ]
+                | None -> resetKeys
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NotInsertMode, [ "," ] ->
@@ -1017,7 +1029,7 @@ module Vim =
             | NotInsertMode, [ "<C-a>" ] -> [ run IncrementNumber Nothing; switchMode NormalMode ]
             | NotInsertMode, [ "<C-x>" ] -> [ run DecrementNumber Nothing; switchMode NormalMode ]
             | _, [] when numericArgument.IsSome  -> wait
-            | _ -> [ run ResetKeys Nothing ]
+            | _ -> resetKeys
         action, newState
 
     let handleKeyPress state (keyPress:KeyDescriptor) editor =
