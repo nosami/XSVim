@@ -60,3 +60,8 @@ module ``Visual tests`` =
     let ``Visual line supports multipler``() =
         let _, state = test "abc\nde$f\nghi" "2Vy" 
         getClipboard() |> should equal "def\nghi"
+
+    [<Test>]
+    let ``Goto visual goes to last selection``() =
+        let _, state = test "abc\nde$f\nghi" "2V<esc>1Ggvy"
+        getClipboard() |> should equal "def\nghi"

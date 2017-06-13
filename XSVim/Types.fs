@@ -103,6 +103,7 @@ type TextObject =
     | SelectionStart
     | MatchingBrace
     | ToMark of MarkLocation
+    | Offset of int
 
 type VimAction = {
     repeat: int option
@@ -110,10 +111,13 @@ type VimAction = {
     textObject: TextObject
 }
 
+type VimSelection = { start: int; finish: int; mode: VimMode }
+
 type VimState = {
     keys: string list
     mode: VimMode
     visualStartOffset: int
+    lastSelection: VimSelection option
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
     desiredColumn: int option
