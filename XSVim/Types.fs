@@ -5,11 +5,6 @@ type BeforeOrAfter = Before | After | OverSelection
 
 type CaretMode = Insert | Block
 
-type MarkLocation = {
-    offset: int
-    fileName: string
-}
-
 type Selection = {
     linewise : bool
     content: string
@@ -105,7 +100,7 @@ type TextObject =
     | SelectedText
     | SelectionStart
     | MatchingBrace
-    | ToMark of MarkLocation
+    | ToMark of Marker
     | Offset of int
 
 type VimAction = {
