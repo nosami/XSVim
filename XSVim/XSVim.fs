@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open System.Text.RegularExpressions
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
@@ -175,6 +176,15 @@ module VimHelpers =
     let eofOnLine (line: IDocumentLine) =
         line.EndOffset = line.EndOffsetIncludingDelimiter
 
+    let getVisibleLines editor =
+        let flags = BindingFlags.Instance |||
+                    BindingFlags.NonPublic |||
+                    BindingFlags.Public
+        let prop = editor.GetType().GetProperty("VisibleLines", flags)
+        prop.GetValue(editor, null) 
+        :?> IDocumentLine seq
+        |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
+
     let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         match command.textObject with
@@ -244,6 +254,18 @@ module VimHelpers =
                 line.Offset, line.EndOffsetIncludingDelimiter
         | LastLine ->
             let lastLine = editor.GetLine editor.LineCount
+            editor.CaretOffset, lastLine.Offset
+        | FirstVisibleLine ->
+            let firstLine = getVisibleLines editor |> Seq.head
+            editor.CaretOffset, firstLine.Offset
+        | MiddleVisibleLine ->
+            let firstLine = getVisibleLines editor |> Seq.head
+            let lastLine = getVisibleLines editor |> Seq.last
+            let middleLineNumber = (lastLine.LineNumber - firstLine.LineNumber) / 2 + firstLine.LineNumber
+            let middleLine = editor.GetLine middleLineNumber
+            editor.CaretOffset, middleLine.Offset
+        | LastVisibleLine ->
+            let lastLine = getVisibleLines editor |> Seq.last
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
             match findStringCharBackwardsOnLine editor line (editor.CaretOffset-1) c with
@@ -817,6 +839,9 @@ module Vim =
         | ["}"] -> Some ParagraphForwards
         | ["%"] -> Some MatchingBrace
         | ["G"] -> Some LastLine
+        | ["H"] -> Some FirstVisibleLine
+        | ["M"] -> Some MiddleVisibleLine
+        | ["L"] -> Some LastVisibleLine
         | ["<C-d>"] -> Some HalfPageDown
         | ["<C-u>"] -> Some HalfPageUp
         | ["<C-f>"] -> Some PageDown
