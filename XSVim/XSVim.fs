@@ -175,6 +175,15 @@ module VimHelpers =
     let eofOnLine (line: IDocumentLine) =
         line.EndOffset = line.EndOffsetIncludingDelimiter
 
+    let findQuoteTriplet (editor:TextEditor) line quoteChar =
+        let firstBackwards = findCharBackwardsOnLine editor.CaretOffset editor line ((=) quoteChar)
+        let firstForwards = findCharForwardsOnLine editor line editor.CaretOffset (string quoteChar)
+        let secondForwards = match firstForwards with
+        | Some offset when offset + 1 < editor.Text.Length -> 
+            findCharForwardsOnLine editor line offset (string quoteChar)
+        | _ -> None
+        firstBackwards, firstForwards, secondForwards
+
     let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         match command.textObject with
@@ -279,6 +288,16 @@ module VimHelpers =
             match findCharRange editor startChar endChar with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
+        | InnerQuotedBlock c ->
+            match findQuoteTriplet editor line c with
+            | Some start, Some finish, _ -> start + 1, finish // we're inside quotes
+            | None, Some start, Some finish -> start + 1, finish // there's quoted text to the right
+            | _, _,_ -> editor.CaretOffset, editor.CaretOffset 
+        | AQuotedBlock c ->
+            match findQuoteTriplet editor line c with
+            | Some start, Some finish, _ -> start, finish + 1 // we're inside quotes
+            | None, Some start, Some finish -> start, finish + 1 // there's quoted text to the right
+            | _, _,_ -> editor.CaretOffset, editor.CaretOffset 
         | WordForwards ->
             match findWordForwards editor command.commandType isWordChar with
             | Some index -> editor.CaretOffset, index
@@ -781,12 +800,15 @@ module Vim =
                 "B", ("{", "}")
                 "<", ("<", ">")
                 ">", ("<", ">")
-                "\"", ("\"", "\"")
-                "'", ("'", "'")
-                "`", ("`", "`")
             ] |> dict
         if pairs.ContainsKey character then
             Some pairs.[character]
+        else
+            None
+
+    let (|QuoteDelimiter|_|) character =
+        if Array.contains character [| "\""; "'"; "`"|] then
+            Some character
         else
             None
 
@@ -947,6 +969,8 @@ module Vim =
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
+            | NotInsertMode, [Action action; "i"; QuoteDelimiter c] -> [run action (InnerQuotedBlock (char c))]
+            | NotInsertMode, [Action action; "a"; QuoteDelimiter c] -> [run action (AQuotedBlock (char c))]
             | NotInsertMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
             | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
             | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
