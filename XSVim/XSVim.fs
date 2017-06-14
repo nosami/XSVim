@@ -27,7 +27,7 @@ module VimHelpers =
             |> Seq.tryFind(fun index -> openingbraces.Contains(editor.[index]))
 
     let findCharForwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
-        let ch = Char.Parse character
+        let ch = char character
         seq { startOffset+1 .. line.EndOffset }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
@@ -39,17 +39,17 @@ module VimHelpers =
     let findCharBackwardsOnLineInclusive (editor:TextEditor) = findCharBackwardsOnLine editor.CaretOffset editor
 
     let findStringCharBackwardsOnLine (editor:TextEditor) (line:IDocumentLine) startOffset character =
-        let ch = Char.Parse character
+        let ch = char character
         let f = findCharBackwardsOnLineExclusive editor startOffset
         f line ((=) ch)
 
     let findCharForwards (editor:TextEditor) character =
-        let ch = Char.Parse character
+        let ch = char character
         seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
     let findCharBackwards (editor:TextEditor) character =
-        let ch = Char.Parse character
+        let ch = char character
         seq { editor.CaretOffset .. -1 .. 0 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
@@ -177,12 +177,9 @@ module VimHelpers =
         line.EndOffset = line.EndOffsetIncludingDelimiter
 
     let getVisibleLines editor =
-        let flags = BindingFlags.Instance |||
-                    BindingFlags.NonPublic |||
-                    BindingFlags.Public
+        let flags = BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
         let prop = editor.GetType().GetProperty("VisibleLines", flags)
-        prop.GetValue(editor, null) 
-        :?> IDocumentLine seq
+        prop.GetValue(editor, null) :?> IDocumentLine seq
         |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
 
     let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
@@ -339,26 +336,26 @@ module VimHelpers =
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
         | HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
-            let halfwayUp = Math.Max(1, editor.CaretLine - visibleLineCount / 2)
+            let halfwayUp = max 1 (editor.CaretLine - visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayUp).Offset
         | HalfPageDown -> 
             let visibleLineCount = getVisibleLineCount editor
-            let halfwayDown = Math.Min(editor.LineCount, editor.CaretLine + visibleLineCount / 2)
+            let halfwayDown = min editor.LineCount (editor.CaretLine + visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayDown).Offset
         | PageUp ->
             let visibleLineCount = getVisibleLineCount editor
-            let pageUp = Math.Max(1, editor.CaretLine - visibleLineCount)
+            let pageUp = max 1 (editor.CaretLine - visibleLineCount)
             editor.CaretOffset, editor.GetLine(pageUp).Offset
         | PageDown ->
             let visibleLineCount = getVisibleLineCount editor
-            let pageDown = Math.Min(editor.LineCount, editor.CaretLine + visibleLineCount)
+            let pageDown = min editor.LineCount (editor.CaretLine + visibleLineCount)
             editor.CaretOffset, editor.GetLine(pageDown).Offset
         | CurrentLocation -> editor.CaretOffset, editor.CaretOffset+1
         | SelectedText ->
             let selection = editor.Selections |> Seq.head
             let lead = editor.LocationToOffset selection.Lead
             let anchor = editor.LocationToOffset selection.Anchor
-            Math.Min(lead, anchor), Math.Max(lead, anchor)
+            Math.Min(lead, anchor), max lead anchor
         | SelectionStart -> editor.CaretOffset, vimState.visualStartOffset
         | MatchingBrace ->
             match findNextBraceForwardsOnLine editor line with
@@ -408,13 +405,13 @@ module Vim =
                     editor.CaretColumn, selectionStartLocation.Column+1
                 else
                     selectionStartLocation.Column, editor.CaretColumn+1
-            let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
-            let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
+            let topLine = min selectionStartLocation.Line editor.CaretLine
+            let bottomLine = max selectionStartLocation.Line editor.CaretLine
             editor.SetSelection(DocumentLocation (topLine, leftColumn), DocumentLocation (bottomLine, rightColumn))
             if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
         | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
-            let startPos = Math.Min(finish, vimState.visualStartOffset)
-            let endPos = Math.Max(finish, vimState.visualStartOffset)
+            let startPos = min finish vimState.visualStartOffset
+            let endPos = max finish vimState.visualStartOffset
             let startLine = editor.GetLineByOffset startPos
             let endLine = editor.GetLineByOffset endPos
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
@@ -426,9 +423,9 @@ module Vim =
         | _ -> None
 
     let (|LineWise|_|) = function
-        | { textObject=WholeLine }
-        | { textObject=WholeLineIncludingDelimiter }
-        | { textObject=LastLine } -> Some LineWise
+        | WholeLine
+        | WholeLineIncludingDelimiter
+        | LastLine -> Some LineWise
         | _ -> None
 
     let getCommand repeat commandType textObject =
@@ -437,12 +434,12 @@ module Vim =
     let runOnce = getCommand (Some 1)
     let typeChar c = runOnce (InsertChar c) Nothing
 
-    let getSelectedText vimState (editor: TextEditor) command =
+    let getSelectedText vimState (editor: TextEditor) (command:VimAction) =
         let linewise =
             match vimState.mode with
             | VisualLineMode -> true
             | _ ->
-                match command with
+                match command.textObject with
                 | LineWise -> true
                 | _ -> false
 
@@ -484,11 +481,12 @@ module Vim =
         let toggleCase state start finish =
             if command.textObject <> SelectedText then
                 setSelection state editor command start finish
-            let toggleChar =
-                function
+
+            let toggleChar = function
                 | c when Char.IsUpper c -> Char.ToLower c
                 | c when Char.IsLower c -> Char.ToUpper c
                 | c -> c
+
             match state.mode with
             | VisualBlockMode ->
                 let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
@@ -503,7 +501,7 @@ module Vim =
                         let c = toggleChar currentLetter
                         editor.SetSelection(i, i+1)
                         EditActions.Delete editor
-                        editor.InsertAtCaret (c.ToString())
+                        editor.InsertAtCaret (string c)
                         EditActions.MoveCaretLeft editor
             | _ ->
                 let swappedChars = editor.SelectedText |> Seq.map toggleChar |> Array.ofSeq
@@ -584,7 +582,7 @@ module Vim =
                     let newState = delete vimState start finish
                     let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
-                    editor.CaretOffset <- Math.Max(offsetBeforeDelimiter, 0)
+                    editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
                 | ToggleCase ->
                     let newState = toggleCase vimState start finish
@@ -914,20 +912,20 @@ module Vim =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
             | NormalMode, [ Escape ] -> resetKeys
-            | VisualModes, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing ]
-            | _, [ Escape ] -> [ run (SwitchMode NormalMode) Nothing; run Move Left ]
+            | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
+            | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
                 | None -> [ runOnce Move LastLine ]
             | NormalMode, [ "V" ] ->
                 match numericArgument with
-                | Some lines -> [ run (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down ]
-                | None -> [ run (SwitchMode VisualLineMode) Nothing ]
+                | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
+                | None -> [ switchMode VisualLineMode ]
             | NormalMode, [ "v" ] ->
                 match numericArgument with
-                | Some chars -> [ runOnce (SwitchMode VisualMode) Nothing; getCommand (chars-1 |> Some) Move Right ]
-                | None -> [ run (SwitchMode VisualMode) Nothing ]
+                | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move Right ]
+                | None -> [ switchMode VisualMode ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
@@ -945,7 +943,7 @@ module Vim =
             | NormalMode, [ "y"; "y" ]
             | NormalMode, [ "Y" ] -> 
                 match numericArgument with
-                | Some lines -> [ runOnce (SwitchMode VisualLineMode) Nothing; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
+                | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
