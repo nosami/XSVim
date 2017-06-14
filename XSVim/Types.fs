@@ -67,6 +67,9 @@ type TextObject =
     | WholeLine
     | WholeLineIncludingDelimiter
     | LastLine
+    | FirstVisibleLine
+    | MiddleVisibleLine
+    | LastVisibleLine
     // motions
     | Up
     | Down
