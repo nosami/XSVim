@@ -366,10 +366,10 @@ module VimHelpers =
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
         | ToMark mark ->
-            if IdeApp.Workbench.ActiveDocument.FileName.FullPath.ToString() = mark.fileName then
-                editor.CaretOffset, mark.offset
+            if IdeApp.Workbench.ActiveDocument.FileName.FullPath.ToString() = mark.FileName then
+                editor.CaretOffset, mark.Offset
             else 
-                let document = IdeApp.Workbench.GetDocument(mark.fileName)
+                let document = IdeApp.Workbench.GetDocument(mark.FileName)
                 let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
                 IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
                 editor.CaretOffset, editor.CaretOffset
@@ -380,7 +380,7 @@ module Vim =
     let registers = new Dictionary<Register, XSVim.Selection>()
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
-    let markDict = System.Collections.Generic.Dictionary<string,MarkLocation>()
+    let markDict = System.Collections.Generic.Dictionary<string, Marker>()
     let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; lastSelection=None; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
@@ -674,9 +674,11 @@ module Vim =
                     vimState
                 | SetMark c ->
                     if markDict.ContainsKey c then
+                        let marker = markDict.[c]
                         markDict.Remove c |> ignore 
-                    let location = { offset=editor.CaretOffset; fileName=editor.FileName.FullPath.ToString() }
-                    markDict.Add (c, location) |> ignore
+                        marker.Remove()
+                    let marker = Marker(editor, c)
+                    markDict.Add (c, marker) |> ignore
                     vimState
                 | InsertLine Before -> 
                     EditActions.InsertNewLineAtEnd editor
