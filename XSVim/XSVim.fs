@@ -1143,6 +1143,7 @@ type XSVim() =
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, Vim.defaultState )
             let editor = x.Editor
+            editor.GrabFocus()
             EditActions.SwitchCaretMode editor
             let caretChanged =
                 editor.CaretPositionChanged.Subscribe
