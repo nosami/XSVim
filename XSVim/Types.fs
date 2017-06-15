@@ -59,6 +59,8 @@ type TextObject =
     | InnerParagraph
     | ABlock of string * string
     | InnerBlock of string * string
+    | AQuotedBlock of char
+    | InnerQuotedBlock of char
     | WholeLine
     | WholeLineIncludingDelimiter
     | LastLine
