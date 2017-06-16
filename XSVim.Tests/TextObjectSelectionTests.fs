@@ -77,13 +77,13 @@ module ``Text object selection tests`` =
     // Tests for braces. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a)
     [<Test>]
     let ``ci( handles nested parentheses backwards``() =
-        assertText "((abc)\n de$f)" "ci(" "(|)"
+        assertText "(ignored)\n((abc)\n de$f)\n(ignored)" "ci(" "(ignored)\n(|)\n(ignored)"
 
     [<Test>]
     let ``ci( handles nested parentheses forwards``() =
-        assertText "(abc$\n (def))" "ci(" "(|)"
+        assertText "(ignored)\n(abc$\n (def))\n(ignored)" "ci(" "(ignored)\n(|)\n(ignored)"
 
     [<Test>]
     let ``da{ handles nested braces forwards``() =
-        assertText "{a$ {b}}" "da{" "$"
-    
+        assertText "{a$ {b}}\n{ignored}" "da{" "\n${ignored}"
+

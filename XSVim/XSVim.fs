@@ -57,6 +57,7 @@ module VimHelpers =
         let find c =
             seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.[index] = c)
         match find openingChar, find closingChar with
+        | Some s, Some e when s > e -> Some s
         | Some s, Some e when s < e -> findUnmatchedOpeningBrace editor (s-1) openingChar closingChar 
         | Some s, None -> Some s
         | _,_ -> None
@@ -65,8 +66,8 @@ module VimHelpers =
         let find c =
             seq { pos+1 .. editor.Text.Length-1} |> Seq.tryFind(fun index -> editor.[index] = c)
         match find openingChar, find closingChar with
+        | Some s, Some e when s > e -> Some e
         | Some s, Some e when s < e -> findUnmatchedClosingBrace editor e openingChar closingChar 
-        | None, Some e -> Some (e)
         | _,_ -> None
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'// || c = ')' || c = ';'
