@@ -199,10 +199,11 @@ module VimHelpers =
     let findQuoteTriplet (editor:TextEditor) line quoteChar =
         let firstBackwards = findCharBackwardsOnLine editor.CaretOffset editor line ((=) quoteChar)
         let firstForwards = findCharForwardsOnLine editor line editor.CaretOffset (string quoteChar)
-        let secondForwards = match firstForwards with
-        | Some offset when offset + 1 < editor.Text.Length -> 
-            findCharForwardsOnLine editor line offset (string quoteChar)
-        | _ -> None
+        let secondForwards =
+            match firstForwards with
+            | Some offset when offset + 1 < editor.Text.Length -> 
+                findCharForwardsOnLine editor line offset (string quoteChar)
+            | _ -> None
         firstBackwards, firstForwards, secondForwards
 
     let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
@@ -403,7 +404,7 @@ module VimHelpers =
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
         | ToMark mark ->
-            if IdeApp.Workbench.ActiveDocument.FileName.FullPath.ToString() = mark.FileName then
+            if editor.FileName.FullPath.ToString() = mark.FileName then
                 editor.CaretOffset, mark.Offset
             else 
                 let document = IdeApp.Workbench.GetDocument(mark.FileName)
@@ -746,7 +747,11 @@ module Vim =
                         setCaretMode vimState Block
 
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
-
+                        let vimState =
+                            if vimState.mode = InsertMode then
+                                processCommands 1 vimState (runOnce (SetMark ".") Nothing) false
+                            else
+                                vimState
                         { vimState with mode = mode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode vimState Block
@@ -1015,6 +1020,10 @@ module Vim =
                 match markDict.TryGetValue c with
                 | true, mark -> [ runOnce Move (ToMark mark)]
                 | _ -> [ run ResetKeys Nothing]
+            | NotInsertMode, [ "'"; c] -> 
+                match markDict.TryGetValue c with
+                | true, mark -> [ runOnce Move (ToMark mark); runOnce Move FirstNonWhitespace ]
+                | _ -> [ run ResetKeys Nothing]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
@@ -1041,6 +1050,7 @@ module Vim =
             | NotInsertMode, [ "g" ] -> wait
             | NotInsertMode, [ "m" ] -> wait
             | NotInsertMode, [ "`" ] -> wait
+            | NotInsertMode, [ "'" ] -> wait
             | NotInsertMode, [ "g"; "g" ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (StartOfLineNumber lineNumber) ]
