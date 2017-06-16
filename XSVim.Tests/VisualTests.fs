@@ -65,3 +65,8 @@ module ``Visual tests`` =
     let ``Goto visual goes to last selection``() =
         let _, state = test "abc\nde$f\nghi" "2V<esc>1Ggvy"
         getClipboard() |> should equal "def\nghi"
+
+    [<Test>]
+    let ``Visual inside quotes``() =
+        let _, state = test "let s = \"some$ string\"" "vi\"y"
+        getClipboard() |> should equal "some string"
