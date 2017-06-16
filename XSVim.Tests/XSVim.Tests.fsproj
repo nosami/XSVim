@@ -79,6 +79,7 @@
 		<Compile Include="ChangeTests.fs" />
 		<Compile Include="InsertionTests.fs" />
 		<Compile Include="TextObjectSelectionTests.fs" />
+		<Compile Include="MarkerTests.fs" />
 	</ItemGroup>
 	<Import Project="$(FSharpTargetsPath)" />
 </Project>
