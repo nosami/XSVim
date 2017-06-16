@@ -72,3 +72,18 @@ module ``Text object selection tests`` =
     [<Ignore "Handling of escaped quotes is not implemented">]
     let ``ci" handles escaped quote``() =
         assertText """ var$ a = "\"" """ "ci\"" " var a = \"$\" "
+
+    
+    // Tests for braces. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a)
+    [<Test>]
+    let ``ci( handles nested parentheses backwards``() =
+        assertText "((abc)\n de$f)" "ci(" "(|)"
+
+    [<Test>]
+    let ``ci( handles nested parentheses forwards``() =
+        assertText "(abc$\n (def))" "ci(" "(|)"
+
+    [<Test>]
+    let ``da{ handles nested braces forwards``() =
+        assertText "{a$ {b}}" "da{" "$"
+    
