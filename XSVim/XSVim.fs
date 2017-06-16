@@ -53,8 +53,21 @@ module VimHelpers =
         seq { editor.CaretOffset .. -1 .. 0 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
-    let findCharRange (editor:TextEditor) startChar endChar =
-        findCharBackwards editor startChar, findCharForwards editor endChar
+    let rec findUnmatchedOpeningBrace(editor:TextEditor) pos openingChar closingChar =
+        let find c =
+            seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.[index] = c)
+        match find openingChar, find closingChar with
+        | Some s, Some e when s < e -> findUnmatchedOpeningBrace editor (s-1) openingChar closingChar 
+        | Some s, None -> Some s
+        | _,_ -> None
+
+    let rec findUnmatchedClosingBrace(editor:TextEditor) pos openingChar closingChar =
+        let find c =
+            seq { pos+1 .. editor.Text.Length-1} |> Seq.tryFind(fun index -> editor.[index] = c)
+        match find openingChar, find closingChar with
+        | Some s, Some e when s < e -> findUnmatchedClosingBrace editor e openingChar closingChar 
+        | None, Some e -> Some (e)
+        | _,_ -> None
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'// || c = ')' || c = ';'
     let isWORDChar c = not (Char.IsWhiteSpace c)
@@ -300,11 +313,15 @@ module VimHelpers =
             | Some index -> editor.CaretOffset, index-1
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerBlock (startChar, endChar) ->
-            match findCharRange editor startChar endChar with
+            let opening = findUnmatchedOpeningBrace editor editor.CaretOffset (char startChar) (char endChar)
+            let closing = findUnmatchedClosingBrace editor editor.CaretOffset (char startChar) (char endChar)
+            match opening, closing with
             | Some start, Some finish -> start+1, finish
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | ABlock (startChar, endChar) ->
-            match findCharRange editor startChar endChar with
+            let opening = findUnmatchedOpeningBrace editor editor.CaretOffset (char startChar) (char endChar)
+            let closing = findUnmatchedClosingBrace editor editor.CaretOffset (char startChar) (char endChar)
+            match opening, closing with
             | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | InnerQuotedBlock c ->
