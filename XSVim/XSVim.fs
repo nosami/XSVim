@@ -1013,6 +1013,8 @@ module Vim =
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
+            | NormalMode, [ "<C-o>" ] -> [ dispatch NavigationCommands.NavigateBack ]
+            | NormalMode, [ "<C-i>" ] -> [ dispatch NavigationCommands.NavigateForward ]
             | NormalMode, [ "r" ] -> wait
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
