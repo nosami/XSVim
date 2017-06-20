@@ -425,7 +425,7 @@ module Vim =
         | _ -> None
 
     let (|NotInsertMode|_|) mode =
-        if mode = InsertMode then None else Some NotInsertMode
+        if mode = InsertMode || mode = ExMode then None else Some NotInsertMode
 
     let setSelection vimState (editor:TextEditor) (command:VimAction) (start:int) finish =
         match vimState.mode, command.commandType with
@@ -771,6 +771,8 @@ module Vim =
                         newState
                     | InsertMode ->
                         switchToInsertMode editor vimState isInitial
+                    | ExMode ->
+                        { vimState with mode = ExMode; statusMessage = vimState.keys |> List.head |> Some }
                 | Star After ->
                     match wordAtCaret editor with
                     | Some word ->
@@ -813,8 +815,13 @@ module Vim =
                         vimState
                     | None -> vimState
                 | InsertChar c ->
-                    editor.InsertAtCaret c
-                    vimState
+                    match vimState.mode with
+                    | InsertMode ->
+                        editor.InsertAtCaret c
+                        vimState
+                    //| ExMode ->
+                        //exMode.processKey vimState c
+                    | _ -> vimState
                 | IncrementNumber -> modifyNumber (fun i -> i + 1)
                 | DecrementNumber -> modifyNumber (fun i -> i - 1)
                 | _ -> vimState
@@ -960,6 +967,7 @@ module Vim =
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
             | NormalMode, [ Escape ] -> resetKeys
             | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
+            | ExMode, [ Escape ] -> [ switchMode NormalMode ]
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
@@ -1006,7 +1014,9 @@ module Vim =
             | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
-            | NormalMode, [ "/" ] -> [ dispatch SearchCommands.Find ]
+            | NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
+            | NotInsertMode, [ ":" ] -> [ switchMode ExMode ]
+            | ExMode, [ c ] -> [ typeChar c ]
             | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
             | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
@@ -1120,6 +1130,8 @@ module Vim =
                 state.keys @ [sprintf "<C-%c>" c], None
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
                 state.keys @ [c |> string], None
+            //| ExMode, c when keyPress.KeyChar <> '\000' ->
+                //state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> ["<esc>"], None
@@ -1143,8 +1155,13 @@ module Vim =
 
                     performActions t { newState with keys = [] } true
 
-        use group = editor.OpenUndoGroup()
-        let newState, handled = performActions action newState false
+        let newState, handled =
+            match state.mode with
+            | ExMode -> 
+                exMode.processKey editor state keyPress, true 
+            | _ ->
+                use group = editor.OpenUndoGroup()
+                performActions action newState false
 
         let firstAction = action |> List.head
 

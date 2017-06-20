@@ -63,6 +63,7 @@
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
     <Compile Include="Classes.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="ExMode.fs" />
     <Compile Include="XSVim.fs" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
