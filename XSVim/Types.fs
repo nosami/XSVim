@@ -11,8 +11,8 @@ type Selection = {
 }
 
 type Register = 
-    |Register of Char
-    |EmptyRegister
+    | Register of Char
+    | EmptyRegister
 
 type VimMode =
     | NormalMode
