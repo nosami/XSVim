@@ -20,6 +20,7 @@ type VimMode =
     | VisualBlockMode
     | VisualLineMode
     | InsertMode
+    | ExMode
 
 type CommandType =
     | Move
