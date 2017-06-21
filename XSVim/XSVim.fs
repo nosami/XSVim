@@ -1205,7 +1205,7 @@ module Vim =
         let newState, handled =
             match state.mode with
             | ExMode -> 
-                let state, actions = exMode.processKey editor state keyPress
+                let state, actions = exMode.processKey state keyPress
                 performActions actions state true
             | _ ->
                 use group = editor.OpenUndoGroup()

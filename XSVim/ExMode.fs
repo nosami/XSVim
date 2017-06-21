@@ -12,7 +12,7 @@ module exMode =
         | '?', _ -> [ runOnce (IncrementalSearchBackwards rest) Nothing ]
         | _ -> wait
 
-    let processKey (editor:TextEditor) (state:VimState) (key:KeyDescriptor) =
+    let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
         let normalMode = { state with statusMessage = None; mode = NormalMode } 
         match key.SpecialKey with
@@ -26,7 +26,7 @@ module exMode =
             if message.Length > 0 then
                 setMessage (Some message), processCommand message
             else
-                setMessage None, resetKeys
+                normalMode, resetKeys
         | SpecialKey.Return ->
             match state.statusMessage with
             | Some message ->
