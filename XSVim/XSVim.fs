@@ -865,11 +865,15 @@ module Vim =
                 | DecrementNumber -> modifyNumber (fun i -> i - 1)
                 | IncrementalSearch search ->
                     findNextSearchOffset editor search editor.CaretOffset
-                    |> Option.iter(fun index -> editor.SetSelection(index, index + search.Length))
+                    |> Option.iter(fun index ->
+                                       editor.SetSelection(index, index + search.Length)
+                                       editor.ScrollTo(index))
                     vimState
                 | IncrementalSearchBackwards search ->
                     findNextSearchOffsetBackwards editor search editor.CaretOffset
-                    |> Option.iter(fun index -> editor.SetSelection(index, index + search.Length))
+                    |> Option.iter(fun index ->
+                                       editor.SetSelection(index, index + search.Length)
+                                       editor.ScrollTo(index))
                     vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false

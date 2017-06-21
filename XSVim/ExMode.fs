@@ -5,6 +5,13 @@ open MonoDevelop.Ide.Editor.Extension
 module exMode =
     let getFirstCharAndRest (s:string) = s.[0], s.[1..]
 
+    let processCommand command =
+        let firstChar, rest = getFirstCharAndRest command
+        match firstChar, rest with
+        | '/', _ -> [ runOnce (IncrementalSearch rest) Nothing ]
+        | '?', _ -> [ runOnce (IncrementalSearchBackwards rest) Nothing ]
+        | _ -> wait
+
     let processKey (editor:TextEditor) (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
         let normalMode = { state with statusMessage = None; mode = NormalMode } 
@@ -17,7 +24,7 @@ module exMode =
                     msg.[0..len-2]
                 | None -> ""
             if message.Length > 0 then
-                setMessage (Some message), wait
+                setMessage (Some message), processCommand message
             else
                 setMessage None, resetKeys
         | SpecialKey.Return ->
@@ -41,8 +48,4 @@ module exMode =
                 | Some msg -> sprintf "%s%c" msg key.KeyChar
                 | None -> string key.KeyChar
 
-            let firstChar, rest = getFirstCharAndRest message
-            match firstChar, rest with
-            | '/', _ -> setMessage (Some message), [ runOnce (IncrementalSearch rest) Nothing ]
-            | '?', _ -> setMessage (Some message), [ runOnce (IncrementalSearchBackwards rest) Nothing ]
-            | _ -> setMessage (Some message), wait
+            setMessage (Some message), processCommand message
