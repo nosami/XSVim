@@ -228,7 +228,7 @@ module VimHelpers =
             | _ -> None
         firstBackwards, firstForwards, secondForwards
 
-    let getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
+    let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         match command.textObject with
         | Right ->
@@ -435,16 +435,28 @@ module VimHelpers =
                 editor.CaretOffset, editor.CaretOffset
         | Offset offset -> editor.CaretOffset, offset
         | ToSearch search ->
-            let offset = findNextSearchOffset editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
+            let startOffset =
+                match vimState.keys with
+                | ["n"] | ["N"] -> editor.CaretOffset + 1
+                | _ -> editor.CaretOffset
+            let offset = findNextSearchOffset editor search startOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
         | ToSearchBackwards search ->
             let offset = findNextSearchOffsetBackwards editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
         | SearchAgain ->
             match vimState.lastSearch with
+            | Some search -> getRange vimState editor { command with textObject = search }
+            | None -> editor.CaretOffset, editor.CaretOffset
+        | SearchAgainBackwards ->
+            match vimState.lastSearch with
             | Some search ->
-                let offset = findNextSearchOffset editor search (editor.CaretOffset+1) |> Option.defaultValue editor.CaretOffset
-                editor.CaretOffset, offset
+                let reverseSearch =
+                    match search with
+                    | ToSearch s -> ToSearchBackwards s
+                    | ToSearchBackwards s -> ToSearch s
+                    | _ -> failwith "Invalid search"
+                getRange vimState editor { command with textObject = reverseSearch }
             | None -> editor.CaretOffset, editor.CaretOffset
         | _ -> editor.CaretOffset, editor.CaretOffset
 

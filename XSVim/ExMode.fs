@@ -33,10 +33,10 @@ module exMode =
                 let firstChar, rest = getFirstCharAndRest message
                 match firstChar, rest with
                 | '/', _ ->
-                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some rest }
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearch rest) }
                     , [ runOnce Move (ToSearch rest)]
                 | '?', _ ->
-                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some rest }
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearchBackwards rest) }
                     , [ runOnce Move (ToSearchBackwards rest)]
                 | _ -> normalMode, resetKeys
             | _ -> normalMode, resetKeys

@@ -130,7 +130,7 @@ type VimState = {
     desiredColumn: int option
     undoGroup: IDisposable option
     statusMessage: string option
-    lastSearch: string option // Last term searched for with / or ?
+    lastSearch: TextObject option // Last term searched for with / or ?
 }
 
 // shim for the build server which runs Mono 4.6.1

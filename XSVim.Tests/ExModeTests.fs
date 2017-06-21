@@ -17,6 +17,14 @@ module ``Ex mode tests`` =
         assertText "ab$c abc abc" "/abc<ret>nn" "a$bc abc abc"
 
     [<Test>]
+    let ``N searches for previous word``() =
+        assertText "ab$c abc abc" "/abc<ret>N" "a$bc abc abc"
+
+    [<Test>]
+    let ``n searches for previous word after ?``() =
+        assertText "abc abc a$bc" "?abc<ret>n" "a$bc abc abc"
+
+    [<Test>]
     let ``? searches for word backwards``() =
         assertText "abc abc a$bc" "?abc<ret>" "abc a$bc abc"
 
