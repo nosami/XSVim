@@ -177,27 +177,28 @@ module VimHelpers =
         //bottomVisibleLine - topVisibleLine
         40
 
+    let getComparisonType (search:string) =
+        match search with
+        | s when s.ToLower() = s -> StringComparison.CurrentCultureIgnoreCase
+        | _ -> StringComparison.CurrentCulture
+
     let findNextSearchOffset (editor:TextEditor) (search:string) (startOffset:int) =
-        let index = editor.Text.IndexOf(search, startOffset)
+        let comparison = getComparisonType search
+        let index = editor.Text.IndexOf(search, startOffset, comparison)
         if index > -1 then
             Some index
         else
-            let index = editor.Text.IndexOf(search)
-            if index > -1 then
-                Some index
-            else
-                None
+            let index = editor.Text.IndexOf(search, comparison)
+            if index > -1 then Some index else None
 
     let findNextSearchOffsetBackwards (editor:TextEditor) (search:string) (startOffset:int) =
-        let index = editor.Text.LastIndexOf(search, startOffset)
+        let comparison = getComparisonType search
+        let index = editor.Text.LastIndexOf(search, startOffset, comparison)
         if index > -1 then
             Some index
         else
-            let index = editor.Text.LastIndexOf(search, editor.Length)
-            if index > -1 then
-                Some index
-            else
-                None
+            let index = editor.Text.LastIndexOf(search, editor.Length, comparison)
+            if index > -1 then Some index else None
 
     let wordAtCaret (editor:TextEditor) =
         if isWordChar (editor.[editor.CaretOffset]) then
