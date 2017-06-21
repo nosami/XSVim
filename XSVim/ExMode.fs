@@ -26,10 +26,11 @@ module exMode =
                 let firstChar, rest = getFirstCharAndRest message
                 match firstChar, rest with
                 | '/', _ ->
-                    //getNextSearchOffset editor rest
-                    //|> Option.iter(fun index -> editor.CaretOffset <- index)
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some rest }
                     , [ runOnce Move (ToSearch rest)]
+                | '?', _ ->
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some rest }
+                    , [ runOnce Move (ToSearchBackwards rest)]
                 | _ -> normalMode, resetKeys
             | _ -> normalMode, resetKeys
         | SpecialKey.Escape ->
@@ -42,6 +43,6 @@ module exMode =
 
             let firstChar, rest = getFirstCharAndRest message
             match firstChar, rest with
-            | '/', _ ->
-                setMessage (Some message), [ runOnce (IncrementalSearch rest) Nothing ]
+            | '/', _ -> setMessage (Some message), [ runOnce (IncrementalSearch rest) Nothing ]
+            | '?', _ -> setMessage (Some message), [ runOnce (IncrementalSearchBackwards rest) Nothing ]
             | _ -> setMessage (Some message), wait
