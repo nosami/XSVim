@@ -188,6 +188,17 @@ module VimHelpers =
             else
                 None
 
+    let findNextSearchOffsetBackwards (editor:TextEditor) (search:string) (startOffset:int) =
+        let index = editor.Text.LastIndexOf(search, startOffset)
+        if index > -1 then
+            Some index
+        else
+            let index = editor.Text.LastIndexOf(search, editor.Length)
+            if index > -1 then
+                Some index
+            else
+                None
+
     let wordAtCaret (editor:TextEditor) =
         if isWordChar (editor.[editor.CaretOffset]) then
             let start = findCurrentWordStart editor isWordChar
@@ -425,6 +436,9 @@ module VimHelpers =
         | Offset offset -> editor.CaretOffset, offset
         | ToSearch search ->
             let offset = findNextSearchOffset editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
+            editor.CaretOffset, offset
+        | ToSearchBackwards search ->
+            let offset = findNextSearchOffsetBackwards editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
         | SearchAgain ->
             match vimState.lastSearch with
@@ -853,6 +867,10 @@ module Vim =
                     findNextSearchOffset editor search editor.CaretOffset
                     |> Option.iter(fun index -> editor.SetSelection(index, index + search.Length))
                     vimState
+                | IncrementalSearchBackwards search ->
+                    findNextSearchOffsetBackwards editor search editor.CaretOffset
+                    |> Option.iter(fun index -> editor.SetSelection(index, index + search.Length))
+                    vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -1042,7 +1060,7 @@ module Vim =
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
-            //| NotInsertMode, [ ":" ] -> [ switchMode ExMode ]
+            | NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
             | ExMode, [ c ] -> [ typeChar c ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait

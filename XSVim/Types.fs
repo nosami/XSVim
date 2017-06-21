@@ -48,6 +48,7 @@ type CommandType =
     | DecrementNumber
     | SetMark of string
     | IncrementalSearch of string
+    | IncrementalSearchBackwards of string
 
 type TextObject =
     | Character
@@ -107,6 +108,7 @@ type TextObject =
     | ToMark of Marker
     | Offset of int
     | ToSearch of string
+    | ToSearchBackwards of string
     | SearchAgain
     | SearchAgainBackwards
 
