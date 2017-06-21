@@ -14,7 +14,7 @@ open MonoDevelop.Ide.Editor.Extension
 
 [<AutoOpen>]
 module VimHelpers =
-    let dispatch command = IdeApp.CommandService.DispatchCommand command |> ignore
+    let dispatchCommand command = IdeApp.CommandService.DispatchCommand command |> ignore
 
     let closingBraces = [')'; '}'; ']'] |> set
     let openingbraces = ['('; '{'; '[' ] |> set
@@ -176,6 +176,17 @@ module VimHelpers =
         //        topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
         //bottomVisibleLine - topVisibleLine
         40
+
+    let findNextSearchOffset (editor:TextEditor) (search:string) (startOffset:int) =
+        let index = editor.Text.IndexOf(search, startOffset)
+        if index > -1 then
+            Some index
+        else
+            let index = editor.Text.IndexOf(search)
+            if index > -1 then
+                Some index
+            else
+                None
 
     let wordAtCaret (editor:TextEditor) =
         if isWordChar (editor.[editor.CaretOffset]) then
@@ -400,7 +411,7 @@ module VimHelpers =
             | Some offset ->
                 let startOffset = editor.CaretOffset
                 editor.CaretOffset <- offset
-                dispatch TextEditorCommands.GotoMatchingBrace
+                dispatchCommand TextEditorCommands.GotoMatchingBrace
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
         | ToMark mark ->
@@ -412,6 +423,15 @@ module VimHelpers =
                 IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
                 editor.CaretOffset, editor.CaretOffset
         | Offset offset -> editor.CaretOffset, offset
+        | ToSearch search ->
+            let offset = findNextSearchOffset editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
+            editor.CaretOffset, offset
+        | SearchAgain ->
+            match vimState.lastSearch with
+            | Some search ->
+                let offset = findNextSearchOffset editor search (editor.CaretOffset+1) |> Option.defaultValue editor.CaretOffset
+                editor.CaretOffset, offset
+            | None -> editor.CaretOffset, editor.CaretOffset
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
@@ -419,7 +439,18 @@ module Vim =
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
     let markDict = System.Collections.Generic.Dictionary<string, Marker>()
-    let defaultState = { keys=[]; mode=NormalMode; visualStartOffset=0; lastSelection=None; findCharCommand=None; lastAction=[]; desiredColumn=None; undoGroup=None; statusMessage=None; }
+    let defaultState =
+        { keys=[]
+          mode=NormalMode
+          visualStartOffset=0
+          lastSelection=None
+          findCharCommand=None
+          lastAction=[]
+          desiredColumn=None
+          undoGroup=None
+          statusMessage=None
+          lastSearch=None }
+
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
@@ -446,7 +477,7 @@ module Vim =
             let topLine = min selectionStartLocation.Line editor.CaretLine
             let bottomLine = max selectionStartLocation.Line editor.CaretLine
             editor.SetSelection(DocumentLocation (topLine, leftColumn), DocumentLocation (bottomLine, rightColumn))
-            if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
+            if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
         | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
             let startPos = min finish vimState.visualStartOffset
             let endPos = max finish vimState.visualStartOffset
@@ -465,12 +496,6 @@ module Vim =
         | WholeLineIncludingDelimiter
         | LastLine -> Some LineWise
         | _ -> None
-
-    let getCommand repeat commandType textObject =
-        { repeat=repeat; commandType=commandType; textObject=textObject }
-
-    let runOnce = getCommand (Some 1)
-    let typeChar c = runOnce (InsertChar c) Nothing
 
     let getSelectedText vimState (editor: TextEditor) (command:VimAction) =
         let linewise =
@@ -578,7 +603,7 @@ module Vim =
                 let bottomLine = max selectionStartLocation.Line editor.CaretLine
                 editor.CaretColumn <- fColumnSelect editor.CaretColumn selectionStartLocation.Column
                 editor.SetSelection(DocumentLocation (topLine, editor.CaretColumn), DocumentLocation (bottomLine, editor.CaretColumn))
-                if editor.SelectionMode = SelectionMode.Normal then dispatch TextEditorCommands.ToggleBlockSelectionMode
+                if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
                 switchToInsertMode editor vimState isInitial
 
             let start, finish = VimHelpers.getRange vimState editor command
@@ -731,7 +756,7 @@ module Vim =
                         EditActions.MoveCaretUp editor
                         EditActions.InsertNewLineAtEnd editor
                         vimState
-                | Dispatch command -> dispatch command ; vimState
+                | Dispatch command -> dispatchCommand command ; vimState
                 | ResetKeys -> { vimState with keys = [] }
                 | BlockInsert Before -> blockInsert min
                 | BlockInsert After -> blockInsert (fun s f -> (max s f) + 1)
@@ -765,8 +790,8 @@ module Vim =
                         let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
-                        | VisualBlockMode, SelectionMode.Normal -> dispatch TextEditorCommands.ToggleBlockSelectionMode
-                        | _, SelectionMode.Block -> dispatch TextEditorCommands.ToggleBlockSelectionMode
+                        | VisualBlockMode, SelectionMode.Normal -> dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+                        | _, SelectionMode.Block -> dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
                         | _ -> ()
                         newState
                     | InsertMode ->
@@ -824,6 +849,10 @@ module Vim =
                     | _ -> vimState
                 | IncrementNumber -> modifyNumber (fun i -> i + 1)
                 | DecrementNumber -> modifyNumber (fun i -> i - 1)
+                | IncrementalSearch search ->
+                    findNextSearchOffset editor search editor.CaretOffset
+                    |> Option.iter(fun index -> editor.SetSelection(index, index + search.Length))
+                    vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -898,6 +927,8 @@ module Vim =
         | ["<C-u>"] -> Some HalfPageUp
         | ["<C-f>"] -> Some PageDown
         | ["<C-b>"] -> Some PageUp
+        | ["n"] -> Some SearchAgain
+        | ["N"] -> Some SearchAgainBackwards
         | _ -> None
 
     let (|FindChar|_|) = function
@@ -925,7 +956,6 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let wait = [ getCommand None DoNothing Nothing ]
 
     let parseKeys (state:VimState) =
         let keyList = state.keys
@@ -953,9 +983,6 @@ module Vim =
             | _ -> None, keyList
 
         let run = getCommand numericArgument
-        let switchMode mode = runOnce (SwitchMode mode) Nothing
-        let dispatch command = run (Dispatch command) Nothing
-        let resetKeys = [ run ResetKeys Nothing ]
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -1015,10 +1042,8 @@ module Vim =
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
-            | NotInsertMode, [ ":" ] -> [ switchMode ExMode ]
+            //| NotInsertMode, [ ":" ] -> [ switchMode ExMode ]
             | ExMode, [ c ] -> [ typeChar c ]
-            | NormalMode, [ "n" ] -> [ dispatch SearchCommands.FindNext ]
-            | NormalMode, [ "N" ] -> [ dispatch SearchCommands.FindPrevious ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
@@ -1158,7 +1183,8 @@ module Vim =
         let newState, handled =
             match state.mode with
             | ExMode -> 
-                exMode.processKey editor state keyPress, true 
+                let state, actions = exMode.processKey editor state keyPress
+                performActions actions state true
             | _ ->
                 use group = editor.OpenUndoGroup()
                 performActions action newState false

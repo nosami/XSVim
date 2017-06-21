@@ -47,6 +47,7 @@ type CommandType =
     | IncrementNumber
     | DecrementNumber
     | SetMark of string
+    | IncrementalSearch of string
 
 type TextObject =
     | Character
@@ -105,6 +106,9 @@ type TextObject =
     | MatchingBrace
     | ToMark of Marker
     | Offset of int
+    | ToSearch of string
+    | SearchAgain
+    | SearchAgainBackwards
 
 type VimAction = {
     repeat: int option
@@ -124,6 +128,7 @@ type VimState = {
     desiredColumn: int option
     undoGroup: IDisposable option
     statusMessage: string option
+    lastSearch: string option // Last term searched for with / or ?
 }
 
 // shim for the build server which runs Mono 4.6.1
@@ -132,3 +137,15 @@ module Option =
         function
         | Some v -> v
         | None -> value
+
+[<AutoOpen>]
+module commandHelpers =
+    let getCommand repeat commandType textObject =
+        { repeat=repeat; commandType=commandType; textObject=textObject }
+
+    let runOnce = getCommand (Some 1)
+    let typeChar c = runOnce (InsertChar c) Nothing
+    let wait = [ getCommand None DoNothing Nothing ]
+    let switchMode mode = runOnce (SwitchMode mode) Nothing
+    let dispatch command = runOnce (Dispatch command) Nothing
+    let resetKeys = [ runOnce ResetKeys Nothing ]
