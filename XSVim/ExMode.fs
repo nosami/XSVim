@@ -5,57 +5,43 @@ open MonoDevelop.Ide.Editor.Extension
 module exMode =
     let getFirstCharAndRest (s:string) = s.[0], s.[1..]
 
-    let getNextSearchOffset (editor:TextEditor) (search:string) =
-        let index = editor.Text.IndexOf(search, editor.CaretOffset)
-        if index > -1 then
-            Some index
-        else
-            let index = editor.Text.IndexOf(search)
-            if index > -1 then
-                Some index
-            else
-                None
-
     let processKey (editor:TextEditor) (state:VimState) (key:KeyDescriptor) =
-        let command =
-            match key.SpecialKey with
-            | SpecialKey.BackSpace ->
-                let message =
-                    match state.statusMessage with
-                    | Some msg ->
-                        let len = msg.Length
-                        msg.[0..len-2]
-                    | None -> ""
-                if message.Length > 0 then
-                    Some message
-                else
-                    None
-            | SpecialKey.Return ->
-                state.statusMessage 
-                |> Option.bind(fun message ->
-                    let firstChar, rest = getFirstCharAndRest message
-                    match firstChar, rest with
-                    | '/', _ ->
-                        getNextSearchOffset editor rest
-                        |> Option.bind(fun index ->
-                            editor.CaretOffset <- index
-                            None)
-                    | _ -> None)
-            | SpecialKey.Escape ->
-                None
-            | _ ->
+        let setMessage message = { state with statusMessage = message }
+        let normalMode = { state with statusMessage = None; mode = NormalMode } 
+        match key.SpecialKey with
+        | SpecialKey.BackSpace ->
+            let message =
                 match state.statusMessage with
-                | Some msg -> sprintf "%s%c" msg key.KeyChar |> Some
-                | None -> string key.KeyChar |> Some
+                | Some msg ->
+                    let len = msg.Length
+                    msg.[0..len-2]
+                | None -> ""
+            if message.Length > 0 then
+                setMessage (Some message), wait
+            else
+                setMessage None, resetKeys
+        | SpecialKey.Return ->
+            match state.statusMessage with
+            | Some message ->
+                let firstChar, rest = getFirstCharAndRest message
+                match firstChar, rest with
+                | '/', _ ->
+                    //getNextSearchOffset editor rest
+                    //|> Option.iter(fun index -> editor.CaretOffset <- index)
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some rest }
+                    , [ runOnce Move (ToSearch rest)]
+                | _ -> normalMode, resetKeys
+            | _ -> normalMode, resetKeys
+        | SpecialKey.Escape ->
+            normalMode, resetKeys
+        | _ ->
+            let message =
+                match state.statusMessage with
+                | Some msg -> sprintf "%s%c" msg key.KeyChar
+                | None -> string key.KeyChar
 
-        match command with
-        | Some cmd ->
-            let firstChar, rest = getFirstCharAndRest cmd
+            let firstChar, rest = getFirstCharAndRest message
             match firstChar, rest with
             | '/', _ ->
-                getNextSearchOffset editor rest
-                |> Option.iter(fun index -> editor.SetSelection(index, index+rest.Length))
-            | _ -> ()
-            { state with statusMessage = command }
-        | _ -> { state with statusMessage = None; mode = NormalMode }
-
+                setMessage (Some message), [ runOnce (IncrementalSearch rest) Nothing ]
+            | _ -> setMessage (Some message), wait
