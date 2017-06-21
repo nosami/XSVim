@@ -9,6 +9,14 @@ module ``Ex mode tests`` =
         assertText "ab$c abc" "/abc<ret>" "abc a$bc"
 
     [<Test>]
+    let ``/ is case insensitive``() =
+        assertText "ab$c ABC" "/abc<ret>" "abc A$BC"
+
+    [<Test>]
+    let ``/ is case sensitive``() =
+        assertText "ab$c ABC Abc" "/Abc<ret>" "abc ABC A$bc"
+
+    [<Test>]
     let ``n searches for next word``() =
         assertText "ab$c abc abc" "/abc<ret>n" "abc abc a$bc"
 
