@@ -17,6 +17,10 @@ module ``Ex mode tests`` =
         assertText "ab$c ABC Abc" "/Abc<ret>" "abc ABC A$bc"
 
     [<Test>]
+    let ``deletes to search term``() =
+        assertText "ab$c ABC Abc 123" "d/123<ret>" "a1$23"
+
+    [<Test>]
     let ``n searches for next word``() =
         assertText "ab$c abc abc" "/abc<ret>n" "abc abc a$bc"
 

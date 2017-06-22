@@ -31,13 +31,15 @@ module exMode =
             match state.statusMessage with
             | Some message ->
                 let firstChar, rest = getFirstCharAndRest message
+                let getSearchAction() = match state.searchAction with | Some action -> action | _ -> Move 
+
                 match firstChar, rest with
                 | '/', _ ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearch rest) }
-                    , [ runOnce Move (ToSearch rest)]
+                    , [ runOnce (getSearchAction()) (ToSearch rest)]
                 | '?', _ ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearchBackwards rest) }
-                    , [ runOnce Move (ToSearchBackwards rest)]
+                    , [ runOnce (getSearchAction()) (ToSearchBackwards rest)]
                 | _ -> normalMode, resetKeys
             | _ -> normalMode, resetKeys
         | SpecialKey.Escape ->
