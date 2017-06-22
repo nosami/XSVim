@@ -1087,10 +1087,6 @@ module Vim =
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction Move) Nothing ]
             | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction action) Nothing ]
-            //| NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
-            //| NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
-            //| NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
-            | ExMode _, [ c ] -> [ typeChar c ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
