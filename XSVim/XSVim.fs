@@ -965,7 +965,6 @@ module Vim =
         | ["<C-u>"] -> Some HalfPageUp
         | ["<C-f>"] -> Some PageDown
         | ["<C-b>"] -> Some PageUp
-        | "/" :: t when not (List.isEmpty t) && t |> List.last = "<ret>" -> Some (ToSearch "123")
         | ["n"] -> Some SearchAgain
         | ["N"] -> Some SearchAgainBackwards
         | _ -> None
