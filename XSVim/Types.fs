@@ -20,7 +20,7 @@ type VimMode =
     | VisualBlockMode
     | VisualLineMode
     | InsertMode
-    | ExMode
+    | ExMode of char // initial char typed to get to command line
 
 type CommandType =
     | Move
@@ -49,6 +49,7 @@ type CommandType =
     | SetMark of string
     | IncrementalSearch of string
     | IncrementalSearchBackwards of string
+    | SetSearchAction of CommandType
 
 type TextObject =
     | Character
@@ -130,6 +131,7 @@ type VimState = {
     desiredColumn: int option
     undoGroup: IDisposable option
     statusMessage: string option
+    searchAction: CommandType option // Delete, Change, Visual, Yank or Move when / or ? is pressed
     lastSearch: TextObject option // Last term searched for with / or ?
 }
 

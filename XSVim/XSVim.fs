@@ -476,14 +476,16 @@ module Vim =
           desiredColumn=None
           undoGroup=None
           statusMessage=None
-          lastSearch=None }
+          lastSearch=None 
+          searchAction=None }
 
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
 
-    let (|NotInsertMode|_|) mode =
-        if mode = InsertMode || mode = ExMode then None else Some NotInsertMode
+    let (|NotInsertMode|_|) = function
+        | InsertMode | ExMode _ -> None
+        | _ -> Some NotInsertMode
 
     let setSelection vimState (editor:TextEditor) (command:VimAction) (start:int) finish =
         match vimState.mode, command.commandType with
@@ -823,8 +825,8 @@ module Vim =
                         newState
                     | InsertMode ->
                         switchToInsertMode editor vimState isInitial
-                    | ExMode ->
-                        { vimState with mode = ExMode; statusMessage = vimState.keys |> List.head |> Some }
+                    | ExMode c ->
+                        { vimState with mode = (ExMode c); statusMessage = string c |> Some }
                 | Star After ->
                     match wordAtCaret editor with
                     | Some word ->
@@ -888,6 +890,7 @@ module Vim =
                                        editor.SetSelection(index, index + search.Length)
                                        editor.ScrollTo(index))
                     vimState
+                | SetSearchAction command -> { vimState with searchAction = Some command }
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -962,6 +965,7 @@ module Vim =
         | ["<C-u>"] -> Some HalfPageUp
         | ["<C-f>"] -> Some PageDown
         | ["<C-b>"] -> Some PageUp
+        | "/" :: t when not (List.isEmpty t) && t |> List.last = "<ret>" -> Some (ToSearch "123")
         | ["n"] -> Some SearchAgain
         | ["N"] -> Some SearchAgainBackwards
         | _ -> None
@@ -971,6 +975,11 @@ module Vim =
         | "F" -> Some ToCharInclusiveBackwards
         | "t" -> Some ToCharExclusive
         | "T" -> Some ToCharExclusiveBackwards
+        | _ -> None
+
+    let (|SearchChar|_|) = function
+        | "/" -> Some (SearchChar '/')
+        | "?" -> Some (SearchChar '?')
         | _ -> None
 
     let (|Action|_|) = function
@@ -1029,7 +1038,7 @@ module Vim =
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
             | NormalMode, [ Escape ] -> resetKeys
             | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
-            | ExMode, [ Escape ] -> [ switchMode NormalMode ]
+            | ExMode _, [ Escape ] -> [ switchMode NormalMode ]
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
@@ -1076,9 +1085,12 @@ module Vim =
             | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
-            | NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
-            | NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
-            | ExMode, [ c ] -> [ typeChar c ]
+            | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction Move) Nothing ]
+            | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction action) Nothing ]
+            //| NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
+            //| NotInsertMode, [ "/" ] -> [ switchMode ExMode ]
+            //| NotInsertMode, [ "?" ] -> [ switchMode ExMode ]
+            | ExMode _, [ c ] -> [ typeChar c ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
@@ -1096,6 +1108,7 @@ module Vim =
                 match markDict.TryGetValue c with
                 | true, mark -> [ runOnce Move (ToMark mark); runOnce Move FirstNonWhitespace ]
                 | _ -> [ run ResetKeys Nothing]
+            | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
@@ -1195,6 +1208,7 @@ module Vim =
             | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> ["<esc>"], None
+                | SpecialKey.Return -> ["<ret>"], None
                 | SpecialKey.Left -> ["h"], None
                 | SpecialKey.Down -> ["j"], None
                 | SpecialKey.Up -> ["k"], None
@@ -1217,7 +1231,7 @@ module Vim =
 
         let newState, handled =
             match state.mode with
-            | ExMode -> 
+            | ExMode _ -> 
                 let state, actions = exMode.processKey state keyPress
                 performActions actions state true
             | _ ->
