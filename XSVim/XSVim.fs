@@ -1196,10 +1196,10 @@ module Vim =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
                 state.keys @ [sprintf "<C-%c>" c], None
+            | _, 'z' when keyPress.ModifierKeys = ModifierKeys.Command ->
+                state.keys @ ["u"], None
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
                 state.keys @ [c |> string], None
-            //| ExMode, c when keyPress.KeyChar <> '\000' ->
-                //state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> ["<esc>"], None
@@ -1282,7 +1282,14 @@ type XSVim() =
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
-        | ModifierKeys.Command -> false
+        | ModifierKeys.Control
+        | ModifierKeys.Command when descriptor.KeyChar = 'z' ->
+            // cmd-z uses the vim undo group
+            let vimState = editorStates.[x.FileName]
+            vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+            EditActions.Undo x.Editor
+            false
+        | ModifierKeys.Command when descriptor.KeyChar <> 'z' -> false
         | _ ->
             let vimState = editorStates.[x.FileName]
             let oldState = vimState
@@ -1302,7 +1309,7 @@ type XSVim() =
             | _ -> not handledKeyPress
 
     [<CommandUpdateHandler ("MonoDevelop.Ide.Commands.EditCommands.Undo")>]
-    // Disable cmd-z (see https://github.com/nosami/XSVim/issues/92)
+    // We handle cmd-z ourselves to use the vim undo stack
     member x.CanUndo(ci:CommandInfo) = ci.Enabled <- false
 
     override x.Dispose() =
