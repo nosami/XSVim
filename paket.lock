@@ -1,0 +1,7 @@
+
+GITHUB
+  remote: jaredpar/VsVim
+    Src/VimCore/FSharpUtil.fs (28eff42619901c4ae1e73d4d1a521bc0bf39d40b)
+    Src/VimCore/Interpreter_Expression.fs (28eff42619901c4ae1e73d4d1a521bc0bf39d40b)
+    Src/VimCore/Interpreter_Parser.fs (28eff42619901c4ae1e73d4d1a521bc0bf39d40b)
+    Src/VimCore/Interpreter_Tokenizer.fs (28eff42619901c4ae1e73d4d1a521bc0bf39d40b)

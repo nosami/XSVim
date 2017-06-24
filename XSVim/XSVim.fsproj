@@ -73,6 +73,21 @@
     <Compile Include="ExMode.fs" />
     <Compile Include="TreeViewPads.fs" />
     <Compile Include="XSVim.fs" />
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\FSharpUtil.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\FSharpUtil.fs</Link>
+    </Compile>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokenizer.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokenizer.fs</Link>
+    </Compile>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Expression.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Expression.fs</Link>
+    </Compile>
+    <None Include="..\paket-files\jaredpar\VsVim\Src\VimCore\paket.version">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\paket.version</Link>
+    </None>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Parser.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Parser.fs</Link>
+    </Compile>
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
 </Project>
