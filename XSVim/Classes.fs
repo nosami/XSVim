@@ -18,4 +18,8 @@ type Marker(editor:TextEditor, name:string) =
     member x.FileName = string editor.FileName.FullPath
     member x.Offset = marker.Offset
     member x.TextSegmentMarker = marker
-    member x.Remove() = editor.RemoveMarker marker |> ignore
+    member x.Remove() =
+        try
+            editor.RemoveMarker marker |> ignore
+        with
+        | ex -> LoggingService.LogError (string ex)
