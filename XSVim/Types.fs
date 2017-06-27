@@ -11,8 +11,9 @@ type Selection = {
 }
 
 type Register = 
-    | Register of Char
+    | Register of char
     | EmptyRegister
+   
 
 type VimMode =
     | NormalMode
@@ -50,6 +51,9 @@ type CommandType =
     | IncrementalSearch of string
     | IncrementalSearchBackwards of string
     | SetSearchAction of CommandType
+    | MacroStart of char
+    | MacroEnd
+    | ReplayMacro of char
 
 type TextObject =
     | Character
@@ -119,6 +123,8 @@ type VimAction = {
     textObject: TextObject
 }
 
+type Macro = Macro of char
+
 type VimSelection = { start: int; finish: int; mode: VimMode }
 
 type VimState = {
@@ -133,6 +139,7 @@ type VimState = {
     statusMessage: string option
     searchAction: CommandType option // Delete, Change, Visual, Yank or Move when / or ? is pressed
     lastSearch: TextObject option // Last term searched for with / or ?
+    macro: Macro option
 }
 
 // shim for the build server which runs Mono 4.6.1
