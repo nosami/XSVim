@@ -465,7 +465,9 @@ module Vim =
     let registers = new Dictionary<Register, XSVim.Selection>()
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
-    let markDict = System.Collections.Generic.Dictionary<string, Marker>()
+    let markDict = Dictionary<string, Marker>()
+    let macros = Dictionary<char, VimAction list>()
+
     let defaultState =
         { keys=[]
           mode=NormalMode
@@ -477,7 +479,8 @@ module Vim =
           undoGroup=None
           statusMessage=None
           lastSearch=None 
-          searchAction=None }
+          searchAction=None 
+          macro=None }
 
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
@@ -873,8 +876,6 @@ module Vim =
                     | InsertMode ->
                         editor.InsertAtCaret c
                         vimState
-                    //| ExMode ->
-                        //exMode.processKey vimState c
                     | _ -> vimState
                 | IncrementNumber -> modifyNumber (fun i -> i + 1)
                 | DecrementNumber -> modifyNumber (fun i -> i - 1)
@@ -891,6 +892,23 @@ module Vim =
                                        editor.ScrollTo(index))
                     vimState
                 | SetSearchAction command -> { vimState with searchAction = Some command }
+                | MacroStart c ->
+                    macros.[c] <- []
+                    { vimState with macro = Macro (char c) |> Some }
+                | MacroEnd ->
+                    { vimState with macro = None }
+                | ReplayMacro c ->
+                    let getCount repeat = repeat |> Option.defaultValue 1
+
+                    let rec runMacro state actions =
+                        match actions with
+                        | [ only ] ->
+                            processCommands (getCount only.repeat) state only false 
+                        | h :: t ->
+                            let newState = processCommands (getCount h.repeat) state h false 
+                            runMacro newState t
+                        | [] -> state
+                    runMacro vimState macros.[c] 
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -1127,6 +1145,11 @@ module Vim =
             | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
+            | NotInsertMode, [ "q" ] when state.macro.IsNone -> wait
+            | NotInsertMode, [ "q"; c ] -> [ run (MacroStart (char c)) Nothing ]
+            | NotInsertMode, [ "q" ] -> [ run MacroEnd Nothing ]
+            | NotInsertMode, [ "@" ] -> wait
+            | NotInsertMode, [ "@"; c ] -> [ run (ReplayMacro (char c)) Nothing ]
             | NotInsertMode, [ "g" ] -> wait
             | NotInsertMode, [ "m" ] -> wait
             | NotInsertMode, [ "`" ] -> wait
@@ -1231,13 +1254,18 @@ module Vim =
                 performActions actions state true
             | _ ->
                 use group = editor.OpenUndoGroup()
+                state.macro
+                |> Option.iter(fun (Macro c) -> macros.[c] <- macros.[c] @ action)
                 performActions action newState false
 
         let firstAction = action |> List.head
 
         let newState =
             match insertChar, firstAction.commandType, keyPress.KeyChar with
-            | Some c, _, _ -> { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
+            | Some c, _, _ ->
+                newState.macro |> Option.iter(fun (Macro m) ->
+                    macros.[m] <- macros.[m] @ [ typeChar (c |> string) ])
+                { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
             | None, Delete, _
             | None, Change, _
             | None, Put _, _
@@ -1298,8 +1326,10 @@ type XSVim() =
             let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
             processingKey <- false
 
-            match newState.statusMessage with
-            | Some m -> IdeApp.Workbench.StatusBar.ShowMessage m
+            match newState.statusMessage, newState.macro with
+            | Some m, None -> IdeApp.Workbench.StatusBar.ShowMessage m
+            | Some m, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage (m + "recording")
+            | None, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage "recording"
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
 
             editorStates.[x.FileName] <- newState
