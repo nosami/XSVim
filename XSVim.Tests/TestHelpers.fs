@@ -117,7 +117,6 @@ module TestHelpers =
             failwith "No caret found in test code"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
-
         let plugin = new XSVim()
         let state = Vim.defaultState
         let keyDescriptors = parseKeys keys
@@ -142,6 +141,13 @@ module TestHelpers =
                     editor.Text.Insert(editor.CaretOffset+1, "$")
         text, newState
 
+    let switchLineEndings (s:string) =
+        s.Replace("\n", "\r\n")
+
     let assertText (source:string) (keys:string) expected =
         let actual, _ = test source keys
-        Assert.AreEqual(expected, actual) 
+        Assert.AreEqual(expected, actual, "Failed with \n")
+        if source.Contains("\n") || actual.Contains("\n") then
+            // Run the test again with \r\n line endings
+            let actual, _ = test (source |> switchLineEndings) keys
+            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n") 

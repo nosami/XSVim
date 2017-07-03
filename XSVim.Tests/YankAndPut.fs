@@ -47,11 +47,11 @@ module ``Yank and put tests`` =
 
     [<Test>]
     let ``Visual line selection should work at EOF``() =
-        assertText "a$bc" "Vyp" "abc\na$bc"
+        assertText "123\na$bc" "Vyp" "123\nabc\na$bc"
 
     [<Test>]
     let ``Single line yank should work at EOF``() =
-        assertText "a$bc" "yyp" "abc\na$bc"
+        assertText "123\na$bc" "yyp" "123\nabc\na$bc"
 
     [<Test>]
     let ``Line yank should work at EOF``() =

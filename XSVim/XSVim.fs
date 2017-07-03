@@ -211,8 +211,7 @@ module VimHelpers =
         else
             None
 
-    let eofOnLine (line: IDocumentLine) =
-        line.EndOffset = line.EndOffsetIncludingDelimiter
+    let eofOnLine (line: IDocumentLine) = line.DelimiterLength = 0
 
     let getVisibleLines editor =
         let flags = BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
@@ -229,6 +228,16 @@ module VimHelpers =
                 findCharForwardsOnLine editor line offset (string quoteChar)
             | _ -> None
         firstBackwards, firstForwards, secondForwards
+
+    let inferDelimiter (editor:TextEditor) =
+        editor.GetLines()
+        |> Seq.tryFind(fun line -> line.DelimiterLength > 0)
+        |> Option.map(fun line -> match line.UnicodeNewline with
+                                  | UnicodeNewline.LF -> "\n"
+                                  | UnicodeNewline.CRLF -> "\r\n"
+                                  | UnicodeNewline.CR -> "\r"
+                                  | _ -> editor.Options.DefaultEolMarker)
+        |> Option.defaultValue editor.Options.DefaultEolMarker
 
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
@@ -294,7 +303,8 @@ module VimHelpers =
             line.Offset, line.EndOffset
         | WholeLineIncludingDelimiter ->
             if eofOnLine line && line.LineNumber <> 1 then
-                line.Offset-1, line.EndOffsetIncludingDelimiter
+                let delimiter = inferDelimiter editor
+                line.Offset-delimiter.Length, line.EndOffsetIncludingDelimiter
             else
                 line.Offset, line.EndOffsetIncludingDelimiter
         | LastLine ->
@@ -530,6 +540,16 @@ module Vim =
         | LastLine -> Some LineWise
         | _ -> None
 
+    let (|StartsWithDelimiter|_|) (s:string) =
+        if s.StartsWith "\r\n" then Some "\r\n"
+        elif s.StartsWith "\n" then Some "\n"
+        else None
+
+    let (|EndsWithDelimiter|_|) (s:string) =
+        if s.EndsWith "\r\n" then Some "\r\n"
+        elif s.EndsWith "\n" then Some "\n"
+        else None
+
     let getSelectedText vimState (editor: TextEditor) (command:VimAction) =
         let linewise =
             match vimState.mode with
@@ -655,6 +675,7 @@ module Vim =
                 switchToInsertMode editor vimState isInitial
 
             let start, finish = VimHelpers.getRange vimState editor command
+
             let newState =
                 match command.commandType with
                 | Move ->
@@ -748,13 +769,18 @@ module Vim =
                     if registers.[EmptyRegister].linewise then
                         if editor.CaretLine = editor.LineCount then
                             let line = editor.GetLine(editor.CaretLine)
-                            let delimiter = editor.Options.DefaultEolMarker
-                            if not (registers.[EmptyRegister].content.StartsWith delimiter) then
-                                editor.InsertText(editor.Text.Length, delimiter)
+                            let delimiter = inferDelimiter editor
+                            match registers.[EmptyRegister].content with
+                            | StartsWithDelimiter _delimiter -> ()
+                            | _ -> editor.InsertText(editor.Text.Length, delimiter)
+                            //if not (registers.[EmptyRegister].content.StartsWith delimiter) then
+                                //editor.InsertText(editor.Text.Length, delimiter)
                             editor.CaretOffset <- editor.Text.Length
                             EditActions.ClipboardPaste editor
-                            if eofOnLine line && registers.[EmptyRegister].content.EndsWith delimiter then
-                                editor.RemoveText(editor.Text.Length-delimiter.Length, delimiter.Length)
+                            if eofOnLine line then
+                                match registers.[EmptyRegister].content with
+                                | EndsWithDelimiter delimiter -> editor.RemoveText(editor.Text.Length-delimiter.Length, delimiter.Length)
+                                | _ -> ()
                             EditActions.MoveCaretToLineStart editor
                         else
                             editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
@@ -773,9 +799,9 @@ module Vim =
                 | Undo -> EditActions.Undo editor; vimState
                 | Redo -> EditActions.Redo editor; vimState
                 | JoinLines ->
-                    let lastColumn = editor.GetLine(editor.CaretLine).LengthIncludingDelimiter
+                    let lastColumn = editor.GetLine(editor.CaretLine).Length
                     EditActions.JoinLines editor
-                    editor.CaretColumn <- lastColumn
+                    editor.CaretColumn <- lastColumn + 1
                     vimState
                 | ReplaceChar c ->
                     editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)

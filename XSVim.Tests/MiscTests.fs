@@ -105,7 +105,7 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``<esc> doesn't move caret left onto newline'``() =
-        assertText "A$bC abc" "o<esc>" "AbC abc\n$"
+        assertText "\nA$bC abc" "o<esc>" "\nAbC abc\n$"
 
     [<Test>]
     let ``<C-a> increments next number``() =
