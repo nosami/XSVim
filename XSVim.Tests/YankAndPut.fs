@@ -56,3 +56,7 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Line yank should work at EOF``() =
         assertText "abc\nde$f" "yyp" "abc\ndef\nd$ef"
+
+    [<Test>]
+    let ``Single line yank containing delimiter``() =
+        assertText "1$23\nabc" "yyp" "123\n1$23\nabc"

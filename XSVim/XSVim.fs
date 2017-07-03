@@ -783,7 +783,7 @@ module Vim =
                                 | _ -> ()
                             EditActions.MoveCaretToLineStart editor
                         else
-                            editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffset+1
+                            editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffsetIncludingDelimiter
                             EditActions.ClipboardPaste editor
                             EditActions.MoveCaretUp editor
                     else
