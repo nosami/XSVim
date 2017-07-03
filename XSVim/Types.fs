@@ -54,6 +54,8 @@ type CommandType =
     | MacroStart of char
     | MacroEnd
     | ReplayMacro of char
+    | NextTab
+    | PreviousTab
 
 type TextObject =
     | Character
