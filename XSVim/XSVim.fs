@@ -11,6 +11,7 @@ open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
+open Reflection
 
 [<AutoOpen>]
 module VimHelpers =
@@ -628,6 +629,20 @@ module Vim =
                 vimState
             | None -> vimState
 
+        let tryFindNoteBook() =
+            let dockNotebookContainer = IdeApp.Workbench?RootWindow?TabControl?Container?GetNotebooks()
+            let getFiles notebook =
+                let tabs = notebook?Tabs
+                let tabs' = tabs :> seq<obj>
+                tabs' |> Seq.map(fun tab -> tab?Tooltip) |> Array.ofSeq
+
+            dockNotebookContainer
+            |> Seq.map(fun notebook -> notebook, getFiles notebook)
+            |> Seq.tryFind(fun (_notebook, files) -> files |> Seq.exists(fun file -> file = editor.FileName.FullPath.ToString()))
+
+        let openDocument fileName =
+            IdeApp.Workbench.OpenDocument(fileName |> FilePath).Wait(System.Threading.CancellationToken.None)
+
         let rec processCommands count vimState command isInitial =
             let blockInsert fColumnSelect =
                 let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
@@ -909,6 +924,28 @@ module Vim =
                             runMacro newState t
                         | [] -> state
                     runMacro vimState macros.[c] 
+                | NextTab ->
+                    tryFindNoteBook() |> Option.iter(fun (tabControl, files) ->
+                        let tabCount = tabControl?TabCount
+                        let currentTabIndex = tabControl?CurrentTabIndex
+                        let index =
+                            if currentTabIndex < (tabCount-1) then
+                                currentTabIndex + 1
+                            else
+                                0
+                        openDocument files.[index])
+                    vimState
+                | PreviousTab ->
+                    tryFindNoteBook() |> Option.iter(fun (tabControl, files) ->
+                        let tabCount = tabControl?TabCount
+                        let currentTabIndex = tabControl?CurrentTabIndex
+                        let index =
+                            if currentTabIndex > 0 then
+                                currentTabIndex - 1
+                            else
+                                tabCount - 1
+                        openDocument files.[index])
+                    vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -1158,8 +1195,8 @@ module Vim =
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (StartOfLineNumber lineNumber) ]
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
-            | NotInsertMode, [ "g"; "t" ] -> [ dispatch WindowCommands.NextDocument ]
-            | NotInsertMode, [ "g"; "T" ] -> [ dispatch WindowCommands.PrevDocument ]
+            | NotInsertMode, [ "g"; "t" ] -> [ run NextTab Nothing ]
+            | NotInsertMode, [ "g"; "T" ] -> [ run PreviousTab Nothing ]
             | NotInsertMode, [ "g"; "v" ] ->
                 match state.lastSelection with
                 | Some selection -> [ run Move (Offset selection.start)
