@@ -15,6 +15,9 @@ module Window =
         let (project:MonoDevelop.Projects.Project) = Unchecked.defaultof<_>
         IdeApp.Workbench.OpenDocument(fileName |> FilePath, project).Wait(System.Threading.CancellationToken.None)
 
+    let switchToNotebook notebook =
+        openDocument notebook.tabs.[notebook.activeTab]
+
     let getNotebooks() =
         let (dockNotebookContainer: obj seq) = IdeApp.Workbench?RootWindow?TabControl?Container?GetNotebooks()
         let getFiles notebook =
@@ -62,4 +65,14 @@ module Window =
         let notebook =
             getNotebooks()
             |> List.tryFind(fun notebook -> not notebook.isActive)
-        notebook |> Option.iter(fun n -> openDocument n.tabs.[n.activeTab])
+        notebook |> Option.iter switchToNotebook
+
+    let leftWindow _editor =
+        let notebooks = getNotebooks()
+        if notebooks.Length = 2 && notebooks.[1].isActive then
+            switchToNotebook notebooks.[0]
+
+    let rightWindow _editor =
+        let notebooks = getNotebooks()
+        if notebooks.Length = 2 && notebooks.[0].isActive then
+            switchToNotebook notebooks.[1]

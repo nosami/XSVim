@@ -1236,14 +1236,20 @@ module Vim =
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]
             | NotInsertMode, [ "<C-w>"; "<C-w>" ] -> [ func Window.switchWindow ]
+            | NotInsertMode, [ "<C-w>"; "h" ] -> [ func Window.leftWindow ]
+            | NotInsertMode, [ "<C-w>"; "l" ] -> [ func Window.rightWindow ]
             // These commands don't work the same way as vim yet, but better than nothing
             | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
             | NotInsertMode, [ "<C-w>"; "c" ] -> [ dispatch FileCommands.CloseFile ]
             | NotInsertMode, [ "<C-w>"; "v" ]
             | NotInsertMode, [ "<C-w>"; "s" ] 
             | NotInsertMode, [ "<C-w>"; "<C-v>" ]
-            | NotInsertMode, [ "<C-w>"; "<C-s>" ] 
-                -> [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
+            | NotInsertMode, [ "<C-w>"; "<C-s>" ] ->
+                let notebooks = Window.getNotebooks()
+                if notebooks.Length < 2 then
+                    [ dispatch "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode" ]
+                else
+                    resetKeys
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
             | NotInsertMode, [ "<C-a>" ] -> [ run IncrementNumber Nothing; switchMode NormalMode ]
             | NotInsertMode, [ "<C-x>" ] -> [ run DecrementNumber Nothing; switchMode NormalMode ]
