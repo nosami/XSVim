@@ -64,6 +64,7 @@
     <Compile Include="Reflection.fs" />
     <Compile Include="Classes.fs" />
     <Compile Include="Types.fs" />
+    <Compile Include="WindowManagement.fs" />
     <Compile Include="ExMode.fs" />
     <Compile Include="XSVim.fs" />
   </ItemGroup>

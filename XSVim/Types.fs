@@ -1,5 +1,6 @@
 namespace XSVim
 open System
+open MonoDevelop.Ide.Editor
 
 type BeforeOrAfter = Before | After | OverSelection
 
@@ -56,6 +57,7 @@ type CommandType =
     | ReplayMacro of char
     | NextTab
     | PreviousTab
+    | Func of (TextEditor -> unit)
 
 type TextObject =
     | Character
@@ -162,3 +164,4 @@ module commandHelpers =
     let switchMode mode = runOnce (SwitchMode mode) Nothing
     let dispatch command = runOnce (Dispatch command) Nothing
     let resetKeys = [ runOnce ResetKeys Nothing ]
+    let func f = runOnce (Func f) Nothing
