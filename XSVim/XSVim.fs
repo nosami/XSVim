@@ -1240,7 +1240,7 @@ module Vim =
             | NotInsertMode, [ "<C-w>"; "l" ] -> [ func Window.rightWindow ]
             // These commands don't work the same way as vim yet, but better than nothing
             | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
-            | NotInsertMode, [ "<C-w>"; "c" ] -> [ dispatch FileCommands.CloseFile ]
+            | NotInsertMode, [ "<C-w>"; "c" ] -> [ func Window.closeTab ]
             | NotInsertMode, [ "<C-w>"; "v" ]
             | NotInsertMode, [ "<C-w>"; "s" ] 
             | NotInsertMode, [ "<C-w>"; "<C-v>" ]
