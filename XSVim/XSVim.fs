@@ -649,21 +649,6 @@ module Vim =
                 vimState
             | None -> vimState
 
-        let tryFindNoteBook() =
-            let dockNotebookContainer = IdeApp.Workbench?RootWindow?TabControl?Container?GetNotebooks()
-            let getFiles notebook =
-                let tabs = notebook?Tabs
-                let tabs' = tabs :> seq<obj>
-                tabs' |> Seq.map(fun tab -> tab?Tooltip) |> Array.ofSeq
-
-            dockNotebookContainer
-            |> Seq.map(fun notebook -> notebook, getFiles notebook)
-            |> Seq.tryFind(fun (_notebook, files) -> files |> Seq.exists(fun file -> file = editor.FileName.FullPath.ToString()))
-
-        let openDocument fileName =
-            let (project:MonoDevelop.Projects.Project) = Unchecked.defaultof<_>
-            IdeApp.Workbench.OpenDocument(fileName |> FilePath, project).Wait(System.Threading.CancellationToken.None)
-
         let rec processCommands count vimState command isInitial =
             let blockInsert fColumnSelect =
                 let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
@@ -952,26 +937,13 @@ module Vim =
                         | [] -> state
                     runMacro vimState macros.[c] 
                 | NextTab ->
-                    tryFindNoteBook() |> Option.iter(fun (tabControl, files) ->
-                        let tabCount = tabControl?TabCount
-                        let currentTabIndex = tabControl?CurrentTabIndex
-                        let index =
-                            if currentTabIndex < (tabCount-1) then
-                                currentTabIndex + 1
-                            else
-                                0
-                        openDocument files.[index])
+                    Window.nextTab editor
                     vimState
                 | PreviousTab ->
-                    tryFindNoteBook() |> Option.iter(fun (tabControl, files) ->
-                        let tabCount = tabControl?TabCount
-                        let currentTabIndex = tabControl?CurrentTabIndex
-                        let index =
-                            if currentTabIndex > 0 then
-                                currentTabIndex - 1
-                            else
-                                tabCount - 1
-                        openDocument files.[index])
+                    Window.previousTab editor
+                    vimState
+                | Func f -> 
+                    f editor
                     vimState
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
@@ -1222,8 +1194,8 @@ module Vim =
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (StartOfLineNumber lineNumber) ]
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
-            | NotInsertMode, [ "g"; "t" ] -> [ run NextTab Nothing ]
-            | NotInsertMode, [ "g"; "T" ] -> [ run PreviousTab Nothing ]
+            | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
+            | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
             | NotInsertMode, [ "g"; "v" ] ->
                 match state.lastSelection with
                 | Some selection -> [ run Move (Offset selection.start)
@@ -1263,7 +1235,7 @@ module Vim =
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]
-            | NotInsertMode, [ "<C-w>"; "<C-w>" ] -> [ dispatch WindowCommands.NextDocument ]
+            | NotInsertMode, [ "<C-w>"; "<C-w>" ] -> [ func Window.switchWindow ]
             // These commands don't work the same way as vim yet, but better than nothing
             | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
             | NotInsertMode, [ "<C-w>"; "c" ] -> [ dispatch FileCommands.CloseFile ]
@@ -1305,11 +1277,10 @@ module Vim =
             match actions' with
             | [] -> state, handled
             | h::t ->
-                if h.commandType = DoNothing then
-                    newState, true
-                else
+                match h.commandType with
+                | DoNothing -> newState, true
+                | _ ->
                     let newState = runCommand state editor h
-
                     performActions t { newState with keys = [] } true
 
         let newState, handled =
