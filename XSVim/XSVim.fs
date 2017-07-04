@@ -755,8 +755,6 @@ module Vim =
                             match registers.[EmptyRegister].content with
                             | StartsWithDelimiter _delimiter -> ()
                             | _ -> editor.InsertText(editor.Text.Length, delimiter)
-                            //if not (registers.[EmptyRegister].content.StartsWith delimiter) then
-                                //editor.InsertText(editor.Text.Length, delimiter)
                             editor.CaretOffset <- editor.Text.Length
                             EditActions.ClipboardPaste editor
                             if eofOnLine line then
