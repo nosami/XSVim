@@ -1,7 +1,7 @@
 ﻿namespace XSVim
 open MonoDevelop.Core
 open MonoDevelop.Ide
-open MonoDevelop.Ide.Editor
+open MonoDevelop.Ide.Commands
 open Reflection
 
 module Window =
@@ -10,6 +10,8 @@ module Window =
         activeTab: int
         tabs: string list
     }
+
+    let dispatch command = IdeApp.CommandService.DispatchCommand command |> ignore
 
     let openDocument fileName =
         let (project:MonoDevelop.Projects.Project) = Unchecked.defaultof<_>
@@ -38,6 +40,11 @@ module Window =
     let tryFindActiveNoteBook() =
         getNotebooks()
         |> List.tryFind(fun notebook -> notebook.isActive)
+
+    let tryActiveInactiveNoteBooks() =
+        let notebooks = getNotebooks()
+        notebooks |> List.tryFind(fun notebook -> notebook.isActive),
+        notebooks |> List.tryFind(fun notebook -> not notebook.isActive)
 
     let nextTab _editor =
         tryFindActiveNoteBook() |> Option.iter(fun notebook ->
@@ -76,3 +83,13 @@ module Window =
         let notebooks = getNotebooks()
         if notebooks.Length = 2 && notebooks.[0].isActive then
             switchToNotebook notebooks.[1]
+
+    let closeTab _editor =
+        match tryActiveInactiveNoteBooks() with
+        | Some active, Some inactive when active.tabs.Length = 1 ->
+            dispatch FileCommands.CloseFile
+            switchToNotebook inactive
+        | Some active, _ when active.tabs.Length > 1 ->
+            dispatch FileCommands.CloseFile
+            openDocument active.tabs.[active.activeTab-1]
+        | _ -> dispatch FileCommands.CloseFile
