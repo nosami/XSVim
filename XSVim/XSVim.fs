@@ -2,7 +2,6 @@
 
 open System
 open System.Collections.Generic
-open System.Reflection
 open System.Text.RegularExpressions
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
@@ -214,10 +213,8 @@ module VimHelpers =
     let eofOnLine (line: IDocumentLine) = line.DelimiterLength = 0
 
     let getVisibleLines editor =
-        let flags = BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
-        let prop = editor.GetType().GetProperty("VisibleLines", flags)
-        prop.GetValue(editor, null) :?> IDocumentLine seq
-        |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
+        let (lines:IDocumentLine seq) = editor?VisibleLines
+        lines |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
 
     let findQuoteTriplet (editor:TextEditor) line quoteChar =
         let firstBackwards = findCharBackwardsOnLine editor.CaretOffset editor line ((=) quoteChar)
