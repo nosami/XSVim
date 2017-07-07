@@ -1,4 +1,7 @@
-github jaredpar/VsVim Src/VimCore/Interpreter_Tokenizer.fs
 github jaredpar/VsVim Src/VimCore/FSharpUtil.fs
+github jaredpar/VsVim Src/VimCore/StringUtil.fs
+github jaredpar/VsVim Src/VimCore/CoreTypes.fs
+github jaredpar/VsVim Src/VimCore/Interpreter_Tokenizer.fs
+github jaredpar/VsVim Src/VimCore/Interpreter_Tokens.fs
 github jaredpar/VsVim Src/VimCore/Interpreter_Expression.fs
 github jaredpar/VsVim Src/VimCore/Interpreter_Parser.fs

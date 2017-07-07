@@ -76,6 +76,15 @@
     <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\FSharpUtil.fs">
       <Link>paket-files\jaredpar\VsVim\Src\VimCore\FSharpUtil.fs</Link>
     </Compile>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\StringUtil.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\StringUtil.fs</Link>
+    </Compile>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\CoreTypes.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\CoreTypes.fs</Link>
+    </Compile>
+    <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokens.fs">
+      <Link>paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokens.fs</Link>
+    </Compile>
     <Compile Include="..\paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokenizer.fs">
       <Link>paket-files\jaredpar\VsVim\Src\VimCore\Interpreter_Tokenizer.fs</Link>
     </Compile>
