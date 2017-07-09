@@ -507,6 +507,7 @@ module Vim =
                 else
                     vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
             editor.SetSelection(start, finish)
+            if editor.SelectionMode = SelectionMode.Block then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
         | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
             let leftColumn, rightColumn =
@@ -524,6 +525,7 @@ module Vim =
             let startLine = editor.GetLineByOffset startPos
             let endLine = editor.GetLineByOffset endPos
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
+            if editor.SelectionMode = SelectionMode.Block then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
         | _ -> editor.SetSelection(start, finish)
 
     let (|MoveUpOrDown|_|) = function
@@ -824,7 +826,9 @@ module Vim =
                             | _ -> vimState.lastSelection
                         editor.ClearSelection()
                         setCaretMode vimState Block
-
+                        // stupid hack to prevent intellisense in normal mode
+                        // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
+                        if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
                         let vimState =
                             if vimState.mode = InsertMode then
