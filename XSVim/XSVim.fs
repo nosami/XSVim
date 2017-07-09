@@ -1320,10 +1320,11 @@ type XSVim() =
     static let editorStates = Dictionary<string, VimState>()
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
-
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
+        treeViewPads.initialize()
+
         if not (editorStates.ContainsKey x.FileName) then
             editorStates.Add(x.FileName, Vim.defaultState )
             let editor = x.Editor
