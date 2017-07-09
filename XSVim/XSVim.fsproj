@@ -56,6 +56,8 @@
       <HintPath>..\lib\Mono.Addins.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="glib-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.fs" />
@@ -66,6 +68,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="WindowManagement.fs" />
     <Compile Include="ExMode.fs" />
+    <Compile Include="TreeViewPads.fs" />
     <Compile Include="XSVim.fs" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
