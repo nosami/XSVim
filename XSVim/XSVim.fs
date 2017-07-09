@@ -507,7 +507,7 @@ module Vim =
                 else
                     vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
             editor.SetSelection(start, finish)
-            if editor.SelectionMode = SelectionMode.Block then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+            if editor.SelectionMode = SelectionMode.Block then EditActions.ToggleBlockSelectionMode editor
         | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
             let leftColumn, rightColumn =
@@ -518,14 +518,14 @@ module Vim =
             let topLine = min selectionStartLocation.Line editor.CaretLine
             let bottomLine = max selectionStartLocation.Line editor.CaretLine
             editor.SetSelection(DocumentLocation (topLine, leftColumn), DocumentLocation (bottomLine, rightColumn))
-            if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+            if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
         | VisualLineMode, Move | VisualLineMode, SwitchMode _ ->
             let startPos = min finish vimState.visualStartOffset
             let endPos = max finish vimState.visualStartOffset
             let startLine = editor.GetLineByOffset startPos
             let endLine = editor.GetLineByOffset endPos
             editor.SetSelection(startLine.Offset, endLine.EndOffsetIncludingDelimiter)
-            if editor.SelectionMode = SelectionMode.Block then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+            if editor.SelectionMode = SelectionMode.Block then EditActions.ToggleBlockSelectionMode editor
         | _ -> editor.SetSelection(start, finish)
 
     let (|MoveUpOrDown|_|) = function
@@ -655,7 +655,7 @@ module Vim =
                 let bottomLine = max selectionStartLocation.Line editor.CaretLine
                 editor.CaretColumn <- fColumnSelect editor.CaretColumn selectionStartLocation.Column
                 editor.SetSelection(DocumentLocation (topLine, editor.CaretColumn), DocumentLocation (bottomLine, editor.CaretColumn))
-                if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+                if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
                 switchToInsertMode editor vimState isInitial
 
             let start, finish = VimHelpers.getRange vimState editor command
@@ -828,7 +828,7 @@ module Vim =
                         setCaretMode vimState Block
                         // stupid hack to prevent intellisense in normal mode
                         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
-                        if editor.SelectionMode = SelectionMode.Normal then dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+                        if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
                         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
                         let vimState =
                             if vimState.mode = InsertMode then
@@ -848,8 +848,8 @@ module Vim =
                         let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
-                        | VisualBlockMode, SelectionMode.Normal -> dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
-                        | _, SelectionMode.Block -> dispatchCommand TextEditorCommands.ToggleBlockSelectionMode
+                        | VisualBlockMode, SelectionMode.Normal -> EditActions.ToggleBlockSelectionMode editor
+                        | _, SelectionMode.Block -> EditActions.ToggleBlockSelectionMode editor
                         | _ -> ()
                         newState
                     | InsertMode ->
