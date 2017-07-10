@@ -20,9 +20,9 @@ module treeViewPads =
         tree.Selection.UnselectAll()
         tree.Selection.SelectIter iter.Value
 
-    let getSelectedNodes (pad:TreeViewPad) =
-        let (nodes:ITreeNavigator[]) = pad.TreeView?GetSelectedNodes()
-        nodes
+    let getSelectedNode (pad:TreeViewPad) =
+        let (node:ITreeNavigator) = pad.TreeView?GetSelectedNode()
+        node
 
     let getPath (tree:TreeView) =
         tree.Selection.GetSelectedRows().[0]
@@ -39,9 +39,9 @@ module treeViewPads =
             let path = selected.[0]
             let _res, iterOriginal = getIter path
             path.Down()
-            let nodes = getSelectedNodes pad
+            let node = getSelectedNode pad
             let res, iter = getIter path
-            if res && nodes.[0].Expanded then
+            if res && node.Expanded then
                 select tree iter
             else
                 let path = getPath tree
@@ -74,8 +74,8 @@ module treeViewPads =
             let res, iter = getIter path
             if prev && res then
                 select tree iter
-                let nodes = getSelectedNodes pad
-                if nodes.[0].Expanded then
+                let node = getSelectedNode pad
+                if node.Expanded then
                     // move to last child
                     let path = getPath tree
                     path.Down()
