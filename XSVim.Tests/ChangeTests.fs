@@ -12,6 +12,10 @@ module ``Change tests`` =
         assertText "a$bc def" "cw" "| def"
 
     [<Test>]
+    let ``C changes last character``() =
+        assertText "abc$" "C" "ab|"
+
+    [<Test>]
     let ``cw changes space``() =
         assertText "abc $def" "cw" "abc|def"
 
