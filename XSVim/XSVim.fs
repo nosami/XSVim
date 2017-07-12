@@ -571,10 +571,11 @@ module Vim =
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
 
-            if command.textObject <> SelectedText then
-                setSelection state editor command start finish
-            registers.[EmptyRegister] <- getSelectedText state editor command
-            EditActions.ClipboardCut editor
+            if start <> finish then
+                if command.textObject <> SelectedText then
+                    setSelection state editor command start finish
+                registers.[EmptyRegister] <- getSelectedText state editor command
+                EditActions.ClipboardCut editor
             state
 
         let setCaretMode state caretMode =
@@ -716,11 +717,7 @@ module Vim =
                             finish + 1
                         else
                             finish
-                    let state =
-                        if start <> finish then
-                            delete vimState start finish
-                        else
-                            vimState
+                    let state = delete vimState start finish
                     switchToInsertMode editor state isInitial
                 | Yank register ->
                     let finish =
