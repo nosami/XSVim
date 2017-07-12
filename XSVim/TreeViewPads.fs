@@ -110,6 +110,9 @@ module treeViewPads =
 
                 let processKey (key:KeyPressEventArgs) =
                     match key.Event.Key with
+                    | Gdk.Key.Escape ->
+                        dispatchCommand "MonoDevelop.Ide.Commands.ViewCommands.FocusCurrentDocument"
+                        key.RetVal <- false
                     | Gdk.Key.l ->
                         pad.TreeView?ExpandCurrentItem()
                         key.RetVal <- true
