@@ -36,6 +36,10 @@ module ``Change tests`` =
         assertText "a$bc def" "ce" "| def"
 
     [<Test>]
+    let ``ce changes last character``() =
+        assertText "a$ bcd" "ce" "| bcd"
+
+    [<Test>]
     let ``cc empty line``() =
         assertText "abc\n\n$def" "cc" "abc\n|\ndef"
 

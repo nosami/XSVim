@@ -401,7 +401,15 @@ module VimHelpers =
                 let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
                 let nextWordEnd = findWordEnd editor isWordChar
                 prevWordEnd + 1, nextWordEnd + 1
-        | ForwardToEndOfWord -> editor.CaretOffset, findWordEnd editor isWordChar
+        | ForwardToEndOfWord ->
+            let isWordCharAtOffset offset =
+                isWordChar (editor.[offset])
+
+            match command.commandType, isWordCharAtOffset editor.CaretOffset, Char.IsWhiteSpace (editor.[editor.CaretOffset+1]) with
+            | Change, true, true
+            | Delete, true, true ->
+                 editor.CaretOffset, editor.CaretOffset
+            | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
         | HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
