@@ -76,6 +76,10 @@ module ``Miscellaneous tests`` =
         assertText "a$bc abc" "*" "abc a$bc"
 
     [<Test>]
+    let ``* finds next word when on last word char``() =
+        assertText "abc$ abc" "*" "abc a$bc"
+
+    [<Test>]
     let ``* wraps to start``() =
         assertText "abc a$bc" "*" "a$bc abc"
 

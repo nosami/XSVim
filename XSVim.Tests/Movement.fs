@@ -20,6 +20,10 @@ module ``Movement tests`` =
         assertText "aa$a bbb" "e" "aaa$ bbb"
 
     [<Test>]
+    let ``Move to next word end``() =
+        assertText "aaa$ bbb" "e" "aaa bbb$"
+
+    [<Test>]
     let ``Move to second word end``() =
         assertText "aa$a bbb" "ee" "aaa bbb$"
 
