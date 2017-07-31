@@ -73,6 +73,7 @@ module VimHelpers =
     let isWhiteSpace c = Char.IsWhiteSpace c || c = '\r' || c = '\n'
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
     let isWORDChar c = not (isWhiteSpace c)
+    let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
 
     let (|WhiteSpace|_|) c =
         if isWhiteSpace c then Some WhiteSpace else None
@@ -132,7 +133,7 @@ module VimHelpers =
             match nextWordOffset with
             | Some offset ->
                 let f =
-                    if isWordChar editor.[offset] then isWordChar else isWORDChar
+                    if fWordChar editor.[offset] then fWordChar else isNonBlankButNotWordChar
                 editor.CaretOffset <- offset
                 findCurrentWordEnd editor f
             | None -> editor.Text.Length
@@ -396,9 +397,9 @@ module VimHelpers =
         | ForwardToEndOfWord ->
             let isWordCharAtOffset offset = isWordChar (editor.[offset])
 
-            match command.commandType, isWordCharAtOffset editor.CaretOffset, isWordCharAtOffset (editor.CaretOffset+1) with
-            | Change, true, false
-            | Delete, true, false ->
+            match command.commandType, isWordCharAtOffset editor.CaretOffset, Char.IsWhiteSpace (editor.[editor.CaretOffset+1]) with
+            | Change, true, true
+            | Delete, true, true ->
                  editor.CaretOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
