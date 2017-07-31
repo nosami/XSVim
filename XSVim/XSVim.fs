@@ -131,8 +131,10 @@ module VimHelpers =
             let nextWordOffset = findWordForwards editor Move fWordChar
             match nextWordOffset with
             | Some offset ->
+                let f =
+                    if isWordChar editor.[offset] then isWordChar else isWORDChar
                 editor.CaretOffset <- offset
-                findCurrentWordEnd editor isWORDChar
+                findCurrentWordEnd editor f
             | None -> editor.Text.Length
         else
             currentWordEnd

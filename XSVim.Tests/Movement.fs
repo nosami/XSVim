@@ -44,6 +44,10 @@ module ``Movement tests`` =
         assertText " $  abcde" "e" "   abcde$"
 
     [<Test>]
+    let ``e stops before dot``() =
+        assertText "open$ System.Collections.Generic" "e" "open System$.Collections.Generic"
+
+    [<Test>]
     let ``Move to end of line``() =
         assertText "aa$a aaa\nbbb" "$" "aaa aaa$\nbbb"
 
