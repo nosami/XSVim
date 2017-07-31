@@ -67,6 +67,12 @@ module ``Delete tests`` =
         assertText "ab$c def" "de" "a $def"
 
     [<Test>]
+    let ``Delete to end of word no punctuation``() =
+        //TODO: Note this isn't actually correct.
+        // Vim deletes the dot too for reasons I don't understand
+        assertText "open Mono$.Addins" "de" "open Mon.$Addins"
+
+    [<Test>]
     let ``Delete to end of WORD``() =
         assertText "ab$c.def ghi" "dE" "a $ghi"
 

@@ -392,12 +392,11 @@ module VimHelpers =
                 let nextWordEnd = findWordEnd editor isWordChar
                 prevWordEnd + 1, nextWordEnd + 1
         | ForwardToEndOfWord ->
-            let isWordCharAtOffset offset =
-                isWordChar (editor.[offset])
+            let isWordCharAtOffset offset = isWordChar (editor.[offset])
 
-            match command.commandType, isWordCharAtOffset editor.CaretOffset, Char.IsWhiteSpace (editor.[editor.CaretOffset+1]) with
-            | Change, true, true
-            | Delete, true, true ->
+            match command.commandType, isWordCharAtOffset editor.CaretOffset, isWordCharAtOffset (editor.CaretOffset+1) with
+            | Change, true, false
+            | Delete, true, false ->
                  editor.CaretOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
