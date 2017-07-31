@@ -40,10 +40,12 @@ module ``Change tests`` =
         assertText "a$ bcd" "ce" "| bcd"
 
     [<Test>]
-    let ``Change to end of word no punctuation``() =
-        //TODO: Note this isn't actually correct.
-        // Vim deletes the dot too for reasons I don't understand
-        assertText "open Mono$.Addins" "ce" "open Mon|.Addins"
+    let ``Change to end of word does not include dot``() =
+        assertText "open Mon$o.Addins" "ce" "open Mo|.Addins"
+
+    [<Test>]
+    let ``Change to end of word includes dot``() =
+        assertText "open Mono$.Addins" "ce" "open Mon|Addins"
 
     [<Test>]
     let ``cc empty line``() =
