@@ -60,7 +60,7 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``Deletes word``() =
-        assertText "a$bc def" "dw" "d$ef"
+        assertText "a$bc     def" "dw" "d$ef"
 
     [<Test>]
     let ``Delete to end of word``() =
@@ -75,13 +75,21 @@ module ``Delete tests`` =
         assertText "open Mono$.Addins" "de" "open MonA$ddins"
 
     [<Test>]
+    let ``Delete word does not include dot``() =
+        assertText "open Mo$no.Addins" "dw" "open M.$Addins"
+
+    [<Test>]
     let ``Delete to end of WORD``() =
         assertText "ab$c.def ghi" "dE" "a $ghi"
 
     [<Test>]
     let ``Deleting last word doesn't delete delimiter'``() =
-        assertText "abc d$ef\nghi" "dw" "abc $\nghi"
+        assertText "abc d$ef  \nghi" "dw" "abc $\nghi"
 
     [<Test>]
     let ``Delete char to left doesn't delete past start of line``() =
         assertText "abcdef\nab$cdef" "XXX" "abcdef\nb$cdef"
+
+    [<Test>]
+    let ``dw last word at EOF``() =
+        assertText "a$bc" "dw" "$"

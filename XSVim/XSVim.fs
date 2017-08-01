@@ -81,16 +81,31 @@ module VimHelpers =
     let findWordForwards (editor:TextEditor) commandType fWordChar =
         let findFromNonLetterChar index =
             match editor.[index], commandType with
-            | WhiteSpace, Move ->
+            | WhiteSpace, Move
+            | WhiteSpace, Delete ->
                 seq { index+1 .. editor.Text.Length-1 }
-                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index]))
+                |> Seq.tryFind(fun index -> not (editor.[index] = ' '))
+                |> Option.bind(fun newIndex ->
+
+                    let findFirstWordOnLine startOffset =
+                        match editor.[startOffset] with
+                        | WhiteSpace ->
+                            seq { startOffset .. editor.Text.Length-1 }
+                            |> Seq.tryFind(fun index -> let c = editor.[index]
+                                                        fWordChar c || c = '\n')
+                        | _ -> Some newIndex
+
+                    match editor.[newIndex] with
+                    | '\r' -> findFirstWordOnLine (newIndex + 2)
+                    | '\n' -> findFirstWordOnLine (newIndex + 1)
+                    | _ -> Some newIndex)
             | _ -> Some index
 
         if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
             editor.CaretOffset + 1 |> Some
         else
             seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
-            |> Seq.tryFind(fun index -> index = editor.Text.Length-1 || not (fWordChar editor.[index]))
+            |> Seq.tryFind(fun index -> index = editor.Text.Length || not (fWordChar editor.[index]))
             |> Option.bind findFromNonLetterChar
 
     let findWordBackwards (editor:TextEditor) commandType fWordChar =
@@ -147,9 +162,12 @@ module VimHelpers =
 
     let findNextWordStartOnLine(editor:TextEditor) (line:IDocumentLine) fWordChar =
         let currentWordEnd = findCurrentWordEnd editor fWordChar
-        seq { currentWordEnd + 1 .. line.EndOffset }
-        |> Seq.tryFind(fun index -> fWordChar editor.[index])
-        |> Option.defaultValue line.EndOffset
+        match editor.[currentWordEnd+1] with
+        | WhiteSpace ->
+            seq { currentWordEnd + 1 .. line.EndOffset }
+            |> Seq.tryFind(fun index -> fWordChar editor.[index])
+            |> Option.defaultValue line.EndOffset
+        | _ -> currentWordEnd
 
     let paragraphBackwards (editor:TextEditor) =
         seq { editor.CaretLine-1 .. -1 .. 1 }
@@ -363,7 +381,7 @@ module VimHelpers =
         | WordForwards ->
             match findWordForwards editor command.commandType isWordChar with
             | Some index -> editor.CaretOffset, index
-            | None -> editor.CaretOffset, editor.CaretOffset
+            | None -> editor.CaretOffset, editor.Text.Length
         | WORDForwards ->
             match findWordForwards editor command.commandType isWORDChar with
             | Some index -> editor.CaretOffset, index
@@ -389,7 +407,7 @@ module VimHelpers =
         | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
         | AWord -> 
             if isWordChar (editor.[editor.CaretOffset]) then
-                findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWordChar 
+                findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar 
             else
                 let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
                 let nextWordEnd = findWordEnd editor isWordChar
@@ -690,12 +708,6 @@ module Vim =
                     newState
 
                 | Delete -> 
-                    let line = editor.GetLine editor.CaretLine
-                    let finish =
-                        if command.textObject = WordForwards && finish < line.EndOffset then
-                            finish + 1
-                        else
-                            finish
                     let newState = delete vimState start finish
                     let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1

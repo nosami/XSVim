@@ -9,7 +9,7 @@ module ``Change tests`` =
 
     [<Test>]
     let ``cw changes word``() =
-        assertText "a$bc def" "cw" "| def"
+        assertText "a$bc    def" "cw" "|    def"
 
     [<Test>]
     let ``C changes last character``() =

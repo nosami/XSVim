@@ -9,7 +9,11 @@ module ``Movement tests`` =
 
     [<Test>]
     let ``Move to next word on next line``() =
-        assertText "aa$a\nbbb" "w" "aaa\nb$bb"
+        assertText "aa$a\n  bbb" "w" "aaa\n  b$bb"
+
+    [<Test>]
+    let ``Move to empty line``() =
+        assertText "aa$a\n\nbbb" "w" "aaa\n\n$bbb"
 
     [<Test>]
     let ``Moves to EOF when there is no next word``() =
