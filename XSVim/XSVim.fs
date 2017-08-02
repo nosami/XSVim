@@ -14,35 +14,38 @@ open Reflection
 
 [<AutoOpen>]
 module VimHelpers =
-    let commandManager = IdeApp.CommandService
+    let commandManager = IdeApp.CommandService |> Option.ofObj
 
-    let dispatchCommand command = commandManager.DispatchCommand command |> ignore
+    let dispatchCommand command = 
+        commandManager 
+        |> Option.iter(fun c -> c.DispatchCommand command |> ignore)
 
     let unregisterConflictingCommands() =
-        let commands = commandManager.GetCommands() |> Array.ofSeq
-
-        [ 
-            "Control+P"
-            "Control+D"
-            "Control+U"
-            "Control+F"
-            "Control+B"
-            "Control+W"
-            "Control+V"
-            "Control+C"
-            "Control+R"
-            "Control+Y"
-            "Control+E"
-            "Control+A"
-            "Control+X"
-            "Control+N"
-            "Control+["
-        ] 
-        |> List.iter(fun k -> 
-            commands 
-            |> Array.tryFind(fun command -> command.AccelKey = k)
-            |> Option.iter commandManager.UnregisterCommand)
-
+        match commandManager with
+        | Some commandManager' ->
+            let commands = commandManager'.GetCommands() |> Array.ofSeq
+            [ 
+                "Control+P"
+                "Control+D"
+                "Control+U"
+                "Control+F"
+                "Control+B"
+                "Control+W"
+                "Control+V"
+                "Control+C"
+                "Control+R"
+                "Control+Y"
+                "Control+E"
+                "Control+A"
+                "Control+X"
+                "Control+N"
+                "Control+["
+            ] 
+            |> List.iter(fun k -> 
+                commands 
+                |> Array.tryFind(fun command -> command.AccelKey = k)
+                |> Option.iter commandManager'.UnregisterCommand)
+        | None -> ()
     unregisterConflictingCommands()
 
     let closingBraces = [')'; '}'; ']'] |> set
