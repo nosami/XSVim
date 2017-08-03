@@ -213,13 +213,15 @@ module VimHelpers =
                                      String.IsNullOrWhiteSpace line)
         |> Option.bind(fun lineNr -> Some (editor.GetLine lineNr).Offset)
 
-    let getVisibleLineCount (_editor:TextEditor) =
-        //let topVisibleLine = ((editor .VAdjustment.Value / editor.LineHeight) |> int) + 1
-        //let bottomVisibleLine =
-        //    Math.Min(editor.LineCount - 1,
-        //        topVisibleLine + ((editor.VAdjustment.PageSize / editor.LineHeight) |> int))
-        //bottomVisibleLine - topVisibleLine
-        40
+    let getVisibleLines editor =
+        let (lines:IDocumentLine seq) = editor?VisibleLines
+        lines
+
+    let getSortedVisibleLines editor =
+        getVisibleLines editor |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
+
+    let getVisibleLineCount editor =
+        getVisibleLines editor |> Seq.length
 
     let getComparisonType (search:string) =
         match search with
@@ -254,10 +256,6 @@ module VimHelpers =
             None
 
     let eofOnLine (line: IDocumentLine) = line.DelimiterLength = 0
-
-    let getVisibleLines editor =
-        let (lines:IDocumentLine seq) = editor?VisibleLines
-        lines |> Seq.sortBy(fun l -> l.LineNumber) /// the lines come back in random order
 
     let findQuoteTriplet (editor:TextEditor) line quoteChar =
         let firstBackwards = findCharBackwardsOnLine editor.CaretOffset editor line ((=) quoteChar)
@@ -351,16 +349,16 @@ module VimHelpers =
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
         | FirstVisibleLine ->
-            let firstLine = getVisibleLines editor |> Seq.head
+            let firstLine = getSortedVisibleLines editor |> Seq.head
             editor.CaretOffset, firstLine.Offset
         | MiddleVisibleLine ->
-            let firstLine = getVisibleLines editor |> Seq.head
-            let lastLine = getVisibleLines editor |> Seq.last
+            let firstLine = getSortedVisibleLines editor |> Seq.head
+            let lastLine = getSortedVisibleLines editor |> Seq.last
             let middleLineNumber = (lastLine.LineNumber - firstLine.LineNumber) / 2 + firstLine.LineNumber
             let middleLine = editor.GetLine middleLineNumber
             editor.CaretOffset, middleLine.Offset
         | LastVisibleLine ->
-            let lastLine = getVisibleLines editor |> Seq.last
+            let lastLine = getSortedVisibleLines editor |> Seq.last
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
             match findStringCharBackwardsOnLine editor line (editor.CaretOffset-1) c with
