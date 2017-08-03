@@ -39,6 +39,8 @@ module VimHelpers =
                 "Control+A"
                 "Control+X"
                 "Control+N"
+                "Control+O"
+                "Control+I"
                 "Control+["
             ] 
             |> List.iter(fun k -> 
