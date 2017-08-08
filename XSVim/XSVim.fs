@@ -175,6 +175,11 @@ module VimHelpers =
         |> Seq.tryFind(fun index -> not (fWordChar editor.[index+1]))
         |> Option.defaultValue (editor.Text.Length-1)
 
+    let findCurrentWordEnd2 (editor:TextEditor) (line:IDocumentLine) fWordChar =
+        seq { editor.CaretOffset .. line.EndOffset }
+        |> Seq.tryFind(fun index -> not (fWordChar editor.[index+1]))
+        |> Option.defaultValue (line.EndOffset)
+
     let findWordEnd (editor:TextEditor) fWordChar =
         let currentWordEnd = findCurrentWordEnd editor fWordChar
         if editor.CaretOffset = currentWordEnd then
@@ -442,7 +447,8 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
+        | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd2 editor line isWordChar) + 1
+        | InnerWORD -> findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar
         | AWord -> 
             if isWordChar (editor.[editor.CaretOffset]) then
                 findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar 

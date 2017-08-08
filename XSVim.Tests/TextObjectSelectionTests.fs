@@ -22,6 +22,9 @@ module ``Text object selection tests`` =
     let ``caw on a word``() =
         assertText "word1   word2$  word3" "caw" "word1   |word3"
 
+    [<Test>]
+    let ``caw finds end of word``() =
+        assertText "a [wo$rd_ ] b" "caw" "a [|] b"
     
     // Tests for quoted strings. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a`
     // Handing of different quotes is identical. The tests alternate between ', " and `
@@ -73,6 +76,13 @@ module ``Text object selection tests`` =
     let ``ci" handles escaped quote``() =
         assertText """ var$ a = "\"" """ "ci\"" " var a = \"$\" "
 
+    [<Test>]
+    let ``diw deletes a word``() =
+        assertText "a b$c d" "diw" "a  $d"    
+    
+    [<Test>]
+    let ``daw deletes a WORD``() =
+        assertText "a b$c d" "daw" "a d$"    
     
     // Tests for braces. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a)
     [<Test>]
@@ -86,4 +96,20 @@ module ``Text object selection tests`` =
     [<Test>]
     let ``da{ handles nested braces forwards``() =
         assertText "{a$ {b}}\n{ignored}" "da{" "\n${ignored}"
+
+    [<Test>]
+    let ``doesn't belong here``() = 
+        assertText "ab$\n" "s" "a|\n" 
+
+    [<Test>]
+    let ``doesn't belong here 1``() = 
+        assertText "ab c$\n" "s" "ab |\n" 
+
+    [<Test>]
+    let ``doesn't belong here 2``() = 
+        assertText "ab$\n" "xi" "a|\n" // should "s" be an alias for "xi"? Check the undo
+
+    [<Test>]
+    let ``doesn't belong here 3``() =
+        assertText "ab$(" "x" "ab($"
 
