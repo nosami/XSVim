@@ -154,3 +154,11 @@ module ``Movement tests`` =
     [<Test>]
     let ``gE moves back to end of last WORD``() =
         assertText "abc def.gh$i" "gE" "abc$ def.ghi"
+
+    [<Test>]
+    let ``mark returns to position on same line``() =
+        assertText "ab$c def" "malll`a" "ab$c def"
+    
+    [<Test>]
+    let ``mark returns to position on new line``() =
+        assertText "ab$c\ndef\nghi" "mzjjl`z" "ab$c\ndef\nghi"
