@@ -1179,6 +1179,7 @@ module Vim =
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction Move) Nothing ]
+            | NotInsertMode, [ ":" ] -> [ switchMode (ExMode ':') ]
             | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction action) Nothing ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NormalMode, [ "z"; ] -> wait
@@ -1317,6 +1318,11 @@ module Vim =
                 | _ -> state.keys, Some keyPress.KeyChar
         let newState = { state with keys = newKeys }
         let action, newState = parseKeys newState
+        let newState =
+            match state.statusMessage, state.mode, newState.mode with
+            | Some _, NormalMode, NormalMode -> { newState with statusMessage = None }
+            | _ -> newState
+
         LoggingService.LogDebug (sprintf "%A" action)
 
         let rec performActions actions' state handled =
@@ -1324,7 +1330,7 @@ module Vim =
             | [] -> state, handled
             | h::t ->
                 match h.commandType with
-                | DoNothing -> newState, true
+                | DoNothing -> state, true
                 | _ ->
                     let newState = runCommand state editor h
                     performActions t { newState with keys = [] } true

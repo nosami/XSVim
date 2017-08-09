@@ -41,6 +41,20 @@ module ``Ex mode tests`` =
         assertText "abc abc a$bc" "?abc<ret>" "abc a$bc abc"
 
     [<Test>]
+    let ``:2 jumps to line 2``() =
+        assertText "l$ine1\nline2" ":2<ret>" "line1\nl$ine2"
+
+    [<Test>]
     let ``Backspacing ex mode returns to normal mode``() =
         let _, state = test "abc abc a$bc" "/a<bs><bs>"
         state.mode |> should equal NormalMode
+
+    [<Test>]
+    let ``Displays could not parse message``() =
+        let _, state = test "a$bc" ":garbage<ret>"
+        state.statusMessage.Value |> should equal "Could not parse :garbage"
+
+    [<Test>]
+    let ``Could not parse message is reset``() =
+        let _, state = test "a$bc" ":garbage<ret>l"
+        state.statusMessage |> should equal None
