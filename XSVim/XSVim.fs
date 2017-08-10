@@ -282,9 +282,15 @@ module VimHelpers =
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         match command.textObject with
-        | Right ->
+        | Right behaviour ->
             let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset, if editor.CaretColumn < line.Length then editor.CaretOffset + 1 else editor.CaretOffset
+            let endOffset =
+                match behaviour with
+                | StopAtEndOfLine when editor.CaretColumn >= line.Length -> editor.CaretOffset
+                | MoveToNextLineAtEnd when editor.[editor.CaretOffset+1] = '\r' -> editor.CaretOffset + 3
+                | MoveToNextLineAtEnd when editor.[editor.CaretOffset+1] = '\n' -> editor.CaretOffset + 2
+                | _ -> editor.CaretOffset + 1
+            editor.CaretOffset, endOffset
         | RightIncludingDelimiter ->
             let line = editor.GetLine editor.CaretLine
             editor.CaretOffset,
@@ -1035,7 +1041,8 @@ module Vim =
         | ["h"] -> Some Left
         | ["j"] -> Some Down
         | ["k"] -> Some Up
-        | ["l"] -> Some Right
+        | ["l"] -> Some (Right StopAtEndOfLine)
+        | [" "] -> Some (Right MoveToNextLineAtEnd)
         | ["$"] -> Some EndOfLine
         | ["^"] -> Some FirstNonWhitespace
         | ["0"] -> Some StartOfLine
@@ -1143,7 +1150,7 @@ module Vim =
                 | None -> [ switchMode VisualLineMode ]
             | NormalMode, [ "v" ] ->
                 match numericArgument with
-                | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move Right ]
+                | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move (Right StopAtEndOfLine) ]
                 | None -> [ switchMode VisualMode ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
             | NormalMode, [ "d"; "g" ] -> wait
@@ -1222,6 +1229,7 @@ module Vim =
             | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar _; ] -> wait
             | NotInsertMode, [ Action _; FindChar _; ] -> wait
+            | NotInsertMode, [ "<ret>" ] -> [ run Move Down; run Move FirstNonWhitespace ]
             | NotInsertMode, [ "q" ] when state.macro.IsNone -> wait
             | NotInsertMode, [ "q"; c ] -> [ run (MacroStart (char c)) Nothing ]
             | NotInsertMode, [ "q" ] -> [ run MacroEnd Nothing ]

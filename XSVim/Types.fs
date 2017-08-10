@@ -60,6 +60,8 @@ type CommandType =
     | PreviousTab
     | Func of (TextEditor -> unit)
 
+type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd
+
 type TextObject =
     | Character
     | AWord
@@ -84,7 +86,7 @@ type TextObject =
     | Up
     | Down
     | Left
-    | Right
+    | Right of MoveRightBehaviour
     | RightIncludingDelimiter
     | FirstNonWhitespace
     | StartOfLine
