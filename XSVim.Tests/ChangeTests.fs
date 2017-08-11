@@ -64,5 +64,9 @@ module ``Change tests`` =
         assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n|\n line4 "
 
     [<Test>]
+    let ``s before the end of line``() =
+        assertText "a$b" "s" "|b"
+
+    [<Test>]
     let ``s at the end of line``() =
         assertText "ab$\n" "s" "a|\n"

@@ -175,11 +175,6 @@ module VimHelpers =
         |> Seq.tryFind(fun index -> not (fWordChar editor.[index+1]))
         |> Option.defaultValue (editor.Text.Length-1)
 
-    let findCurrentWordEnd2 (editor:TextEditor) (line:IDocumentLine) fWordChar =
-        seq { editor.CaretOffset .. line.EndOffset }
-        |> Seq.tryFind(fun index -> not (fWordChar editor.[index+1]))
-        |> Option.defaultValue (line.EndOffset)
-
     let findWordEnd (editor:TextEditor) fWordChar =
         let currentWordEnd = findCurrentWordEnd editor fWordChar
         if editor.CaretOffset = currentWordEnd then
@@ -447,7 +442,7 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd2 editor line isWordChar) + 1
+        | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
         | InnerWORD -> findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar
         | AWord -> 
             if isWordChar (editor.[editor.CaretOffset]) then
@@ -757,6 +752,9 @@ module Vim =
                     let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
                     editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
+                | Substitute ->
+                    let newState = delete vimState start finish
+                    switchToInsertMode editor newState isInitial
                 | ToggleCase ->
                     let newState = toggleCase vimState start finish
                     newState
@@ -1106,7 +1104,6 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-
     let parseKeys (state:VimState) =
         let keyList = state.keys
         let numericArgument, keyList =
@@ -1181,7 +1178,7 @@ module Vim =
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
             | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
-            | NormalMode, [ "s"] -> [ run Delete CurrentLocation; switchMode InsertMode ]
+            | NormalMode, [ "s"] -> [ run Substitute CurrentLocation]
             | NormalMode, [ "S"] -> [ run Delete WholeLineIncludingDelimiter; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]

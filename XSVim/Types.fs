@@ -31,6 +31,7 @@ type CommandType =
     | Yank of Register
     | Put of BeforeOrAfter
     | Delete
+    | Substitute
     | DeleteWholeLines
     | DeleteLeft
     | BlockInsert of BeforeOrAfter
