@@ -65,7 +65,7 @@ module ``Movement tests`` =
 
     [<Test>]
     let ``Move to line 2``() =
-        assertText "a$aaaaa\nbbbbbb" "2gg" "aaaaaa\nb$bbbbb"
+        assertText "a$aaaaa\n  bbbbbb" "2gg" "aaaaaa\n  b$bbbbb"
 
     [<Test>]
     let ``Move to line 3``() =

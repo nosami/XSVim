@@ -342,7 +342,7 @@ module VimHelpers =
         | StartOfLine -> editor.CaretOffset, line.Offset
         | StartOfLineNumber lineNumber ->
             let line = editor.GetLine lineNumber
-            editor.CaretOffset, line.Offset
+            editor.CaretOffset, line.Offset + editor.GetLineIndent(lineNumber).Length
         | StartOfDocument -> editor.CaretOffset, 0
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine ->
