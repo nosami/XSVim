@@ -40,8 +40,6 @@ module ``Yank and put tests`` =
         Vim.registers.[Register 'd'].content |> should equal "b"
 
     [<Test>]
-    [<Ignore>]
-    //Todo: fix this and remove ignore attribute.
     let ``yw at the end of a line consumes entire line``()=
         assertText "a$bc" "ywp" "aabc$bc"
 
