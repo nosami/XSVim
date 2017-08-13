@@ -104,17 +104,21 @@ module VimHelpers =
         | Some s, Some e when s < e -> findUnmatchedClosingBrace editor e openingChar closingChar
         | _,_ -> None
 
-    let isWhiteSpace c = Char.IsWhiteSpace c || c = '\r' || c = '\n'
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
-    let isWORDChar c = not (isWhiteSpace c)
+    let isWORDChar c = not (Char.IsWhiteSpace c)
     let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
+    let isEOLChar c = c = '\r' || c = '\n'
 
     let (|WhiteSpace|_|) c =
-        if isWhiteSpace c then Some WhiteSpace else None
+        if Char.IsWhiteSpace c then Some WhiteSpace else None
+
+    let (|EOLChar|_|) c =
+        if isEOLChar c then Some EOLChar else None
 
     let findWordForwards (editor:TextEditor) commandType fWordChar =
         let findFromNonLetterChar index =
             match editor.[index], commandType with
+            | EOLChar, Delete -> Some index
             | WhiteSpace, Move
             | WhiteSpace, Delete ->
                 seq { index+1 .. editor.Text.Length-1 }

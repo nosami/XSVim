@@ -87,6 +87,10 @@ module ``Delete tests`` =
         assertText "abc d$ef  \nghi" "dw" "abc $\nghi"
 
     [<Test>]
+    let ``Deleting last word touching EOL doesn't delete delimiter'``() =
+        assertText "abc d$ef\nghi" "dw" "abc $\nghi"
+
+    [<Test>]
     let ``Delete char to left doesn't delete past start of line``() =
         assertText "abcdef\nab$cdef" "XXX" "abcdef\nb$cdef"
 
