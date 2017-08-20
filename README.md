@@ -17,7 +17,7 @@ Check the [release page](https://github.com/nosami/XSVim/releases) as there is u
 
 # Support & Contributions
 
-Jump in our Gitter channel and introduce yourself. 
+Jump in our [Gitter channel](https://gitter.im/XSVim/Lobby) and introduce yourself. 
 
 # With thanks to
 
