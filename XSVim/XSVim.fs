@@ -1109,7 +1109,7 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let parseKeys (state:VimState) =
+    let parseKeys (state:VimState) editor =
         let keyList = state.keys
         let numericArgument, keyList =
             match keyList with
@@ -1203,6 +1203,7 @@ module Vim =
             | NormalMode, [ "<C-o>" ] -> [ dispatch NavigationCommands.NavigateBack ]
             | NormalMode, [ "<C-i>" ] -> [ dispatch NavigationCommands.NavigateForward ]
             | NormalMode, [ "r" ] -> wait
+            | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar (inferDelimiter editor) ) Nothing ]
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
             | NotInsertMode, [ "`"; c] -> 
@@ -1327,15 +1328,15 @@ module Vim =
                 state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
-                | SpecialKey.Escape -> ["<esc>"], None
-                | SpecialKey.Return -> ["<ret>"], None
-                | SpecialKey.Left -> ["h"], None
-                | SpecialKey.Down -> ["j"], None
-                | SpecialKey.Up -> ["k"], None
-                | SpecialKey.Right -> ["l"], None
+                | SpecialKey.Escape -> state.keys @ ["<esc>"], None
+                | SpecialKey.Return -> state.keys @ ["<ret>"], None
+                | SpecialKey.Left -> state.keys @ ["h"], None
+                | SpecialKey.Down -> state.keys @ ["j"], None
+                | SpecialKey.Up -> state.keys @ ["k"], None
+                | SpecialKey.Right -> state.keys @ ["l"], None
                 | _ -> state.keys, Some keyPress.KeyChar
         let newState = { state with keys = newKeys }
-        let action, newState = parseKeys newState
+        let action, newState = parseKeys newState editor
         let newState =
             match state.statusMessage, state.mode, newState.mode with
             | Some _, NormalMode, NormalMode -> { newState with statusMessage = None }
