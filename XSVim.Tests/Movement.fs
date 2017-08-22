@@ -158,6 +158,11 @@ module ``Movement tests`` =
     [<Test>]
     let ``l stops at EOL``() =
         assertText "abc$\ndef" "l" "abc$\ndef"
+
     [<Test>]
     let ``space moves past EOL``() =
         assertText "abc$\ndef" " " "abc\nd$ef"
+
+    [<Test>]
+    let ``% moves to matching parens``() =
+        assertText "($foo(bar))" "%" "(foo(bar))$"

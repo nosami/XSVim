@@ -493,7 +493,7 @@ module VimHelpers =
             | Some offset ->
                 let startOffset = editor.CaretOffset
                 editor.CaretOffset <- offset
-                dispatchCommand TextEditorCommands.GotoMatchingBrace
+                EditActions.GotoMatchingBrace editor
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
         | ToMark mark ->
