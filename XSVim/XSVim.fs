@@ -1441,9 +1441,10 @@ type XSVim() =
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
 
             editorStates.[x.FileName] <- newState
-            match oldState.mode with
-            | InsertMode -> base.KeyPress descriptor
-            | VisualMode -> false
+            match oldState.mode, newState.mode with
+            | InsertMode, InsertMode ->
+                base.KeyPress descriptor
+            | VisualMode, _ -> false
             | _ -> not handledKeyPress
 
     [<CommandUpdateHandler ("MonoDevelop.Ide.Commands.EditCommands.Undo")>]
