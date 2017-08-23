@@ -1,6 +1,7 @@
 ﻿namespace XSVim
 open System
-open MonoDevelop.Ide.Editor
+open MonoDevelop.Ide
+open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor.Extension
 
 module exMode =
@@ -12,6 +13,9 @@ module exMode =
         | '/', _ -> [ runOnce (IncrementalSearch rest) Nothing ]
         | '?', _ -> [ runOnce (IncrementalSearchBackwards rest) Nothing ]
         | _ -> wait
+
+    let save() = IdeApp.Workbench.ActiveDocument.Save() |> Async.AwaitTask
+    let forceClose() = IdeApp.Workbench.ActiveDocument.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
 
     let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
@@ -34,17 +38,64 @@ module exMode =
                 let firstChar, rest = getFirstCharAndRest message
                 let getSearchAction() = match state.searchAction with | Some action -> action | _ -> Move 
                 let restIsNumeric, number = Int32.TryParse rest 
-                match firstChar with
-                | '/' ->
+                // really bad parser. TODO: try and use https://github.com/jaredpar/VsVim/blob/447d980da9aa6c761238e39df9d2b64424643de1/Src/VimCore/Interpreter_Parser.fs
+                match firstChar, rest with
+                | '/', rest ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearch rest) }
                     , [ runOnce (getSearchAction()) (ToSearch rest)]
-                | '?' ->
+                | '?', rest ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearchBackwards rest) }
                     , [ runOnce (getSearchAction()) (ToSearchBackwards rest)]
-                | ':' when restIsNumeric ->
+                | ':', _rest when restIsNumeric ->
                     { state with statusMessage = None; mode = NormalMode; }
                     , [ runOnce Move (StartOfLineNumber number) ]
-                | ':'  ->
+                | ':', "q"  ->
+                    async {
+                        dispatchCommand FileCommands.CloseFile
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "q!"  ->
+                    async {
+                        do! forceClose()
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "w"
+                | ':', "w!"  ->
+                    async {
+                        do! save()
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "wa"
+                | ':', "wa!"  ->
+                    async {
+                        dispatchCommand FileCommands.SaveAll
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "qa"  ->
+                    async {
+                        dispatchCommand FileCommands.CloseAllFiles
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "qa!"  ->
+                    IdeApp.Workbench.Documents
+                    |> Seq.iter(fun doc -> 
+                        async {
+                            do! doc.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
+                        } |> Async.StartImmediate)
+                    normalMode, resetKeys
+                | ':', "wq"  ->
+                    async {
+                        do! save()
+                        dispatchCommand FileCommands.CloseFile
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', "wq!"  ->
+                    async {
+                        do! save()
+                        do! forceClose()
+                    } |> Async.StartImmediate
+                    normalMode, resetKeys
+                | ':', _  ->
                     { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
                     , resetKeys
                 | _ -> normalMode, resetKeys
