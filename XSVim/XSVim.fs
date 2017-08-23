@@ -345,10 +345,10 @@ module VimHelpers =
             else
                 line.EndOffsetIncludingDelimiter-1
         | StartOfLine -> editor.CaretOffset, line.Offset
-        | StartOfLineNumber lineNumber ->
+        | Jump (StartOfLineNumber lineNumber) ->
             let line = editor.GetLine lineNumber
             editor.CaretOffset, line.Offset + editor.GetLineIndent(lineNumber).Length
-        | StartOfDocument -> editor.CaretOffset, 0
+        | Jump StartOfDocument -> editor.CaretOffset, 0
         | FirstNonWhitespace -> editor.CaretOffset, line.Offset + editor.GetLineIndent(editor.CaretLine).Length
         | WholeLine ->
             line.Offset, line.EndOffset
@@ -358,19 +358,19 @@ module VimHelpers =
                 line.Offset-delimiter.Length, line.EndOffsetIncludingDelimiter
             else
                 line.Offset, line.EndOffsetIncludingDelimiter
-        | LastLine ->
+        | Jump LastLine ->
             let lastLine = editor.GetLine editor.LineCount
             editor.CaretOffset, lastLine.Offset
-        | FirstVisibleLine ->
+        | Jump FirstVisibleLine ->
             let firstLine = getSortedVisibleLines editor |> Seq.head
             editor.CaretOffset, firstLine.Offset
-        | MiddleVisibleLine ->
+        | Jump MiddleVisibleLine ->
             let firstLine = getSortedVisibleLines editor |> Seq.head
             let lastLine = getSortedVisibleLines editor |> Seq.last
             let middleLineNumber = (lastLine.LineNumber - firstLine.LineNumber) / 2 + firstLine.LineNumber
             let middleLine = editor.GetLine middleLineNumber
             editor.CaretOffset, middleLine.Offset
-        | LastVisibleLine ->
+        | Jump LastVisibleLine ->
             let lastLine = getSortedVisibleLines editor |> Seq.last
             editor.CaretOffset, lastLine.Offset
         | ToCharInclusiveBackwards c ->
@@ -439,11 +439,11 @@ module VimHelpers =
             match findWordBackwards editor command.commandType isWORDChar with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, 0
-        | ParagraphBackwards ->
+        | Jump ParagraphBackwards ->
             match paragraphBackwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | ParagraphForwards ->
+        | Jump ParagraphForwards ->
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
@@ -465,19 +465,19 @@ module VimHelpers =
                  editor.CaretOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
-        | HalfPageUp -> 
+        | Jump HalfPageUp -> 
             let visibleLineCount = getVisibleLineCount editor
             let halfwayUp = max 1 (editor.CaretLine - visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayUp).Offset
-        | HalfPageDown -> 
+        | Jump HalfPageDown -> 
             let visibleLineCount = getVisibleLineCount editor
             let halfwayDown = min editor.LineCount (editor.CaretLine + visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayDown).Offset
-        | PageUp ->
+        | Jump PageUp ->
             let visibleLineCount = getVisibleLineCount editor
             let pageUp = max 1 (editor.CaretLine - visibleLineCount)
             editor.CaretOffset, editor.GetLine(pageUp).Offset
-        | PageDown ->
+        | Jump PageDown ->
             let visibleLineCount = getVisibleLineCount editor
             let pageDown = min editor.LineCount (editor.CaretLine + visibleLineCount)
             editor.CaretOffset, editor.GetLine(pageDown).Offset
@@ -496,7 +496,7 @@ module VimHelpers =
                 EditActions.GotoMatchingBrace editor
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
-        | ToMark mark ->
+        | Jump (ToMark mark) ->
             if editor.FileName.FullPath.ToString() = mark.FileName then
                 editor.CaretOffset, mark.Offset
             else 
@@ -505,27 +505,27 @@ module VimHelpers =
                 IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
                 editor.CaretOffset, editor.CaretOffset
         | Offset offset -> editor.CaretOffset, offset
-        | ToSearch search ->
+        | Jump (ToSearch search) ->
             let startOffset =
                 match vimState.keys with
                 | ["n"] | ["N"] -> editor.CaretOffset + 1
                 | _ -> editor.CaretOffset
             let offset = findNextSearchOffset editor search startOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
-        | ToSearchBackwards search ->
+        | Jump (ToSearchBackwards search) ->
             let offset = findNextSearchOffsetBackwards editor search editor.CaretOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
-        | SearchAgain ->
+        | Jump SearchAgain ->
             match vimState.lastSearch with
             | Some search -> getRange vimState editor { command with textObject = search }
             | None -> editor.CaretOffset, editor.CaretOffset
-        | SearchAgainBackwards ->
+        | Jump SearchAgainBackwards ->
             match vimState.lastSearch with
             | Some search ->
                 let reverseSearch =
                     match search with
-                    | ToSearch s -> ToSearchBackwards s
-                    | ToSearchBackwards s -> ToSearch s
+                    | Jump (ToSearch s) -> Jump (ToSearchBackwards s)
+                    | Jump (ToSearchBackwards s) -> Jump (ToSearch s)
                     | _ -> failwith "Invalid search"
                 getRange vimState editor { command with textObject = reverseSearch }
             | None -> editor.CaretOffset, editor.CaretOffset
@@ -598,7 +598,7 @@ module Vim =
     let (|LineWise|_|) = function
         | WholeLine
         | WholeLineIncludingDelimiter
-        | LastLine -> Some LineWise
+        | Jump LastLine -> Some LineWise
         | _ -> None
 
     let (|StartsWithDelimiter|_|) (s:string) =
@@ -655,6 +655,14 @@ module Vim =
                 registers.[EmptyRegister] <- getSelectedText state editor command
                 EditActions.ClipboardCut editor
             state
+
+        let setMark c =
+            if markDict.ContainsKey c then
+                let marker = markDict.[c]
+                markDict.Remove c |> ignore 
+                marker.Remove()
+            let marker = Marker(editor, c)
+            markDict.Add (c, marker) |> ignore
 
         let toggleCase state start finish =
             if command.textObject <> SelectedText then
@@ -735,6 +743,12 @@ module Vim =
                             | _ -> finish
 
                         setSelection vimState editor command start finish
+                    | _ -> ()
+
+                    match command.textObject with
+                    | Jump _ ->
+                        setMark "\'"
+                        setMark "`"
                     | _ -> ()
                     let newState =
                         match command, vimState.desiredColumn with
@@ -848,12 +862,7 @@ module Vim =
                     EditActions.MoveCaretLeft editor
                     vimState
                 | SetMark c ->
-                    if markDict.ContainsKey c then
-                        let marker = markDict.[c]
-                        markDict.Remove c |> ignore 
-                        marker.Remove()
-                    let marker = Marker(editor, c)
-                    markDict.Add (c, marker) |> ignore
+                    setMark c
                     vimState
                 | InsertLine Before -> 
                     EditActions.InsertNewLineAtEnd editor
@@ -1064,19 +1073,19 @@ module Vim =
         | ["E"] -> Some ForwardToEndOfWORD
         | ["g"; "e"] -> Some BackwardToEndOfWord
         | ["g"; "E"] -> Some BackwardToEndOfWORD
-        | ["{"] -> Some ParagraphBackwards
-        | ["}"] -> Some ParagraphForwards
+        | ["{"] -> Some (Jump ParagraphBackwards)
+        | ["}"] -> Some (Jump ParagraphForwards)
         | ["%"] -> Some MatchingBrace
-        | ["G"] -> Some LastLine
-        | ["H"] -> Some FirstVisibleLine
-        | ["M"] -> Some MiddleVisibleLine
-        | ["L"] -> Some LastVisibleLine
-        | ["<C-d>"] -> Some HalfPageDown
-        | ["<C-u>"] -> Some HalfPageUp
-        | ["<C-f>"] -> Some PageDown
-        | ["<C-b>"] -> Some PageUp
-        | ["n"] -> Some SearchAgain
-        | ["N"] -> Some SearchAgainBackwards
+        | ["G"] -> Some (Jump LastLine)
+        | ["H"] -> Some (Jump FirstVisibleLine)
+        | ["M"] -> Some (Jump MiddleVisibleLine)
+        | ["L"] -> Some (Jump LastVisibleLine)
+        | ["<C-d>"] -> Some (Jump HalfPageDown)
+        | ["<C-u>"] -> Some (Jump HalfPageUp)
+        | ["<C-f>"] -> Some (Jump PageDown)
+        | ["<C-b>"] -> Some (Jump PageUp)
+        | ["n"] -> Some (Jump SearchAgain)
+        | ["N"] -> Some (Jump SearchAgainBackwards)
         | _ -> None
 
     let (|FindChar|_|) = function
@@ -1150,8 +1159,8 @@ module Vim =
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
-                | Some lineNumber -> [ runOnce Move (StartOfLineNumber lineNumber) ]
-                | None -> [ runOnce Move LastLine ]
+                | Some lineNumber -> [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
+                | None -> [ runOnce Move (Jump LastLine) ]
             | NormalMode, [ "V" ] ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
@@ -1160,9 +1169,9 @@ module Vim =
                 match numericArgument with
                 | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move (Right StopAtEndOfLine) ]
                 | None -> [ switchMode VisualMode ]
-            | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines LastLine]
+            | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
             | NormalMode, [ "d"; "g" ] -> wait
-            | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines StartOfDocument]
+            | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, Action action :: Movement m -> [ run action m ]
@@ -1208,11 +1217,11 @@ module Vim =
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
             | NotInsertMode, [ "`"; c] -> 
                 match markDict.TryGetValue c with
-                | true, mark -> [ runOnce Move (ToMark mark)]
+                | true, mark -> [ runOnce Move (Jump (ToMark mark))]
                 | _ -> [ run ResetKeys Nothing]
             | NotInsertMode, [ "'"; c] -> 
                 match markDict.TryGetValue c with
-                | true, mark -> [ runOnce Move (ToMark mark); runOnce Move FirstNonWhitespace ]
+                | true, mark -> [ runOnce Move (Jump (ToMark mark)); runOnce Move FirstNonWhitespace ]
                 | _ -> [ run ResetKeys Nothing]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
@@ -1250,7 +1259,7 @@ module Vim =
             | NotInsertMode, [ "'" ] -> wait
             | NotInsertMode, [ "g"; "g" ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
-                [ runOnce Move (StartOfLineNumber lineNumber) ]
+                [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
             | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
