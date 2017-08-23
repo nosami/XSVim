@@ -14,3 +14,7 @@ module ``Marker tests`` =
     [<Test>]
     let ``'. jumps to last edit line``() =
         assertText "  123 a$bc" "i<esc>'." "  1$23 abc"
+
+    [<Test>]
+    let ``'' jumps to last jump location line``() =
+        assertText "ab$c\ndef" "G''" "a$bc\ndef"

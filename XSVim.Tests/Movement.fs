@@ -166,3 +166,4 @@ module ``Movement tests`` =
     [<Test>]
     let ``% moves to matching parens``() =
         assertText "($foo(bar))" "%" "(foo(bar))$"
+

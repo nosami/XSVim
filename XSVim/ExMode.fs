@@ -19,7 +19,7 @@ module exMode =
 
     let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
-        let normalMode = { state with statusMessage = None; mode = NormalMode } 
+        let normalMode = { state with statusMessage = None; mode = NormalMode }
         match key.SpecialKey with
         | SpecialKey.BackSpace ->
             let message =
@@ -41,14 +41,14 @@ module exMode =
                 // really bad parser. TODO: try and use https://github.com/jaredpar/VsVim/blob/447d980da9aa6c761238e39df9d2b64424643de1/Src/VimCore/Interpreter_Parser.fs
                 match firstChar, rest with
                 | '/', rest ->
-                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearch rest) }
-                    , [ runOnce (getSearchAction()) (ToSearch rest)]
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (Jump (ToSearch rest)) }
+                    , [ runOnce (getSearchAction()) (Jump (ToSearch rest))]
                 | '?', rest ->
-                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (ToSearchBackwards rest) }
-                    , [ runOnce (getSearchAction()) (ToSearchBackwards rest)]
-                | ':', _rest when restIsNumeric ->
+                    { state with statusMessage = None; mode = NormalMode; lastSearch = Some (Jump (ToSearchBackwards rest)) }
+                    , [ runOnce (getSearchAction()) (Jump (ToSearchBackwards rest))]
+                | ':', rest when restIsNumeric ->
                     { state with statusMessage = None; mode = NormalMode; }
-                    , [ runOnce Move (StartOfLineNumber number) ]
+                    , [ runOnce Move (Jump (StartOfLineNumber number)) ]
                 | ':', "q"  ->
                     async {
                         dispatchCommand FileCommands.CloseFile

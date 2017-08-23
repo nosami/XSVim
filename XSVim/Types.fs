@@ -63,7 +63,27 @@ type CommandType =
 
 type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd
 
+type Jump =
+    | StartOfLineNumber of int
+    | StartOfDocument
+    | ToMark of Marker
+    | ToSearch of string
+    | ToSearchBackwards of string
+    | SearchAgain
+    | SearchAgainBackwards
+    | HalfPageUp
+    | HalfPageDown
+    | PageUp
+    | PageDown
+    | LastLine
+    | FirstVisibleLine
+    | MiddleVisibleLine
+    | LastVisibleLine
+    | ParagraphForwards
+    | ParagraphBackwards
+
 type TextObject =
+    | Jump of Jump
     | Character
     | AWord
     | InnerWord
@@ -79,10 +99,6 @@ type TextObject =
     | InnerQuotedBlock of char
     | WholeLine
     | WholeLineIncludingDelimiter
-    | LastLine
-    | FirstVisibleLine
-    | MiddleVisibleLine
-    | LastVisibleLine
     // motions
     | Up
     | Down
@@ -91,8 +107,6 @@ type TextObject =
     | RightIncludingDelimiter
     | FirstNonWhitespace
     | StartOfLine
-    | StartOfLineNumber of int
-    | StartOfDocument
     | EndOfLine
     | EndOfLineIncludingDelimiter
     | ToCharInclusive of string
@@ -103,27 +117,16 @@ type TextObject =
     | WORDForwards
     | WordBackwards
     | WORDBackwards
-    | ParagraphForwards
-    | ParagraphBackwards
     | ForwardToEndOfWord
     | ForwardToEndOfWORD
     | BackwardToEndOfWord
     | BackwardToEndOfWORD
     | Nothing
-    | HalfPageUp
-    | HalfPageDown
-    | PageUp
-    | PageDown
     | CurrentLocation
     | SelectedText
     | SelectionStart
     | MatchingBrace
-    | ToMark of Marker
     | Offset of int
-    | ToSearch of string
-    | ToSearchBackwards of string
-    | SearchAgain
-    | SearchAgainBackwards
 
 type VimAction = {
     repeat: int option
