@@ -1297,8 +1297,12 @@ module Vim =
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter; switchMode NormalMode ]
-            | NotInsertMode, [ ">" ] -> [ dispatch EditCommands.IndentSelection ]
-            | NotInsertMode, [ "<" ] -> [ dispatch EditCommands.UnIndentSelection ]
+            | VisualModes, [ ">" ] -> [ func EditActions.IndentSelection ]
+            | VisualModes, [ "<" ] -> [ func EditActions.UnIndentSelection ]
+            | NormalMode, [ ">" ] -> wait
+            | NormalMode, [ "<" ] -> wait
+            | NormalMode, [ ">"; ">" ] -> [ func EditActions.IndentSelection ]
+            | NormalMode, [ "<"; "<" ] -> [ func EditActions.UnIndentSelection ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]

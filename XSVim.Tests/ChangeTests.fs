@@ -57,11 +57,11 @@ module ``Change tests`` =
 
     [<Test>]
     let ``S changes entire line``() =
-        assertText " line1 \n line2$ \n line3 " "S" " line1 \n|\n line3 "
+        assertText " line1 \n line2$ \n line3 " "S" " line1 \n |\n line3 "
 
     [<Test>]
     let ``2S changes two lines``() =
-        assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n|\n line4 "
+        assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n |\n line4 "
 
     [<Test>]
     let ``s before the end of line``() =

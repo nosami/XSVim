@@ -102,33 +102,44 @@ module TestHelpers =
             keys.ToCharArray() 
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
 
+    let specialKeys = ["<esc>"; "<ret>"; "<bs>"]
     let parseKeys (keys:string) =
-        let delimChars = [|'<'; '>'|]
-        let groups = keys.Split delimChars
-        groups |> Array.collect groupToKeys
+        let groups =
+            let delimChars = [|'<'; '>'|]
+            keys.Split delimChars
+        
+        let newGroups =
+            if specialKeys |> List.exists(fun s -> keys.Contains s) 
+               || groups |> Array.exists(fun g -> g.StartsWith "C-") then
+                groups
+            else
+                // No special keys in the input
+                [|keys|]
+
+        newGroups |> Array.collect groupToKeys
           
     let test (source:string) (keys:string) =
         FixtureSetup.initialiseMonoDevelop()
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
         if caret = 0 then
-            failwith "$ can't be the first position. It needs to be after some char."
+            failwith "$ can't be the first position. It needs to be after the char the caret would appear over."
         if caret = -1 then
             failwith "No caret found in test code"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
-        let plugin = new XSVim()
-        let state = Vim.defaultState
+        editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4)
+        let defaultState = Vim.defaultState
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
             |> Array.fold(fun state c ->
-                let newState, handledKeyPress = Vim.handleKeyPress state c editor
-                printfn "%A" newState
+                let handledState, handledKeyPress = Vim.handleKeyPress state c editor
+                printfn "%A" handledState
                 printfn "%s" editor.Text
                 if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
                     editor.InsertAtCaret (c.KeyChar.ToString())
-                newState) state
+                handledState) defaultState
 
         let cursor = if newState.mode = InsertMode then "|" else "$"
         let text =

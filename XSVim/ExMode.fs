@@ -46,7 +46,7 @@ module exMode =
                 | '?', rest ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (Jump (ToSearchBackwards rest)) }
                     , [ runOnce (getSearchAction()) (Jump (ToSearchBackwards rest))]
-                | ':', rest when restIsNumeric ->
+                | ':', _rest when restIsNumeric ->
                     { state with statusMessage = None; mode = NormalMode; }
                     , [ runOnce Move (Jump (StartOfLineNumber number)) ]
                 | ':', "q"  ->
