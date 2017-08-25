@@ -14,7 +14,7 @@ module ``Delete tests`` =
 
         let expected =
             @"aaaaaa
- $             dddddd
+              d$ddddd
               eeeeee";
         assertText source "Vjd" expected
 

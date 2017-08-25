@@ -611,15 +611,16 @@ module Vim =
         elif s.EndsWith "\n" then Some "\n"
         else None
 
-    let getSelectedText vimState (editor: TextEditor) (command:VimAction) =
-        let linewise =
-            match vimState.mode with
-            | VisualLineMode -> true
-            | _ ->
-                match command.textObject with
-                | LineWise -> true
-                | _ -> false
+    let isLineWise vimState command =
+        match vimState.mode with
+        | VisualLineMode -> true
+        | _ ->
+            match command.textObject with
+            | LineWise -> true
+            | _ -> false
 
+    let getSelectedText vimState (editor: TextEditor) command =
+        let linewise = isLineWise vimState command
         { linewise=linewise; content=editor.SelectedText }
 
     let setCaretMode editor state caretMode =
@@ -769,10 +770,10 @@ module Vim =
                     let newState = delete vimState start finish
                     let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter =
-                        match command.textObject with
-                        | LineWise -> editor.CaretOffset
-                        | _ when editor.CaretColumn < line.Length -> editor.CaretOffset
-                        | _ -> editor.CaretOffset - 1
+                        match isLineWise vimState command with
+                        | true -> editor.CaretOffset + editor.GetLineIndent(editor.CaretLine).Length
+                        | false when editor.CaretColumn < line.Length -> editor.CaretOffset
+                        | false -> editor.CaretOffset - 1
                     editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
                 | Substitute ->
