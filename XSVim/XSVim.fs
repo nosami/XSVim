@@ -862,8 +862,12 @@ module Vim =
                 | ReplaceChar c ->
                     editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)
                     EditActions.Delete editor
-                    editor.InsertAtCaret c
-                    EditActions.MoveCaretLeft editor
+                    match c with
+                    | StartsWithDelimiter _ ->
+                        EditActions.InsertNewLine editor
+                    | _ ->
+                        editor.InsertAtCaret c
+                        EditActions.MoveCaretLeft editor
                     vimState
                 | SetMark c ->
                     setMark c

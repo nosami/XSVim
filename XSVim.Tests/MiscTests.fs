@@ -56,8 +56,8 @@ module ``Miscellaneous tests`` =
         assertText "a$aaa" "rb$." "baab$"
 
     [<Test>]
-    let ``r<ret> inserts <ret>``() =
-        assertText "aaa$\nbbb" "r<ret>" "aa\n$\nbbb"
+    let ``r<ret> inserts <ret> and indents``() =
+        assertText "   aaa$\nbbb" "r<ret>" "   aa\n   \n$bbb"
 
     [<Test>]
     let ``Undo insert mode``() =
