@@ -852,7 +852,7 @@ module Vim =
                     { vimState with mode = NormalMode }
                 | Visual ->
                     editor.SetSelection(start, finish); vimState
-                | Undo -> EditActions.Undo editor; vimState
+                | Undo -> EditActions.Undo editor; editor.ClearSelection(); vimState
                 | Redo -> EditActions.Redo editor; vimState
                 | JoinLines ->
                     let lastColumn = editor.GetLine(editor.CaretLine).Length
@@ -1445,6 +1445,7 @@ type XSVim() =
             let vimState = editorStates.[x.FileName]
             vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
             EditActions.Undo x.Editor
+            x.Editor.ClearSelection()
             false
         | ModifierKeys.Command when descriptor.KeyChar <> 'z' && descriptor.KeyChar <> 'r' -> false
         | _ ->
