@@ -20,7 +20,28 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``dd first line``() =
-        assertText "ab$c\ndef" "dd" "d$ef"
+        assertText "ab$c\n  def" "dd" "  d$ef"
+
+    [<Test>]
+    let ``dd next line is blank``() =
+        assertText 
+
+            """
+{
+    fo$o
+
+    bar
+}
+            """
+
+            "dd" 
+// $ is over \n here
+            """
+{
+
+$    bar
+}
+            """
 
     [<Test>]
     let ``2dd deletes 2 lines``() =

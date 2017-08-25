@@ -768,7 +768,11 @@ module Vim =
                 | Delete -> 
                     let newState = delete vimState start finish
                     let line = editor.GetLine editor.CaretLine
-                    let offsetBeforeDelimiter = if editor.CaretColumn < line.Length then editor.CaretOffset else editor.CaretOffset - 1
+                    let offsetBeforeDelimiter =
+                        match command.textObject with
+                        | LineWise -> editor.CaretOffset
+                        | _ when editor.CaretColumn < line.Length -> editor.CaretOffset
+                        | _ -> editor.CaretOffset - 1
                     editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
                 | Substitute ->
@@ -1177,7 +1181,7 @@ module Vim =
             | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
-            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move StartOfLine ]
+            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move FirstNonWhitespace ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, ["\""] -> wait
             | NormalMode, ["\""; _ ] -> wait
