@@ -58,3 +58,15 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Single line yank containing delimiter``() =
         assertText "1$23\nabc" "yyp" "123\n1$23\nabc"
+
+    [<Test>]
+    let ``Linewise put places caret at start of line``() =
+        assertText " $  123\n" "yyp" "   123\n   1$23\n"
+
+    [<Test>]
+    let ``Linewise Put places caret at start of line``() =
+        assertText " $  123\n" "yyP" "   1$23\n   123\n"
+
+    [<Test>]
+    let ``Linewise put at EOF places caret at start of line``() =
+        assertText "\n $  123" "yyp" "\n   123\n   1$23"

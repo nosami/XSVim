@@ -821,6 +821,7 @@ module Vim =
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
                         EditActions.ClipboardPaste editor
                         EditActions.MoveCaretUp editor
+                        EditActions.MoveCaretToLineStart editor
                     else
                         EditActions.ClipboardPaste editor
                     vimState
@@ -843,6 +844,7 @@ module Vim =
                             editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffsetIncludingDelimiter
                             EditActions.ClipboardPaste editor
                             EditActions.MoveCaretUp editor
+                            EditActions.MoveCaretToLineStart editor
                     else
                         EditActions.MoveCaretRight editor
                         EditActions.ClipboardPaste editor
