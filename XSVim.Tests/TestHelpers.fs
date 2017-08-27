@@ -1,6 +1,7 @@
 ﻿namespace XSVim.Tests
 
 open System
+open System.Text.RegularExpressions
 open MonoDevelop.Ide.Editor.Extension
 open NUnit.Framework
 open XSVim
@@ -102,21 +103,9 @@ module TestHelpers =
             keys.ToCharArray() 
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
 
-    let specialKeys = ["<esc>"; "<ret>"; "<bs>"]
     let parseKeys (keys:string) =
-        let groups =
-            let delimChars = [|'<'; '>'|]
-            keys.Split delimChars
-        
-        let newGroups =
-            if specialKeys |> List.exists(fun s -> keys.Contains s) 
-               || groups |> Array.exists(fun g -> g.StartsWith "C-") then
-                groups
-            else
-                // No special keys in the input
-                [|keys|]
-
-        newGroups |> Array.collect groupToKeys
+        let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
+        keys.Split '§' |> Array.collect groupToKeys
           
     let test (source:string) (keys:string) =
         FixtureSetup.initialiseMonoDevelop()
@@ -129,7 +118,6 @@ module TestHelpers =
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4)
-        let defaultState = Vim.defaultState
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
@@ -139,7 +127,7 @@ module TestHelpers =
                 printfn "%s" editor.Text
                 if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
                     editor.InsertAtCaret (c.KeyChar.ToString())
-                handledState) defaultState
+                handledState) VimState.Default
 
         let cursor = if newState.mode = InsertMode then "|" else "$"
         let text =

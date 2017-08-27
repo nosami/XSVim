@@ -538,20 +538,6 @@ module Vim =
     let markDict = Dictionary<string, Marker>()
     let macros = Dictionary<char, VimAction list>()
 
-    let defaultState =
-        { keys=[]
-          mode=NormalMode
-          visualStartOffset=0
-          lastSelection=None
-          findCharCommand=None
-          lastAction=[]
-          desiredColumn=None
-          undoGroup=None
-          statusMessage=None
-          lastSearch=None 
-          searchAction=None 
-          macro=None }
-
     let (|VisualModes|_|) = function
         | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
         | _ -> None
@@ -776,6 +762,18 @@ module Vim =
                         | false -> editor.CaretOffset - 1
                     editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
+                | Indent ->
+                    let line = editor.GetLineByOffset(finish)
+                    setSelection vimState editor command start line.EndOffset
+                    EditActions.IndentSelection editor
+                    editor.ClearSelection()
+                    vimState
+                | UnIndent ->
+                    let line = editor.GetLineByOffset(finish)
+                    setSelection vimState editor command start line.EndOffset
+                    EditActions.UnIndentSelection editor
+                    editor.ClearSelection()
+                    vimState
                 | Substitute ->
                     let newState = delete vimState start finish
                     switchToInsertMode editor newState isInitial
@@ -1020,6 +1018,7 @@ module Vim =
                 | Func f -> 
                     f editor
                     vimState
+                | ChangeState s -> s
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -1099,6 +1098,12 @@ module Vim =
         | ["N"] -> Some (Jump SearchAgainBackwards)
         | _ -> None
 
+     
+    let (|IndentChar|_|) = function
+        | ">" -> Some Indent
+        | "<" -> Some UnIndent
+        | _ -> None
+
     let (|FindChar|_|) = function
         | "f" -> Some ToCharInclusive
         | "F" -> Some ToCharInclusiveBackwards
@@ -1116,6 +1121,8 @@ module Vim =
         | "c" -> Some Change
         | "v" -> Some Visual
         | "y" -> Some (Yank EmptyRegister)
+        | ">" -> Some Indent
+        | "<" -> Some UnIndent
         | _ -> None
 
     let (|ModeChange|_|) = function
@@ -1129,7 +1136,7 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let parseKeys (state:VimState) editor =
+    let parseKeys (state:VimState) =
         let keyList = state.keys
         let numericArgument, keyList =
             match keyList with
@@ -1155,6 +1162,7 @@ module Vim =
             | _ -> None, keyList
 
         let run = getCommand numericArgument
+
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -1172,6 +1180,17 @@ module Vim =
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
                 | None -> [ runOnce Move (Jump LastLine) ]
+            | NormalMode, [ IndentChar _ ] -> wait
+            | NormalMode, [ IndentChar _ ; "g" ] -> wait
+            | NormalMode, [ IndentChar indent; "G" ] ->
+                match numericArgument with
+                | Some lineNumber -> [ runOnce Indent (Jump (StartOfLineNumber lineNumber)) ]
+                | None -> [ runOnce indent (Jump LastLine) ]
+            | NormalMode, [ IndentChar indent; "g"; "g" ] ->
+                let lineNumber = match numericArgument with Some n -> n | None -> 1
+                [ runOnce indent (Jump (StartOfLineNumber lineNumber)) ]
+            | NormalMode, [ ">"; ">" ] -> [ run Indent WholeLine ]
+            | NormalMode, [ "<"; "<" ] -> [ run UnIndent WholeLine ]
             | NormalMode, [ "V" ] ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
@@ -1185,6 +1204,19 @@ module Vim =
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
+            | NormalMode, IndentChar indent :: Movement m ->
+                match numericArgument with
+                | None -> [ run indent m ]
+                | Some repeat ->
+                    let movements =
+                        [ 1 .. repeat ]
+                        |> List.map (fun _ -> runOnce Move m)
+
+                    [ yield switchMode VisualMode
+                      yield! movements
+                      yield runOnce indent SelectedText
+                      yield switchMode NormalMode ]
+
             | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
@@ -1223,7 +1255,7 @@ module Vim =
             | NormalMode, [ "<C-o>" ] -> [ dispatch NavigationCommands.NavigateBack ]
             | NormalMode, [ "<C-i>" ] -> [ dispatch NavigationCommands.NavigateForward ]
             | NormalMode, [ "r" ] -> wait
-            | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar (inferDelimiter editor) ) Nothing ]
+            | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
             | NotInsertMode, [ "`"; c] -> 
@@ -1308,12 +1340,8 @@ module Vim =
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter; switchMode NormalMode ]
-            | VisualModes, [ ">" ] -> [ func EditActions.IndentSelection ]
-            | VisualModes, [ "<" ] -> [ func EditActions.UnIndentSelection ]
-            | NormalMode, [ ">" ] -> wait
-            | NormalMode, [ "<" ] -> wait
-            | NormalMode, [ ">"; ">" ] -> [ func EditActions.IndentSelection ]
-            | NormalMode, [ "<"; "<" ] -> [ func EditActions.UnIndentSelection ]
+            | VisualModes, [ ">" ] -> [ run (Func EditActions.IndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, [ "<" ] -> [ run (Func EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]
@@ -1360,7 +1388,7 @@ module Vim =
                 | SpecialKey.Right -> state.keys @ ["l"], None
                 | _ -> state.keys, Some keyPress.KeyChar
         let newState = { state with keys = newKeys }
-        let action, newState = parseKeys newState editor
+        let action, newState = parseKeys newState
         let newState =
             match state.statusMessage, state.mode, newState.mode with
             | Some _, NormalMode, NormalMode -> { newState with statusMessage = None }
@@ -1371,16 +1399,19 @@ module Vim =
         let rec performActions actions' state handled =
             match actions' with
             | [] -> state, handled
-            | h::t ->
-                match h.commandType with
+            | [ only ] ->
+                match only.commandType with
                 | DoNothing -> state, true
                 | _ ->
-                    let newState = runCommand state editor h
-                    performActions t { newState with keys = [] } true
+                    let newState = runCommand state editor only
+                    { newState with keys = [] }, true
+            | h::t ->
+                let newState = runCommand state editor h
+                performActions t newState true
 
         let newState, handled =
             match state.mode with
-            | ExMode _ -> 
+            | ExMode _ ->
                 let state, actions = exMode.processKey state keyPress
                 performActions actions state true
             | _ ->
@@ -1399,6 +1430,8 @@ module Vim =
                 { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
             | None, Delete, _
             | None, Change, _
+            | None, Indent, _
+            | None, UnIndent, _
             | None, Put _, _
             | None, ReplaceChar _, _
             | None, _, 'a'
@@ -1420,7 +1453,7 @@ type XSVim() =
         treeViewPads.initialize()
 
         if not (editorStates.ContainsKey x.FileName) then
-            editorStates.Add(x.FileName, Vim.defaultState )
+            editorStates.Add(x.FileName, VimState.Default)
             let editor = x.Editor
             editor.GrabFocus()
             EditActions.SwitchCaretMode editor
