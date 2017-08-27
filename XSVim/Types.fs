@@ -16,7 +16,6 @@ type Register =
     | Register of char
     | EmptyRegister
    
-
 type VimMode =
     | NormalMode
     | VisualMode
@@ -25,41 +24,6 @@ type VimMode =
     | InsertMode
     | ExMode of char // initial char typed to get to command line
 
-type CommandType =
-    | Move
-    | Visual
-    | Yank of Register
-    | Put of BeforeOrAfter
-    | Delete
-    | Substitute
-    | DeleteWholeLines
-    | DeleteLeft
-    | BlockInsert of BeforeOrAfter
-    | Change
-    | SwitchMode of VimMode
-    | Undo
-    | Redo
-    | JoinLines
-    | Dispatch of obj
-    | InsertLine of BeforeOrAfter
-    | ReplaceChar of string
-    | ResetKeys
-    | DoNothing
-    | Star of BeforeOrAfter
-    | ToggleCase
-    | InsertChar of string
-    | IncrementNumber
-    | DecrementNumber
-    | SetMark of string
-    | IncrementalSearch of string
-    | IncrementalSearchBackwards of string
-    | SetSearchAction of CommandType
-    | MacroStart of char
-    | MacroEnd
-    | ReplayMacro of char
-    | NextTab
-    | PreviousTab
-    | Func of (TextEditor -> unit)
 
 type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd
 
@@ -128,17 +92,56 @@ type TextObject =
     | MatchingBrace
     | Offset of int
 
-type VimAction = {
+type CommandType =
+    | Move
+    | Visual
+    | Yank of Register
+    | Put of BeforeOrAfter
+    | Delete
+    | Substitute
+    | DeleteWholeLines
+    | DeleteLeft
+    | BlockInsert of BeforeOrAfter
+    | Change
+    | SwitchMode of VimMode
+    | Undo
+    | Redo
+    | JoinLines
+    | Dispatch of obj
+    | InsertLine of BeforeOrAfter
+    | ReplaceChar of string
+    | ResetKeys
+    | DoNothing
+    | Star of BeforeOrAfter
+    | ToggleCase
+    | InsertChar of string
+    | IncrementNumber
+    | DecrementNumber
+    | SetMark of string
+    | IncrementalSearch of string
+    | IncrementalSearchBackwards of string
+    | SetSearchAction of CommandType
+    | MacroStart of char
+    | MacroEnd
+    | ReplayMacro of char
+    | NextTab
+    | PreviousTab
+    | Func of (TextEditor -> unit)
+    | ChangeState of VimState
+    | Indent
+    | UnIndent
+
+and VimAction = {
     repeat: int option
     commandType: CommandType
     textObject: TextObject
 }
 
-type Macro = Macro of char
+and Macro = Macro of char
 
-type VimSelection = { start: int; finish: int; mode: VimMode }
+and VimSelection = { start: int; finish: int; mode: VimMode }
 
-type VimState = {
+and VimState = {
     keys: string list
     mode: VimMode
     visualStartOffset: int
@@ -151,7 +154,20 @@ type VimState = {
     searchAction: CommandType option // Delete, Change, Visual, Yank or Move when / or ? is pressed
     lastSearch: TextObject option // Last term searched for with / or ?
     macro: Macro option
-}
+} with 
+    static member Default =
+        { keys=[]
+          mode=NormalMode
+          visualStartOffset=0
+          lastSelection=None
+          findCharCommand=None
+          lastAction=[]
+          desiredColumn=None
+          undoGroup=None
+          statusMessage=None
+          lastSearch=None 
+          searchAction=None 
+          macro=None }
 
 // shim for the build server which runs Mono 4.6.1
 module Option =

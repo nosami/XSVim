@@ -1,5 +1,6 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
+open XSVim
 
 [<TestFixture>]
 module ``Indentation tests`` =
@@ -8,5 +9,43 @@ module ``Indentation tests`` =
         assertText "a$bc" ">>" "    a$bc"
 
     [<Test>]
-    let ``> indents right in visual mode``() =
-        assertText "a$bc" "V>" "    a$bc"
+    let ``indent is repeatable``() =
+        assertText "a$bc" ">>." "        a$bc"
+
+    [<Test>]
+    let ``V> indents line right``() =
+        let text, state = test "a$bc\ndef" "V>" 
+        text |> should equal "    a$bc\ndef"
+        state.mode |> should equal NormalMode
+
+    [<Test>]
+    let ``V2> indents line right twice``() =
+        assertText "a$bc\ndef" "V2>" "        a$bc\ndef"
+
+    [<Test>]
+    let ``>j indents current line and line below``() =
+        assertText "a$bc\ndef" ">j" "    a$bc\n    def"
+
+    [<Test>]
+    let ``<j unindents current line and line below``() =
+        assertText "    a$bc\n    def" "<j" "a$bc\ndef"
+
+    [<Test;Ignore("Doesn't place caret at correct location")>]
+    let ``>2j indents current line and two lines below``() =
+        assertText "a$bc\ndef\nghi" ">2j" "    a$bc\n    def\n    ghi"
+
+    [<Test>]
+    let ``>gg indents to top of file``() =
+        assertText "abc\ndef\ngh$i" ">gg" "    abc\n    def\n    gh$i"
+
+    [<Test>]
+    let ``V> indents line``() =
+        assertText "abc\ndef\ngh$i" ">gg" "    abc\n    def\n    gh$i"
+
+    [<Test>]
+    let ``>2gg indents to line 2``() =
+        assertText "abc\ndef\ngh$i" ">2gg" "abc\n    def\n    gh$i"
+
+    [<Test>]
+    let ``>2G indents to line 2``() =
+        assertText "abc\ndef\ngh$i" ">2G" "abc\n    def\n    gh$i"
