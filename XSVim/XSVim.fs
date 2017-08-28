@@ -751,15 +751,17 @@ module Vim =
                             editor.CaretOffset <- finish
                             { vimState with desiredColumn = Some editor.CaretColumn }
                     newState
-
                 | Delete -> 
                     let newState = delete vimState start finish
-                    let line = editor.GetLine editor.CaretLine
                     let offsetBeforeDelimiter =
-                        match isLineWise vimState command with
-                        | true -> editor.CaretOffset + editor.GetLineIndent(editor.CaretLine).Length
-                        | false when editor.CaretColumn < line.Length -> editor.CaretOffset
-                        | false -> editor.CaretOffset - 1
+                        match (isLineWise vimState command), command.textObject with
+                        | true, _ -> editor.CaretOffset + editor.GetLineIndent(editor.CaretLine).Length
+                        | false, _  when editor.CaretOffset < editor.Text.Length ->
+                            if editor.[editor.CaretOffset] = '\n' || editor.[editor.CaretOffset] = '\r' then
+                                editor.CaretOffset - 1
+                            else
+                                editor.CaretOffset
+                        | _ -> editor.CaretOffset
                     editor.CaretOffset <- max offsetBeforeDelimiter 0
                     newState
                 | Indent ->

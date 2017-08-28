@@ -118,3 +118,7 @@ $    bar
     [<Test>]
     let ``dw last word at EOF``() =
         assertText "a$bc" "dw" "$"
+
+    [<Test>]
+    let ``dw to brace #167``() =
+        assertText "abc\n $  {" "dw" "abc\n{$"

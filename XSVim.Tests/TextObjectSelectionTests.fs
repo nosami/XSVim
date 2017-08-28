@@ -37,17 +37,12 @@ module ``Text object selection tests`` =
         assertText "var a = \"value$\"" "ci\"" "var a = \"|\""
 
     [<Test>]
-    [<Ignore "This is the correct behaviour. VIM puts the cursor on the closing quote.">]
-    let ``PROPER: di` before quoted string``() =
+    let ``di` before quoted string``() =
         assertText "var$ a = `value`" "di`" "var a = ``$"
 
     [<Test>]
-    let ``di` before quoted string``() =
-        assertText "var$ a = `value`" "di`" "var a = `$`"
-
-    [<Test>]
     let ``di' inside quoted string``() =
-        assertText "var a = 'value$'" "di'" "var a = '$'"
+        assertText "var a = 'value$'" "di'" "var a = ''$"
 
     // TODO: ca" and da" tests cheat. The commands should delete the white space after the closing quote
     [<Test>]
