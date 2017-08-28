@@ -71,11 +71,15 @@ module ``Text object selection tests`` =
     let ``ci" handles escaped quote``() =
         assertText """ var$ a = "\"" """ "ci\"" " var a = \"$\" "
 
-    [<Test;Ignore>]
+    [<Test>]
+    let ``ciw changes inside word``() =
+        assertText "a b$c d" "ciw" "a | d"    
+
+    [<Test>]
     let ``diw deletes inside word``() =
         assertText "a b$c d" "diw" "a  $d"    
     
-    [<Test;Ignore>]
+    [<Test>]
     let ``daw deletes around word``() =
         assertText "a b$c d" "daw" "a d$"    
     

@@ -447,7 +447,7 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> findCurrentWordStart editor isWordChar, findCurrentWordEnd editor isWordChar
+        | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd editor isWordChar) + 1
         | InnerWORD -> findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar
         | AWord -> 
             if isWordChar (editor.[editor.CaretOffset]) then
