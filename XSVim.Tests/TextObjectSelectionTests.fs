@@ -1,11 +1,14 @@
-﻿namespace XSVim.Tests
+namespace XSVim.Tests
 open NUnit.Framework
 
 [<TestFixture>]
 module ``Text object selection tests`` =
 
     // Tests for aw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#aw
-
+    [<Test>]
+    let ``daw deletes around word``() =
+        assertText "a b$c d" "daw" "a d$"    
+    
     [<Test>]
     let ``daw on a word``() =
         assertText "word1   word2$   word3" "daw" "word1   w$ord3" // three spaces before word2 preserved, two after removed
@@ -15,7 +18,19 @@ module ``Text object selection tests`` =
         assertText "word1  $  word2   word3" "daw" "word1 $  word3" // four spaces before word2 removed, three after preserved
 
     [<Test>]
-    let ``aw stops searching at EOL``() =
+    let ``daw puts caret at next character``() =
+        assertText "a b$ ." "daw" "a .$"
+
+    [<Test>]
+    let ``daw deletes whitespace only``() =
+        assertText "a. b$;" "daw" "a.;$"
+
+    [<Test>]
+    let ``daw deletes leading whitespace if there's no trailing``() =
+        assertText "a b$" "daw" "a$" // 
+
+    [<Test>]
+    let ``daw stops searching at EOL``() =
         assertText "word1$    \n word2" "daw" "\n$ word2"
 
     [<Test>]
@@ -25,7 +40,66 @@ module ``Text object selection tests`` =
     [<Test>]
     let ``caw finds end of word``() =
         assertText "a [wo$rd_ ] b" "caw" "a [|] b"
+
+    [<Test>]
+    let ``caw on a word with digits and underscores``() =
+        assertText ".a_8$ b" "caw" ".| b"
+
+    [<Test>]
+    let ``daw on sequence of other characters``() =
+        assertText "a ~!@#%^&*=+:;?/<>(){}$b " "daw" "ab$ "
     
+    [<Test>]
+    let ``daw from white space at EOL extends to next line``() =
+        assertText "a $ \n b" "daw" "b$"
+
+    // Tests for aW. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#aW
+    [<Test>]
+    let ``daW deletes a WORD``() =
+        assertText "a W.W$ b" "daW" "a b$"
+
+    [<Test>]
+    let ``daW removes trailing space``() =
+        assertText "a W.W$ " "daW" "a $"
+
+    [<Test>]
+    let ``daW removes leading space if no trailing``() =
+        assertText "a W.W$" "daW" "a$"
+    
+    [<Test>]
+    let ``caW changes a WORD``() =
+        assertText "a W.W$ b" "caW" "a |b"
+
+    // Tests for iw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#iw
+    [<Test>]
+    let ``diw deletes a word``() =
+        assertText "a b$c d" "diw" "a  $d"    
+
+    [<Test>]
+    let ``diw on sequence of other characters``() =
+        assertText "a ~!@#%^&*=+:;?/<>(){}$b " "diw" "a b$ "
+    
+    [<Test>]
+    let ``ciw changes a word``() =
+        assertText "a b$ c" "ciw" "a | c"
+
+    [<Test>]
+    let ``diw stops at non-word character``() =
+        assertText "%b$_123." "diw" "%.$"
+
+    [<Test>]
+    let ``diw does not extend to next line``() =
+        assertText "a $ \n b" "diw" "a$\n b"
+        
+    // Tests for iW.
+    [<Test>]
+    let ``diW deletes a WORD``() =
+        assertText "a W.W$ b" "diW" "a  $b"
+
+    [<Test>]
+    let ``ciW changes a WORD``() =
+        assertText "a W.W2$ b" "ciW" "a | b"
+
     // Tests for quoted strings. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a`
     // Handling of different quotes is identical. The tests alternate between ', " and `
     [<Test>]
@@ -79,10 +153,6 @@ module ``Text object selection tests`` =
     let ``diw deletes inside word``() =
         assertText "a b$c d" "diw" "a  $d"    
     
-    [<Test>]
-    let ``daw deletes around word``() =
-        assertText "a b$c d" "daw" "a d$"    
-    
     // Tests for braces. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#a)
     [<Test>]
     let ``ci( handles nested parentheses backwards``() =
@@ -95,4 +165,3 @@ module ``Text object selection tests`` =
     [<Test>]
     let ``da{ handles nested braces forwards``() =
         assertText "{a$ {b}}\n{ignored}" "da{" "\n${ignored}"
-

@@ -284,6 +284,16 @@ module VimHelpers =
                                   | _ -> editor.Options.DefaultEolMarker)
         |> Option.defaultValue editor.Options.DefaultEolMarker
 
+    type CharClass = | Word | WhiteSpace | Other
+
+    let getCharClass c = 
+        if isWordChar c then
+            Word
+        else if Char.IsWhiteSpace c then
+            WhiteSpace
+        else
+            Other
+
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         match command.textObject with
