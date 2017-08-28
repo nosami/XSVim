@@ -1,4 +1,4 @@
-﻿namespace XSVim
+namespace XSVim
 
 open System
 open System.Collections.Generic
@@ -40,7 +40,7 @@ module VimHelpers =
                 "Control+X"
                 "Control+N"
                 "Control+O"
-                "Control+I"
+                //"Control+I"
                 "Control+["
             ] 
             |> List.iter(fun k -> 
@@ -284,8 +284,44 @@ module VimHelpers =
                                   | _ -> editor.Options.DefaultEolMarker)
         |> Option.defaultValue editor.Options.DefaultEolMarker
 
+    type CharClass = | Word | WhiteSpace | Other
+    let getCharClass c = 
+        if isWordChar c then
+            Word
+        else if Char.IsWhiteSpace c then
+            WhiteSpace
+        else
+            Other
+
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
+
+        let curChar = editor.[editor.CaretOffset];
+        let isSameClassAsCurrentChar c = 
+            getCharClass c = getCharClass curChar
+
+        let expandLeftWhile matcher =
+            let find = seq { editor.CaretOffset .. -1 .. line.Offset } |> Seq.tryFind (fun i -> not (matcher editor.[i]))
+            match find with
+            | Some index -> index + 1
+            | None -> line.Offset
+
+        let expandRightWhile matcher =
+            seq { editor.CaretOffset ..  line.EndOffset - 1 }
+            |> Seq.tryFind (fun i -> not (matcher editor.[i]))
+            |> Option.defaultValue (line.EndOffset - 1)
+        
+        let expandWhiteSpaceLeft start =
+            let find = seq { start .. -1 .. line.Offset } |> Seq.tryFind (fun i -> not (Char.IsWhiteSpace editor.[i]))
+            match find with
+            | Some index -> index + 1
+            | None -> start
+
+        let expandWhiteSpaceRight start =
+            seq { start ..  line.EndOffset }
+            |> Seq.tryFind (fun i -> not (Char.IsWhiteSpace editor.[i]))
+            |> Option.defaultValue start
+
         match command.textObject with
         | Right behaviour ->
             let line = editor.GetLine editor.CaretLine
@@ -450,12 +486,19 @@ module VimHelpers =
         | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd editor isWordChar) + 1
         | InnerWORD -> findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar
         | AWord -> 
-            if isWordChar (editor.[editor.CaretOffset]) then
-                findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar 
-            else
-                let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
-                let nextWordEnd = findWordEnd editor isWordChar
-                prevWordEnd + 1, nextWordEnd + 1
+            //if Char.IsWhiteSpace curChar then
+            //    expandWhiteSpaceLeft  
+            //    expandWhiteSpaceRight |> 
+            //else
+                let start = expandLeftWhile isSameClassAsCurrentChar 
+                let startWithWhiteSpace = start |> expandWhiteSpaceLeft
+                let finish = expandRightWhile isSameClassAsCurrentChar 
+                let finishWithWhiteSpace = finish |> expandWhiteSpaceRight
+                if finish = finishWithWhiteSpace then
+                    startWithWhiteSpace, finish
+                else
+                    start, finishWithWhiteSpace
+
         | ForwardToEndOfWord ->
             let isWordCharAtOffset offset = isWordChar (editor.[offset])
 
