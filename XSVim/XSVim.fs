@@ -458,13 +458,20 @@ module VimHelpers =
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd editor isWordChar) + 1
-        | InnerWORD -> findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar
+        | InnerWORD -> findCurrentWordStart editor isWORDChar, (findCurrentWordEnd editor isWORDChar) + 1
         | AWord -> 
             if isWordChar (editor.[editor.CaretOffset]) then
                 findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar 
             else
                 let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
                 let nextWordEnd = findWordEnd editor isWordChar
+                prevWordEnd + 1, nextWordEnd + 1
+        | AWORD -> 
+            if isWORDChar (editor.[editor.CaretOffset]) then
+                findCurrentWordStart editor isWORDChar, findNextWordStartOnLine editor line isWORDChar 
+            else
+                let prevWordEnd = findWordBackwards editor Move isWORDChar |> Option.defaultValue editor.CaretOffset
+                let nextWordEnd = findWordEnd editor isWORDChar
                 prevWordEnd + 1, nextWordEnd + 1
         | ForwardToEndOfWord ->
             let isWordCharAtOffset offset = isWordChar (editor.[offset])
@@ -1286,8 +1293,12 @@ module Vim =
             | NotInsertMode, [ Action action; "a"; QuoteDelimiter c ] -> [ run action (AQuotedBlock (char c)) ]
             | NotInsertMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
             | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
+            | NotInsertMode, [ Action action; "i"; "W" ] -> [ run action InnerWORD ]
+            | NotInsertMode, [ Action action; "a"; "W" ] -> [ run action AWORD ]
             | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
             | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
+            | VisualMode, [ "i"; "W" ] -> [ run Visual InnerWORD ]
+            | VisualMode, [ "a"; "W" ] -> [ run Visual AWORD ]
             | VisualMode, [ "u"] -> [ dispatch EditCommands.LowercaseSelection ]
             | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
