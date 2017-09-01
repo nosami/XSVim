@@ -80,7 +80,7 @@ module VimHelpers =
 
     let findCharForwards (editor:TextEditor) character =
         let ch = char character
-        seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
+        seq { editor.CaretOffset+1 .. editor.Length-1 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
     let findCharBackwards (editor:TextEditor) character =
@@ -99,7 +99,7 @@ module VimHelpers =
 
     let rec findUnmatchedClosingBrace(editor:TextEditor) pos openingChar closingChar =
         let find c =
-            seq { pos+1 .. editor.Text.Length-1} |> Seq.tryFind(fun index -> editor.[index] = c)
+            seq { pos+1 .. editor.Length-1} |> Seq.tryFind(fun index -> editor.[index] = c)
         match find openingChar, find closingChar with
         | Some s, Some e when s > e -> Some e
         | Some s, Some e when s < e -> findUnmatchedClosingBrace editor e openingChar closingChar
@@ -109,9 +109,16 @@ module VimHelpers =
     let isWORDChar c = not (Char.IsWhiteSpace c)
     let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
     let isEOLChar c = c = '\r' || c = '\n'
+    let isWhiteSpaceOrEOL c = Char.IsWhiteSpace c || isEOLChar c
 
     let (|WhiteSpace|_|) c =
         if Char.IsWhiteSpace c then Some WhiteSpace else None
+
+    let (|IsWordChar|_|) c =
+        if isWordChar c then Some IsWordChar else None
+
+    let (|IsWORDChar|_|) c =
+        if isWORDChar c then Some IsWORDChar else None
 
     let (|EOLChar|_|) c =
         if isEOLChar c then Some EOLChar else None
@@ -122,14 +129,14 @@ module VimHelpers =
             | EOLChar, Delete -> Some index
             | WhiteSpace, Move
             | WhiteSpace, Delete ->
-                seq { index+1 .. editor.Text.Length-1 }
+                seq { index+1 .. editor.Length-1 }
                 |> Seq.tryFind(fun index -> not (editor.[index] = ' '))
                 |> Option.bind(fun newIndex ->
 
                     let findFirstWordOnLine startOffset =
                         match editor.[startOffset] with
                         | WhiteSpace ->
-                            seq { startOffset .. editor.Text.Length-1 }
+                            seq { startOffset .. editor.Length-1 }
                             |> Seq.tryFind(fun index -> let c = editor.[index]
                                                         fWordChar c || c = '\n')
                         | _ -> Some newIndex
@@ -143,8 +150,8 @@ module VimHelpers =
         if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
             editor.CaretOffset + 1 |> Some
         else
-            seq { editor.CaretOffset+1 .. editor.Text.Length-1 }
-            |> Seq.tryFind(fun index -> index = editor.Text.Length || not (fWordChar editor.[index]))
+            seq { editor.CaretOffset+1 .. editor.Length-1 }
+            |> Seq.tryFind(fun index -> index = editor.Length || not (fWordChar editor.[index]))
             |> Option.bind findFromNonLetterChar
 
     let findWordBackwards (editor:TextEditor) commandType fWordChar =
@@ -159,7 +166,7 @@ module VimHelpers =
             editor.CaretOffset - 1 |> Some
         else
             seq { editor.CaretOffset .. -1 .. 0 }
-            |> Seq.tryFind(fun index -> index = editor.Text.Length+1 || not (fWordChar editor.[index]))
+            |> Seq.tryFind(fun index -> index = editor.Length+1 || not (fWordChar editor.[index]))
             |> Option.bind findFromNonLetterChar
 
     let findPrevWord (editor:TextEditor) fWordChar =
@@ -176,9 +183,9 @@ module VimHelpers =
         findStartBackwards result previous previous
 
     let findCurrentWordEnd (editor:TextEditor) fWordChar =
-        seq { editor.CaretOffset .. editor.Text.Length - 2 }
+        seq { editor.CaretOffset .. editor.Length - 2 }
         |> Seq.tryFind(fun index -> not (fWordChar editor.[index+1]))
-        |> Option.defaultValue (editor.Text.Length-1)
+        |> Option.defaultValue (editor.Length-1)
 
     let findWordEnd (editor:TextEditor) fWordChar =
         let currentWordEnd = findCurrentWordEnd editor fWordChar
@@ -190,7 +197,7 @@ module VimHelpers =
                     if fWordChar editor.[offset] then fWordChar else isNonBlankButNotWordChar
                 editor.CaretOffset <- offset
                 findCurrentWordEnd editor f
-            | None -> editor.Text.Length
+            | None -> editor.Length
         else
             currentWordEnd
 
@@ -201,12 +208,16 @@ module VimHelpers =
 
     let findNextWordStartOnLine(editor:TextEditor) (line:IDocumentLine) fWordChar =
         let currentWordEnd = findCurrentWordEnd editor fWordChar
-        match editor.[currentWordEnd+1] with
-        | WhiteSpace ->
-            seq { currentWordEnd + 1 .. line.EndOffset }
-            |> Seq.tryFind(fun index -> fWordChar editor.[index])
-            |> Option.defaultValue line.EndOffset
-        | _ -> currentWordEnd
+        if currentWordEnd = editor.Length-1 then
+            currentWordEnd
+        else
+            match editor.[currentWordEnd+1] with
+            | WhiteSpace ->
+                //match finish = min line.Offset 
+                seq { currentWordEnd + 1 .. line.EndOffset - 1 }
+                |> Seq.tryFind(fun index -> fWordChar editor.[index])
+                |> Option.defaultValue line.EndOffset
+            | _ -> currentWordEnd
 
     let paragraphBackwards (editor:TextEditor) =
         seq { editor.CaretLine-1 .. -1 .. 1 }
@@ -269,7 +280,7 @@ module VimHelpers =
         let firstForwards = findCharForwardsOnLine editor line editor.CaretOffset (string quoteChar)
         let secondForwards =
             match firstForwards with
-            | Some offset when offset + 1 < editor.Text.Length -> 
+            | Some offset when offset + 1 < editor.Length -> 
                 findCharForwardsOnLine editor line offset (string quoteChar)
             | _ -> None
         firstBackwards, firstForwards, secondForwards
@@ -284,15 +295,40 @@ module VimHelpers =
                                   | _ -> editor.Options.DefaultEolMarker)
         |> Option.defaultValue editor.Options.DefaultEolMarker
 
-    type CharClass = | Word | WhiteSpace | Other
+    /// Get the range of the trailing or leading whitespace
+    /// around a word when aw or aW is used
+    let getAroundWordRange (editor:TextEditor) wordStart wordEnd =
+        let hasLeadingWhiteSpace = 
+            wordStart > 1 && Char.IsWhiteSpace editor.[wordStart-1]
 
-    let getCharClass c = 
-        if isWordChar c then
-            Word
-        else if Char.IsWhiteSpace c then
-            WhiteSpace
-        else
-            Other
+        let hasTrailingWhiteSpace =
+            wordEnd < editor.Length && Char.IsWhiteSpace editor.[wordEnd]
+
+        let line = editor.GetLine editor.CaretLine
+        match hasTrailingWhiteSpace, hasLeadingWhiteSpace with
+        | true, _ ->
+            let finish =
+                seq { wordEnd .. line.EndOffset - 2 }
+                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index+1]))
+                |> Option.defaultValue (line.EndOffset-1)
+            wordStart, finish + 1
+        | false, true ->
+            let start =
+                seq { wordStart .. -1 .. line.Offset }
+                |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index-1]))
+                |> Option.defaultValue line.Offset
+            start, wordEnd
+        | _ -> wordStart, wordEnd - 1
+
+    let getWordRange (editor:TextEditor) fWordChar =
+        let wordStart = findCurrentWordStart editor fWordChar
+        let wordEnd = findCurrentWordEnd editor fWordChar
+        wordStart, wordEnd + 1
+
+    let getWhitespaceRange (editor:TextEditor) fWordChar =
+        let prevWordEnd = findWordBackwards editor Move fWordChar |> Option.defaultValue editor.CaretOffset
+        let nextWordEnd = findWordEnd editor fWordChar
+        prevWordEnd + 1, nextWordEnd + 1
 
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
@@ -419,7 +455,7 @@ module VimHelpers =
             let opening = findUnmatchedOpeningBrace editor editor.CaretOffset (char startChar) (char endChar)
             let closing = findUnmatchedClosingBrace editor editor.CaretOffset (char startChar) (char endChar)
             match opening, closing with
-            | Some start, Some finish when finish < editor.Text.Length -> start, finish+1
+            | Some start, Some finish when finish < editor.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | InnerQuotedBlock c ->
             match findQuoteTriplet editor line c with
@@ -434,7 +470,7 @@ module VimHelpers =
         | WordForwards ->
             match findWordForwards editor command.commandType isWordChar with
             | Some index -> editor.CaretOffset, index
-            | None -> editor.CaretOffset, editor.Text.Length
+            | None -> editor.CaretOffset, editor.Length
         | WORDForwards ->
             match findWordForwards editor command.commandType isWORDChar with
             | Some index -> editor.CaretOffset, index
@@ -457,22 +493,46 @@ module VimHelpers =
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
             | None -> editor.CaretOffset, editor.CaretOffset
-        | InnerWord -> findCurrentWordStart editor isWordChar, (findCurrentWordEnd editor isWordChar) + 1
-        | InnerWORD -> findCurrentWordStart editor isWORDChar, (findCurrentWordEnd editor isWORDChar) + 1
+        | InnerWord ->
+            let getWordCharFunc = function
+                | IsWordChar -> isWordChar
+                | _ -> isNonBlankButNotWordChar
+
+            match editor.[editor.CaretOffset] with
+            | WhiteSpace ->
+                let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
+                let start, finish = getWordRange editor matchFunc
+                start, finish
+            | _ -> 
+                let fWordChar = getWordCharFunc editor.[editor.CaretOffset]
+                let start, finish = getWordRange editor fWordChar
+                start, finish
+        | InnerWORD ->
+            match editor.[editor.CaretOffset] with
+            | WhiteSpace ->
+                let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
+                let start, finish = getWordRange editor matchFunc
+                start, finish
+            | _ -> 
+                let start, finish = getWordRange editor isWORDChar
+                start, finish
         | AWord -> 
-            if isWordChar (editor.[editor.CaretOffset]) then
-                findCurrentWordStart editor isWordChar, findNextWordStartOnLine editor line isWORDChar 
-            else
-                let prevWordEnd = findWordBackwards editor Move isWordChar |> Option.defaultValue editor.CaretOffset
-                let nextWordEnd = findWordEnd editor isWordChar
-                prevWordEnd + 1, nextWordEnd + 1
+            let getWordCharFunc = function
+                | IsWordChar -> isWordChar
+                | _ -> isNonBlankButNotWordChar
+
+            match editor.[editor.CaretOffset] with
+            | WhiteSpace -> getWhitespaceRange editor isWordChar
+            | _ -> 
+                let fWordChar = getWordCharFunc editor.[editor.CaretOffset]
+                let wordStart, wordEnd = getWordRange editor fWordChar
+                getAroundWordRange editor wordStart wordEnd
         | AWORD -> 
-            if isWORDChar (editor.[editor.CaretOffset]) then
-                findCurrentWordStart editor isWORDChar, findNextWordStartOnLine editor line isWORDChar 
-            else
-                let prevWordEnd = findWordBackwards editor Move isWORDChar |> Option.defaultValue editor.CaretOffset
-                let nextWordEnd = findWordEnd editor isWORDChar
-                prevWordEnd + 1, nextWordEnd + 1
+            match editor.[editor.CaretOffset] with
+            | WhiteSpace -> getWhitespaceRange editor isWORDChar
+            | _ -> 
+                let wordStart, wordEnd = getWordRange editor isWORDChar
+                getAroundWordRange editor wordStart wordEnd
         | ForwardToEndOfWord ->
             let isWordCharAtOffset offset = isWordChar (editor.[offset])
 
@@ -773,7 +833,7 @@ module Vim =
                     let offsetBeforeDelimiter =
                         match (isLineWise vimState command), command.textObject with
                         | true, _ -> editor.CaretOffset + editor.GetLineIndent(editor.CaretLine).Length
-                        | false, _  when editor.CaretOffset < editor.Text.Length ->
+                        | false, _  when editor.CaretOffset < editor.Length ->
                             if editor.[editor.CaretOffset] = '\n' || editor.[editor.CaretOffset] = '\r' then
                                 editor.CaretOffset - 1
                             else
@@ -849,12 +909,12 @@ module Vim =
                             let delimiter = inferDelimiter editor
                             match registers.[EmptyRegister].content with
                             | StartsWithDelimiter _delimiter -> ()
-                            | _ -> editor.InsertText(editor.Text.Length, delimiter)
-                            editor.CaretOffset <- editor.Text.Length
+                            | _ -> editor.InsertText(editor.Length, delimiter)
+                            editor.CaretOffset <- editor.Length
                             EditActions.ClipboardPaste editor
                             if eofOnLine line then
                                 match registers.[EmptyRegister].content with
-                                | EndsWithDelimiter delimiter -> editor.RemoveText(editor.Text.Length-delimiter.Length, delimiter.Length)
+                                | EndsWithDelimiter delimiter -> editor.RemoveText(editor.Length-delimiter.Length, delimiter.Length)
                                 | _ -> ()
                             EditActions.MoveCaretToLineStart editor
                         else
