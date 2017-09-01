@@ -109,16 +109,12 @@ module VimHelpers =
     let isWORDChar c = not (Char.IsWhiteSpace c)
     let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
     let isEOLChar c = c = '\r' || c = '\n'
-    let isWhiteSpaceOrEOL c = Char.IsWhiteSpace c || isEOLChar c
 
     let (|WhiteSpace|_|) c =
         if Char.IsWhiteSpace c then Some WhiteSpace else None
 
     let (|IsWordChar|_|) c =
         if isWordChar c then Some IsWordChar else None
-
-    let (|IsWORDChar|_|) c =
-        if isWORDChar c then Some IsWORDChar else None
 
     let (|EOLChar|_|) c =
         if isEOLChar c then Some EOLChar else None
@@ -205,19 +201,6 @@ module VimHelpers =
         seq { editor.CaretOffset .. -1 .. 1 }
         |> Seq.tryFind(fun index -> not (fWordChar editor.[index-1]))
         |> Option.defaultValue 0
-
-    let findNextWordStartOnLine(editor:TextEditor) (line:IDocumentLine) fWordChar =
-        let currentWordEnd = findCurrentWordEnd editor fWordChar
-        if currentWordEnd = editor.Length-1 then
-            currentWordEnd
-        else
-            match editor.[currentWordEnd+1] with
-            | WhiteSpace ->
-                //match finish = min line.Offset 
-                seq { currentWordEnd + 1 .. line.EndOffset - 1 }
-                |> Seq.tryFind(fun index -> fWordChar editor.[index])
-                |> Option.defaultValue line.EndOffset
-            | _ -> currentWordEnd
 
     let paragraphBackwards (editor:TextEditor) =
         seq { editor.CaretLine-1 .. -1 .. 1 }
@@ -501,21 +484,17 @@ module VimHelpers =
             match editor.[editor.CaretOffset] with
             | WhiteSpace ->
                 let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
-                let start, finish = getWordRange editor matchFunc
-                start, finish
+                getWordRange editor matchFunc
             | _ -> 
                 let fWordChar = getWordCharFunc editor.[editor.CaretOffset]
-                let start, finish = getWordRange editor fWordChar
-                start, finish
+                getWordRange editor fWordChar
         | InnerWORD ->
             match editor.[editor.CaretOffset] with
             | WhiteSpace ->
                 let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
-                let start, finish = getWordRange editor matchFunc
-                start, finish
+                getWordRange editor matchFunc
             | _ -> 
-                let start, finish = getWordRange editor isWORDChar
-                start, finish
+                getWordRange editor isWORDChar
         | AWord -> 
             let getWordCharFunc = function
                 | IsWordChar -> isWordChar
