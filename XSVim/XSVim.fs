@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
+open System.Threading
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
@@ -588,7 +589,9 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
-    let registers = new Dictionary<Register, XSVim.Selection>()
+    let registers = Dictionary<Register, XSVim.Selection>()
+    let editorStates = Dictionary<string, VimState>()
+
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
     let markDict = Dictionary<string, Marker>()
@@ -1077,6 +1080,20 @@ module Vim =
                     f editor
                     vimState
                 | ChangeState s -> s
+                | DelayedFunc (f, ms) ->
+                    let token = new CancellationTokenSource()
+                    let work =
+                        async {
+                            do! Async.Sleep ms
+                            if (not token.IsCancellationRequested) then
+                                Runtime.RunInMainThread(fun _ -> f editor) |> ignore
+                        }
+                    Async.Start(work, token.Token)
+                    { vimState with insertModeCancellationTokenSource = Some token }
+                | CancelFunc ->
+                    vimState.insertModeCancellationTokenSource
+                    |> Option.iter(fun token -> token.Cancel())
+                    { vimState with insertModeCancellationTokenSource = None }
                 | _ -> vimState
             if count = 1 then newState else processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
@@ -1233,6 +1250,16 @@ module Vim =
             | NormalMode, [ Escape ] -> resetKeys
             | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
             | ExMode _, [ Escape ] -> [ switchMode NormalMode ]
+            | InsertMode, [ "j" ] ->
+                delayedFunc (fun editor -> //if editor.Carets.[0]?IsInInsertMode then 
+                                               editor.InsertAtCaret "j"
+                                               let oldState = editorStates.[editor.FileName.FullPath.ToString()]
+                                               editorStates.[editor.FileName.FullPath.ToString()] <- { oldState with keys = [] }  ) 2000 :: wait
+            | InsertMode, [ "j"; "j" ] -> [ run CancelFunc Nothing; switchMode NormalMode; run Move Left ]
+            | InsertMode, [ "j"; _ ] ->
+                [ run CancelFunc Nothing
+                  run (ChangeState { state with keys = [] }) Nothing
+                  typeChar "j" ]
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
@@ -1440,6 +1467,10 @@ module Vim =
                 state.keys @ ["u"], None
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
                 state.keys @ [c |> string], None
+            | InsertMode, 'j' ->
+                state.keys @ ["j"], None
+            | InsertMode, c when state.keys |> List.tryHead = Some "j" ->
+                state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"], None
@@ -1506,7 +1537,6 @@ module Vim =
 
 type XSVim() =
     inherit TextEditorExtension()
-    static let editorStates = Dictionary<string, VimState>()
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
     member x.FileName = x.Editor.FileName.FullPath.ToString()
@@ -1514,8 +1544,8 @@ type XSVim() =
     override x.Initialize() =
         treeViewPads.initialize()
 
-        if not (editorStates.ContainsKey x.FileName) then
-            editorStates.Add(x.FileName, VimState.Default)
+        if not (Vim.editorStates.ContainsKey x.FileName) then
+            Vim.editorStates.Add(x.FileName, VimState.Default)
             let editor = x.Editor
             editor.GrabFocus()
             EditActions.SwitchCaretMode editor
@@ -1530,8 +1560,8 @@ type XSVim() =
             let documentClosed =
                 IdeApp.Workbench.DocumentClosed.Subscribe
                     (fun e -> let documentName = e.Document.Name
-                              if editorStates.ContainsKey documentName then
-                                  editorStates.Remove documentName |> ignore)
+                              if Vim.editorStates.ContainsKey documentName then
+                                  Vim.editorStates.Remove documentName |> ignore)
 
             disposables <- [ caretChanged; documentClosed ]
 
@@ -1540,14 +1570,14 @@ type XSVim() =
         | ModifierKeys.Control
         | ModifierKeys.Command when descriptor.KeyChar = 'z' ->
             // cmd-z uses the vim undo group
-            let vimState = editorStates.[x.FileName]
+            let vimState = Vim.editorStates.[x.FileName]
             vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
             EditActions.Undo x.Editor
             x.Editor.ClearSelection()
             false
         | ModifierKeys.Command when descriptor.KeyChar <> 'z' && descriptor.KeyChar <> 'r' -> false
         | _ ->
-            let vimState = editorStates.[x.FileName]
+            let vimState = Vim.editorStates.[x.FileName]
             let oldState = vimState
 
             processingKey <- true
@@ -1560,9 +1590,9 @@ type XSVim() =
             | None, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage "recording"
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
 
-            editorStates.[x.FileName] <- newState
+            Vim.editorStates.[x.FileName] <- newState
             match oldState.mode, newState.mode with
-            | InsertMode, InsertMode ->
+            | InsertMode, InsertMode  when descriptor.KeyChar <> 'j' ->
                 base.KeyPress descriptor
             | VisualMode, _ -> false
             | _ -> not handledKeyPress
@@ -1576,9 +1606,9 @@ type XSVim() =
         ci.Enabled <- true
         // dirty hack - use the command update handler to switch to insert mode
         // before the inline rename kicks in
-        let state = editorStates.[x.FileName]
+        let state = Vim.editorStates.[x.FileName]
         if state.mode <> InsertMode then
-            editorStates.[x.FileName] <-
+            Vim.editorStates.[x.FileName] <-
                 Vim.switchToInsertMode x.Editor state false
 
     override x.Dispose() =
