@@ -1,5 +1,7 @@
 namespace XSVim
 open System
+open System.Threading
+open System.Threading.Tasks
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 
@@ -127,6 +129,8 @@ type CommandType =
     | NextTab
     | PreviousTab
     | Func of (TextEditor -> unit)
+    | DelayedFunc of (TextEditor -> unit) * int
+    | CancelFunc
     | ChangeState of VimState
     | Indent
     | UnIndent
@@ -154,6 +158,7 @@ and VimState = {
     searchAction: CommandType option // Delete, Change, Visual, Yank or Move when / or ? is pressed
     lastSearch: TextObject option // Last term searched for with / or ?
     macro: Macro option
+    insertModeCancellationTokenSource: CancellationTokenSource option
 } with 
     static member Default =
         { keys=[]
@@ -167,7 +172,8 @@ and VimState = {
           statusMessage=None
           lastSearch=None 
           searchAction=None 
-          macro=None }
+          macro=None
+          insertModeCancellationTokenSource=None }
 
 // shim for the build server which runs Mono 4.6.1
 module Option =
@@ -188,5 +194,5 @@ module commandHelpers =
     let dispatch command = runOnce (Dispatch command) Nothing
     let resetKeys = [ runOnce ResetKeys Nothing ]
     let func f = runOnce (Func f) Nothing
-
+    let delayedFunc f ms = runOnce (DelayedFunc (f, ms)) Nothing
     let dispatchCommand command = IdeApp.CommandService.DispatchCommand command |> ignore
