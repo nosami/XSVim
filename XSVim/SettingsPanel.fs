@@ -51,9 +51,10 @@ type SettingsPanel() =
         Control.op_Implicit widget
 
     override x.ApplyChanges() =
-        if widget.EscapeMappingEntry.Text.Length = 2 then
+        match widget.EscapeMappingEntry.Text.Length with
+        | 2 | 0 ->
             PropertyService.Set(escapeMappingKey, widget.EscapeMappingEntry.Text)
-        else
-            let md = new MessageDialog (null, DialogFlags.Modal ||| DialogFlags.DestroyWithParent, MessageType.Error, ButtonsType.Ok, "Timeout must be numeric")
+        | _ ->
+            let md = new MessageDialog (null, DialogFlags.Modal ||| DialogFlags.DestroyWithParent, MessageType.Error, ButtonsType.Ok, "Mapping must be empty (not used) or 2 characters.")
             md.Show()
         PropertyService.Set(escapeMappingKeyTimeout, int widget.EscapeMappingEntryTimeout.Text)
