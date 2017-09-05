@@ -1141,9 +1141,13 @@ module Vim =
             None
 
     let (|Movement|_|) = function
+        | ["<left>"]
         | ["h"] -> Some Left
+        | ["<down>"]
         | ["j"] -> Some Down
+        | ["<up>"]
         | ["k"] -> Some Up
+        | ["<right>"]
         | ["l"] -> Some (Right StopAtEndOfLine)
         | [" "] -> Some (Right MoveToNextLineAtEnd)
         | ["$"] -> Some EndOfLine
@@ -1211,7 +1215,15 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
-    let parseKeys (state:VimState) =
+
+    let getInsertModeEscapeCombo config =
+        match config.insertModeEscapeKey with
+        | Some combo ->
+            combo.insertModeEscapeKey1, combo.insertModeEscapeKey2, combo.insertModeEscapeTimeout
+        | None ->
+            "", "", 0
+
+    let parseKeys (state:VimState) (config: Config) =
         let keyList = state.keys
         let numericArgument, keyList =
             match keyList with
@@ -1244,22 +1256,26 @@ module Vim =
             | [ FindChar m; c ] -> { state with findCharCommand = run Move ( m c ) |> Some }
             | _ -> state
 
+        let insertModeEscapeFirstChar, insertModeEscapeSecondChar, insertModeTimeout =
+            getInsertModeEscapeCombo config
+
         let action =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
             | NormalMode, [ Escape ] -> resetKeys
             | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
             | ExMode _, [ Escape ] -> [ switchMode NormalMode ]
-            | InsertMode, [ "j" ] ->
-                delayedFunc (fun editor -> //if editor.Carets.[0]?IsInInsertMode then 
-                                               editor.InsertAtCaret "j"
-                                               let oldState = editorStates.[editor.FileName.FullPath.ToString()]
-                                               editorStates.[editor.FileName.FullPath.ToString()] <- { oldState with keys = [] }  ) 2000 :: wait
-            | InsertMode, [ "j"; "j" ] -> [ run CancelFunc Nothing; switchMode NormalMode; run Move Left ]
-            | InsertMode, [ "j"; _ ] ->
+            | InsertMode, [ c ] when c = insertModeEscapeFirstChar ->
+                delayedFunc (fun editor ->
+                                 editor.InsertAtCaret insertModeEscapeFirstChar
+                                 let oldState = editorStates.[editor.FileName.FullPath |> string]
+                                 editorStates.[editor.FileName.FullPath |> string] <- { oldState with keys = [] }  ) insertModeTimeout :: wait
+            | InsertMode, [ c1; c2 ] when c1 = insertModeEscapeFirstChar && c2 = insertModeEscapeSecondChar ->
+                [ run CancelFunc Nothing; switchMode NormalMode; run Move Left ]
+            | InsertMode, [ c; _ ] when c = insertModeEscapeFirstChar ->
                 [ run CancelFunc Nothing
                   run (ChangeState { state with keys = [] }) Nothing
-                  typeChar "j" ]
+                  typeChar insertModeEscapeFirstChar ]
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
@@ -1312,7 +1328,7 @@ module Vim =
             | NormalMode, ["\""; _; "y"] -> wait
             | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
             | NormalMode, [ "y"; "y" ]
-            | NormalMode, [ "Y" ] -> 
+            | NormalMode, [ "Y" ] ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
@@ -1456,7 +1472,10 @@ module Vim =
             | _ -> resetKeys
         action, newState
 
-    let handleKeyPress state (keyPress:KeyDescriptor) editor =
+    let handleKeyPress state (keyPress:KeyDescriptor) editor config =
+        let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =
+            getInsertModeEscapeCombo config
+
         let newKeys, insertChar =
             match state.mode, keyPress.KeyChar with
             | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
@@ -1467,21 +1486,21 @@ module Vim =
                 state.keys @ ["u"], None
             | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
                 state.keys @ [c |> string], None
-            | InsertMode, 'j' ->
-                state.keys @ ["j"], None
-            | InsertMode, c when state.keys |> List.tryHead = Some "j" ->
+            | InsertMode, c when (c |> string) = insertModeEscapeFirstChar ->
+                state.keys @ [insertModeEscapeFirstChar], None
+            | InsertMode, c when state.keys |> List.tryHead = Some insertModeEscapeFirstChar ->
                 state.keys @ [c |> string], None
             | _ ->
                 match keyPress.SpecialKey with
                 | SpecialKey.Escape -> state.keys @ ["<esc>"], None
                 | SpecialKey.Return -> state.keys @ ["<ret>"], None
-                | SpecialKey.Left -> state.keys @ ["h"], None
-                | SpecialKey.Down -> state.keys @ ["j"], None
-                | SpecialKey.Up -> state.keys @ ["k"], None
-                | SpecialKey.Right -> state.keys @ ["l"], None
+                | SpecialKey.Left -> state.keys @ ["<left>"], None
+                | SpecialKey.Down -> state.keys @ ["<down>"], None
+                | SpecialKey.Up -> state.keys @ ["<up>"], None
+                | SpecialKey.Right -> state.keys @ ["<right>"], None
                 | _ -> state.keys, Some keyPress.KeyChar
         let newState = { state with keys = newKeys }
-        let action, newState = parseKeys newState
+        let action, newState = parseKeys newState config
         let newState =
             match state.statusMessage, state.mode, newState.mode with
             | Some _, NormalMode, NormalMode -> { newState with statusMessage = None }
@@ -1539,10 +1558,24 @@ type XSVim() =
     inherit TextEditorExtension()
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
+    let mutable config = { insertModeEscapeKey = None }
+
+    let initConfig() =
+        let mapping = SettingsPanel.InsertModeEscapeMapping()
+        if mapping.Length = 2 then
+            config <- { insertModeEscapeKey =
+                           {
+                               insertModeEscapeKey1 = string mapping.[0]
+                               insertModeEscapeKey2 = string mapping.[1]
+                               insertModeEscapeTimeout = SettingsPanel.InsertModeEscapeMappingTimeout()
+                           } |> Some }
+
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     override x.Initialize() =
         treeViewPads.initialize()
+
+        initConfig()
 
         if not (Vim.editorStates.ContainsKey x.FileName) then
             Vim.editorStates.Add(x.FileName, VimState.Default)
@@ -1563,7 +1596,11 @@ type XSVim() =
                               if Vim.editorStates.ContainsKey documentName then
                                   Vim.editorStates.Remove documentName |> ignore)
 
-            disposables <- [ caretChanged; documentClosed ]
+            let propertyChanged =
+                PropertyService.PropertyChanged.Subscribe
+                    (fun _ -> initConfig())
+
+            disposables <- [ caretChanged; documentClosed; propertyChanged ]
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
@@ -1581,7 +1618,7 @@ type XSVim() =
             let oldState = vimState
 
             processingKey <- true
-            let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor
+            let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor config
             processingKey <- false
 
             match newState.statusMessage, newState.macro with
@@ -1591,10 +1628,10 @@ type XSVim() =
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
 
             Vim.editorStates.[x.FileName] <- newState
-            match oldState.mode, newState.mode with
-            | InsertMode, InsertMode  when descriptor.KeyChar <> 'j' ->
+            match oldState.mode, newState.mode, config.insertModeEscapeKey with
+            | InsertMode, InsertMode, Some escapeCombo  when descriptor.KeyChar.ToString() <> escapeCombo.insertModeEscapeKey1 ->
                 base.KeyPress descriptor
-            | VisualMode, _ -> false
+            | VisualMode, _, _ -> false
             | _ -> not handledKeyPress
 
     [<CommandUpdateHandler ("MonoDevelop.Ide.Commands.EditCommands.Undo")>]

@@ -14,6 +14,16 @@ type Selection = {
     content: string
 }
 
+type InsertModeEscapeKeyCombo = {
+    insertModeEscapeKey1: string
+    insertModeEscapeKey2: string
+    insertModeEscapeTimeout: int
+}
+
+type Config = {
+    insertModeEscapeKey: InsertModeEscapeKeyCombo option
+}
+
 type Register = 
     | Register of char
     | EmptyRegister

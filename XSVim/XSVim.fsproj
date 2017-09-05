@@ -61,11 +61,21 @@
     <Reference Include="System.Collections.Immutable">
       <HintPath>..\lib\System.Collections.Immutable.dll</HintPath>
     </Reference>
+    <Reference Include="Xamarin.Mac">
+      <HintPath>..\lib\Xamarin.Mac.dll</HintPath>
+    </Reference>
+    <Reference Include="Xwt">
+      <HintPath>..\lib\Xwt.dll</HintPath>
+    </Reference>
+    <Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="Mono.Cairo" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.fs" />
     <Compile Include="Properties\AddinInfo.fs" />
     <EmbeddedResource Include="Properties\Manifest.addin.xml" />
+    <Compile Include="SettingsPanel.fs" />
     <Compile Include="Reflection.fs" />
     <Compile Include="Classes.fs" />
     <Compile Include="Types.fs" />
