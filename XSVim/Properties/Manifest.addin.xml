@@ -13,4 +13,7 @@
             shortcut = "Control|Z"
             macShortcut = "Meta|Z" />
     </Extension>
+    <Extension path="/MonoDevelop/Ide/GlobalOptionsDialog/Other">
+        <Section id="VimSettings" _label="Vim Settings" class = "XSVim.SettingsPanel" icon="md-prefs-source" />
+    </Extension>
 </ExtensionModel>

@@ -109,6 +109,7 @@ module TestHelpers =
           
     let test (source:string) (keys:string) =
         FixtureSetup.initialiseMonoDevelop()
+        let config = { insertModeEscapeKey = None }
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
         if caret = 0 then
@@ -122,7 +123,7 @@ module TestHelpers =
         let newState =
             keyDescriptors
             |> Array.fold(fun state c ->
-                let handledState, handledKeyPress = Vim.handleKeyPress state c editor
+                let handledState, handledKeyPress = Vim.handleKeyPress state c editor config
                 printfn "%A" handledState
                 printfn "%s" editor.Text
                 if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
