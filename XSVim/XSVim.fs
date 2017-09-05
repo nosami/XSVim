@@ -1569,6 +1569,8 @@ type XSVim() =
                                insertModeEscapeKey2 = string mapping.[1]
                                insertModeEscapeTimeout = SettingsPanel.InsertModeEscapeMappingTimeout()
                            } |> Some }
+        else
+            config <- { insertModeEscapeKey = None }
 
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
