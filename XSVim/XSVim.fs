@@ -1631,7 +1631,9 @@ type XSVim() =
 
             Vim.editorStates.[x.FileName] <- newState
             match oldState.mode, newState.mode, config.insertModeEscapeKey with
-            | InsertMode, InsertMode, Some escapeCombo  when descriptor.KeyChar.ToString() <> escapeCombo.insertModeEscapeKey1 ->
+            | InsertMode, InsertMode, None ->
+                base.KeyPress descriptor
+            | InsertMode, InsertMode, Some escapeCombo when descriptor.KeyChar.ToString() <> escapeCombo.insertModeEscapeKey1 ->
                 base.KeyPress descriptor
             | VisualMode, _, _ -> false
             | _ -> not handledKeyPress
