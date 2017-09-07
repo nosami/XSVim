@@ -107,7 +107,7 @@ module TestHelpers =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
         keys.Split '§' |> Array.collect groupToKeys
           
-    let test (source:string) (keys:string) =
+    let testWithEol (source:string) (keys:string) eolMarker =
         FixtureSetup.initialiseMonoDevelop()
         let config = { insertModeEscapeKey = None }
         let editor = TextEditorFactory.CreateNewEditor()
@@ -118,7 +118,7 @@ module TestHelpers =
             failwith "No caret found in test code"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
-        editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4)
+        editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
@@ -141,6 +141,8 @@ module TestHelpers =
                     editor.Text.Insert(editor.CaretOffset+1, "$")
         text, newState
 
+    let test source keys = testWithEol source keys "\n"
+
     let switchLineEndings (s:string) =
         s.Replace("\n", "\r\n")
 
@@ -149,5 +151,5 @@ module TestHelpers =
         Assert.AreEqual(expected, actual, "Failed with \n")
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
-            let actual, _ = test (source |> switchLineEndings) keys
+            let actual, _ = testWithEol (source |> switchLineEndings) keys "\r\n"
             Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n") 

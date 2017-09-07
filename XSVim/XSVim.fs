@@ -896,13 +896,18 @@ module Vim =
                             EditActions.ClipboardPaste editor
                             if eofOnLine line then
                                 match registers.[EmptyRegister].content with
-                                | EndsWithDelimiter delimiter -> editor.RemoveText(editor.Length-delimiter.Length, delimiter.Length)
+                                | EndsWithDelimiter clipboardDelimiter ->
+                                    editor.RemoveText(editor.Length-clipboardDelimiter.Length, clipboardDelimiter.Length)
                                 | _ -> ()
+                            editor.CaretOffset <- line.Offset
+                            EditActions.MoveCaretDown editor
                             EditActions.MoveCaretToLineStart editor
                         else
-                            editor.CaretOffset <- editor.GetLine(editor.CaretLine).EndOffsetIncludingDelimiter
+                            let line = editor.GetLine(editor.CaretLine)
+                            editor.CaretOffset <- line.EndOffsetIncludingDelimiter
                             EditActions.ClipboardPaste editor
-                            EditActions.MoveCaretUp editor
+                            editor.CaretOffset <- line.Offset
+                            EditActions.MoveCaretDown editor
                             EditActions.MoveCaretToLineStart editor
                     else
                         EditActions.MoveCaretRight editor
@@ -1475,6 +1480,7 @@ module Vim =
     let handleKeyPress state (keyPress:KeyDescriptor) editor config =
         let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =
             getInsertModeEscapeCombo config
+
 
         let newKeys, insertChar =
             match state.mode, keyPress.KeyChar with

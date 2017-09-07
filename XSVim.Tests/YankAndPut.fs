@@ -70,3 +70,11 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Linewise put at EOF places caret at start of line``() =
         assertText "\n $  123" "yyp" "\n   123\n   1$23"
+
+    [<Test>]
+    let ``Multi line put places caret at top line of paste``() =
+        assertText "aa$a\nbbb\nccc\n" "Vjdp" "ccc\na$aa\nbbb\n"
+
+    [<Test>]
+    let ``Multi line put on line without delimiter places caret at top line of paste``() =
+        assertText "aa$a\nbbb\nccc" "Vjdp" "ccc\na$aa\nbbb"
