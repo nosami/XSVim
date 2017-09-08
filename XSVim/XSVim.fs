@@ -690,6 +690,7 @@ module Vim =
                 | ForwardToEndOfWord
                 | ForwardToEndOfWORD
                 | EndOfLine
+                | MatchingBrace
                 | ToCharInclusive _
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish

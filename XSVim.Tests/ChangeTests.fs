@@ -40,6 +40,10 @@ module ``Change tests`` =
         assertText "a$ bcd" "ce" "| bcd"
 
     [<Test>]
+    let ``c% changes to matching parens``() =
+        assertText "abc($def)ghi" "c%" "abc|ghi"
+
+    [<Test>]
     let ``Change to end of word does not include dot``() =
         assertText "open Mon$o.Addins" "ce" "open Mo|.Addins"
 
