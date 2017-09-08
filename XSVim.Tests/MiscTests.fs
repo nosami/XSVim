@@ -1,5 +1,6 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
+open XSVim
 
 [<TestFixture>]
 module ``Miscellaneous tests`` =
@@ -58,6 +59,19 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``r<ret> inserts <ret> and indents``() =
         assertText "   aaa$\nbbb" "r<ret>" "   aa\n   \n$bbb"
+
+    [<Test>]
+    let ``R switches to replace mode``() =
+        let _, state = test "a$bc" "R"
+        state.mode |> should equal ReplaceMode
+
+    [<Test>]
+    let ``R replaces characters``() =
+        assertText "a$bc" "RABCD" "ABCD$"
+
+    [<Test>]
+    let ``Replace mode inserts at end of line``() =
+        assertText "a$bc\ndef" "RABCD" "ABCD\n$def"
 
     [<Test>]
     let ``Undo insert mode``() =

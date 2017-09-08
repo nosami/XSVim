@@ -34,10 +34,11 @@ type VimMode =
     | VisualBlockMode
     | VisualLineMode
     | InsertMode
+    | ReplaceMode
     | ExMode of char // initial char typed to get to command line
 
 
-type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd
+type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd | IncludeDelimiter
 
 type Jump =
     | StartOfLineNumber of int
@@ -80,7 +81,6 @@ type TextObject =
     | Down
     | Left
     | Right of MoveRightBehaviour
-    | RightIncludingDelimiter
     | FirstNonWhitespace
     | StartOfLine
     | EndOfLine

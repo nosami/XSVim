@@ -324,15 +324,14 @@ module VimHelpers =
                 | StopAtEndOfLine when editor.CaretColumn >= line.Length -> editor.CaretOffset
                 | MoveToNextLineAtEnd when editor.[editor.CaretOffset+1] = '\r' -> editor.CaretOffset + 3
                 | MoveToNextLineAtEnd when editor.[editor.CaretOffset+1] = '\n' -> editor.CaretOffset + 2
+                | IncludeDelimiter ->
+                    let line = editor.GetLine editor.CaretLine
+                    if line.Length > 0 && editor.CaretColumn <= line.LengthIncludingDelimiter then
+                        editor.CaretOffset + 1
+                    else
+                        editor.CaretOffset
                 | _ -> editor.CaretOffset + 1
             editor.CaretOffset, endOffset
-        | RightIncludingDelimiter ->
-            let line = editor.GetLine editor.CaretLine
-            editor.CaretOffset,
-            if line.Length > 0 && editor.CaretColumn <= line.LengthIncludingDelimiter then
-                editor.CaretOffset + 1
-            else
-                editor.CaretOffset
         | Left ->
            editor.CaretOffset,
            if editor.CaretColumn > DocumentLocation.MinColumn && editor.[editor.CaretOffset-1] <> '\n' then
@@ -927,8 +926,9 @@ module Vim =
                     editor.CaretColumn <- lastColumn + 1
                     vimState
                 | ReplaceChar c ->
-                    editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)
-                    EditActions.Delete editor
+                    if editor.CaretOffset < editor.Length  && not (isEOLChar editor.[editor.CaretOffset]) then
+                        editor.SetSelection(editor.CaretOffset, editor.CaretOffset+1)
+                        EditActions.Delete editor
                     match c with
                     | StartsWithDelimiter _ ->
                         EditActions.InsertNewLine editor
@@ -994,6 +994,8 @@ module Vim =
                         newState
                     | InsertMode ->
                         switchToInsertMode editor vimState isInitial
+                    | ReplaceMode ->
+                        { vimState with mode = ReplaceMode; statusMessage = "-- REPLACE --"|> Some }
                     | ExMode c ->
                         { vimState with mode = (ExMode c); statusMessage = string c |> Some }
                 | Star After ->
@@ -1214,6 +1216,7 @@ module Vim =
         | "v" -> Some VisualMode
         | "<C-v>" -> Some VisualBlockMode
         | "V" -> Some VisualLineMode
+        | "R" -> Some ReplaceMode
         | _ -> None
 
     let (|Escape|_|) = function
@@ -1308,6 +1311,7 @@ module Vim =
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
+            | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
             | NormalMode, IndentChar indent :: Movement m ->
@@ -1389,7 +1393,7 @@ module Vim =
             | VisualMode, [ "u"] -> [ dispatch EditCommands.LowercaseSelection ]
             | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
-            | NormalMode, [ "a" ] -> [ run Move RightIncludingDelimiter; switchMode InsertMode ]
+            | NormalMode, [ "a" ] -> [ run Move (Right IncludeDelimiter); switchMode InsertMode ]
             | NormalMode, [ "A" ] -> [ run Move EndOfLineIncludingDelimiter; switchMode InsertMode ]
             | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
