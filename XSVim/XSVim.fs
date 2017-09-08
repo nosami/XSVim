@@ -1234,25 +1234,26 @@ module Vim =
     let parseKeys (state:VimState) (config: Config) =
         let keyList = state.keys
         let numericArgument, keyList =
-            match keyList with
-            | "r" :: _ -> None, keyList
-            | FindChar _ :: _ -> None, keyList
+            match keyList, state.mode with
+            | "r" :: _, _
+            | [ _ ], ReplaceMode 
+            | FindChar _ :: _, _ -> None, keyList
             // 2dw -> 2, dw
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t, _ ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
-            | OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
+            | OneToNine d1 :: Digit d2 :: Digit d3 :: t, _ ->
                 Some (d1 * 100 + d2 * 10 + d3), t
-            | OneToNine d1 :: Digit d2 :: t ->
+            | OneToNine d1 :: Digit d2 :: t, _ ->
                 Some (d1 * 10 + d2), t
-            | OneToNine d :: t -> Some (d), t
+            | OneToNine d :: t, _ -> Some (d), t
             // d2w -> 2, dw
-            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t ->
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t, _ ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), c::t
-            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t ->
+            | c :: OneToNine d1 :: Digit d2 :: Digit d3 :: t, _ ->
                 Some (d1 * 100 + d2 * 10 + d3), c::t
-            | c :: OneToNine d1 :: Digit d2 :: t ->
+            | c :: OneToNine d1 :: Digit d2 :: t, _ ->
                 Some (d1 * 10 + d2), c::t
-            | c :: OneToNine d :: t ->
+            | c :: OneToNine d :: t, _ ->
                 Some d, c::t
             | _ -> None, keyList
 

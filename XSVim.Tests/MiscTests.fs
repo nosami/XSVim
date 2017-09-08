@@ -70,6 +70,10 @@ module ``Miscellaneous tests`` =
         assertText "a$bc" "RABCD" "ABCD$"
 
     [<Test>]
+    let ``R replaces digits``() =
+        assertText "a$bc" "R123" "123$"
+
+    [<Test>]
     let ``Replace mode inserts at end of line``() =
         assertText "a$bc\ndef" "RABCD" "ABCD\n$def"
 
