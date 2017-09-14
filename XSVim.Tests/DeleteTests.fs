@@ -48,8 +48,12 @@ $    bar
         assertText "ab$c\ndef\nghi" "2dd" "g$hi"
 
     [<Test>]
+    let ``2ddp puts 2 lines back``() =
+        assertText "abc\nde$f\nghi" "2ddp" "abc\nd$ef\nghi"
+
+    [<Test>]
     let ``dd last line at EOF``() =
-        assertText "abc\nd$ef" "dd" "a$bc"
+        assertText "abc\ndef\ngh$i" "dd" "abc\nd$ef"
 
     [<Test>]
     let ``dd only line``() =

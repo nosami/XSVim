@@ -542,7 +542,7 @@ module VimHelpers =
             let selection = editor.Selections |> Seq.head
             let lead = editor.LocationToOffset selection.Lead
             let anchor = editor.LocationToOffset selection.Anchor
-            Math.Min(lead, anchor), max lead anchor
+            min lead anchor, max lead anchor
         | SelectionStart -> editor.CaretOffset, vimState.visualStartOffset
         | MatchingBrace ->
             match findNextBraceForwardsOnLine editor line with
@@ -813,9 +813,16 @@ module Vim =
                 | Delete -> 
                     let newState = delete vimState start finish
                     let offsetBeforeDelimiter =
-                        match (isLineWise vimState command), command.textObject with
-                        | true, _ -> editor.CaretOffset + editor.GetLineIndent(editor.CaretLine).Length
-                        | false, _  when editor.CaretOffset < editor.Length ->
+                        match isLineWise vimState command with
+                        | true ->
+                            let line = editor.GetLineByOffset(editor.CaretOffset)
+                            let line =
+                                if editor.CaretOffset = editor.Length && editor.Length > 0 && editor.[editor.Length-1] = '\n' && line.PreviousLine <> null then
+                                    line.PreviousLine
+                                else
+                                    line
+                            line.Offset + editor.GetLineIndent(line.LineNumber).Length
+                        | false when editor.CaretOffset < editor.Length ->
                             if editor.[editor.CaretOffset] = '\n' || editor.[editor.CaretOffset] = '\r' then
                                 editor.CaretOffset - 1
                             else
@@ -839,8 +846,7 @@ module Vim =
                     let newState = delete vimState start finish
                     switchToInsertMode editor newState isInitial
                 | ToggleCase ->
-                    let newState = toggleCase vimState start finish
-                    newState
+                    toggleCase vimState start finish
                 | DeleteWholeLines ->
                     let min = min start finish
                     let max = max start finish
@@ -1185,7 +1191,6 @@ module Vim =
         | ["N"] -> Some (Jump SearchAgainBackwards)
         | _ -> None
 
-     
     let (|IndentChar|_|) = function
         | ">" -> Some Indent
         | "<" -> Some UnIndent
@@ -1319,20 +1324,23 @@ module Vim =
             | NormalMode, IndentChar indent :: Movement m ->
                 match numericArgument with
                 | None -> [ run indent m ]
-                | Some repeat ->
-                    let movements =
-                        [ 1 .. repeat ]
-                        |> List.map (fun _ -> runOnce Move m)
-
-                    [ yield switchMode VisualMode
-                      yield! movements
-                      yield runOnce indent SelectedText
-                      yield switchMode NormalMode ]
-
+                | Some lines ->
+                    [ switchMode VisualMode
+                      getCommand (lines-1 |> Some) Move Down
+                      runOnce indent SelectedText
+                      switchMode NormalMode ]
             | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
-            | NormalMode, [ "d"; "d" ] -> [ run Delete WholeLineIncludingDelimiter; run Move FirstNonWhitespace ]
+            | NormalMode, [ "d"; "d" ] ->
+                match numericArgument with
+                | None -> [ run Delete WholeLineIncludingDelimiter ]
+                | Some lines ->
+                    [ switchMode VisualLineMode
+                      getCommand (lines-1 |> Some) Move Down
+                      runOnce Delete SelectedText
+                      switchMode NormalMode
+                      runOnce Move FirstNonWhitespace ]
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, ["\""] -> wait
             | NormalMode, ["\""; _ ] -> wait
@@ -1585,7 +1593,6 @@ type XSVim() =
             config <- { insertModeEscapeKey = None }
 
     member x.FileName = x.Editor.FileName.FullPath.ToString()
-
     override x.Initialize() =
         treeViewPads.initialize()
 
