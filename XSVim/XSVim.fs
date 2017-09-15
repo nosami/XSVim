@@ -1002,7 +1002,13 @@ module Vim =
                     | InsertMode ->
                         switchToInsertMode editor vimState isInitial
                     | ReplaceMode ->
-                        { vimState with mode = ReplaceMode; statusMessage = "-- REPLACE --"|> Some }
+                        let undoGroup =
+                            if isInitial
+                                then editor.OpenUndoGroup() |> Some
+                            else
+                                vimState.undoGroup
+
+                        { vimState with mode = ReplaceMode; statusMessage = "-- REPLACE --"|> Some; undoGroup = undoGroup }
                     | ExMode c ->
                         { vimState with mode = (ExMode c); statusMessage = string c |> Some }
                 | Star After ->

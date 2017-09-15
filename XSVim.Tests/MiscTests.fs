@@ -78,6 +78,10 @@ module ``Miscellaneous tests`` =
         assertText "a$bc\ndef" "RABCD" "ABCD\n$def"
 
     [<Test>]
+    let ``Replace mode is undoable``() =
+        assertText "a$bc\ndef" "RABCD<esc>u" "a$bc\ndef"
+
+    [<Test>]
     let ``Undo insert mode``() =
         assertText "abc$" "adef ghi jkl<esc>u" "abc$"
 
