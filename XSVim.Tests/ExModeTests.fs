@@ -50,6 +50,21 @@ module ``Ex mode tests`` =
         state.mode |> should equal NormalMode
 
     [<Test>]
+    let ``<esc> returns to normal mode``() =
+        let _, state = test "abc abc a$bc" "/<esc>"
+        state.mode |> should equal NormalMode
+
+    [<Test>]
+    let ``<C-c> returns to normal mode``() =
+        let _, state = test "abc abc a$bc" "/<C-c>"
+        state.mode |> should equal NormalMode
+
+    [<Test>]
+    let ``<C-[> returns to normal mode``() =
+        let _, state = test "abc abc a$bc" "/<C-[>"
+        state.mode |> should equal NormalMode
+
+    [<Test>]
     let ``Displays could not parse message``() =
         let _, state = test "a$bc" ":garbage<ret>"
         state.statusMessage.Value |> should equal "Could not parse :garbage"

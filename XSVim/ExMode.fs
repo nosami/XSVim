@@ -100,8 +100,6 @@ module exMode =
                     , resetKeys
                 | _ -> normalMode, resetKeys
             | _ -> normalMode, resetKeys
-        | SpecialKey.Escape ->
-            normalMode, resetKeys
         | _ ->
             let message =
                 match state.statusMessage with

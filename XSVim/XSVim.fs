@@ -1548,15 +1548,18 @@ module Vim =
                 performActions t newState true
 
         let newState, handled =
-            match state.mode with
-            | ExMode _ ->
-                let state, actions = exMode.processKey state keyPress
-                performActions actions state true
-            | _ ->
+            let processKey() =
                 use group = editor.OpenUndoGroup()
                 state.macro
                 |> Option.iter(fun (Macro c) -> macros.[c] <- macros.[c] @ action)
                 performActions action newState false
+
+            match state.mode, newState.keys with
+            | ExMode _, [ Escape ] -> processKey()
+            | ExMode _, _ ->
+                let state, actions = exMode.processKey state keyPress
+                performActions actions state true
+            | _ -> processKey()
 
         let firstAction = action |> List.head
 
