@@ -18,6 +18,7 @@ module VimHelpers =
     let commandManager = IdeApp.CommandService |> Option.ofObj
 
     let dispatchCommand command = 
+
         commandManager 
         |> Option.iter(fun c -> c.DispatchCommand command |> ignore)
 
@@ -683,6 +684,20 @@ module Vim =
         setCaretMode editor state Insert
         { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = group }
 
+    let switchToNormalMode (editor:TextEditor) vimState =
+        let lastSelection =
+            match vimState.mode with
+            | VisualModes ->
+                Some { start = vimState.visualStartOffset; finish = editor.CaretOffset; mode = vimState.mode }
+            | _ -> vimState.lastSelection
+        editor.ClearSelection()
+        setCaretMode editor vimState Block
+        // stupid hack to prevent intellisense in normal mode
+        // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
+        if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
+        vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+        { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
+
     let runCommand vimState editor command =
         let delete state start finish =
             let finish =
@@ -966,23 +981,11 @@ module Vim =
                 | SwitchMode mode ->
                     match mode with
                     | NormalMode ->
-                        let lastSelection =
-                            match vimState.mode with
-                            | VisualModes ->
-                                Some { start = vimState.visualStartOffset; finish = editor.CaretOffset; mode = vimState.mode }
-                            | _ -> vimState.lastSelection
-                        editor.ClearSelection()
-                        setCaretMode editor vimState Block
-                        // stupid hack to prevent intellisense in normal mode
-                        // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
-                        if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
-                        vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
-                        let vimState =
-                            if vimState.mode = InsertMode then
-                                processCommands 1 vimState (runOnce (SetMark ".") Nothing) false
-                            else
-                                vimState
-                        { vimState with mode = mode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
+                        let state = switchToNormalMode editor vimState
+                        if vimState.mode = InsertMode then
+                            processCommands 1 state (runOnce (SetMark ".") Nothing) false
+                        else
+                            state
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode editor vimState Block
                         let start, finish = VimHelpers.getRange vimState editor command
@@ -1602,11 +1605,15 @@ type XSVim() =
             config <- { insertModeEscapeKey = None }
 
     member x.FileName = x.Editor.FileName.FullPath.ToString()
+
+    member x.State
+        with get() = Vim.editorStates.[x.FileName]
+        and set(value) = Vim.editorStates.[x.FileName] <- value
+
     override x.Initialize() =
         treeViewPads.initialize()
 
         initConfig()
-
         if not (Vim.editorStates.ContainsKey x.FileName) then
             Vim.editorStates.Add(x.FileName, VimState.Default)
             let editor = x.Editor
@@ -1630,25 +1637,32 @@ type XSVim() =
                 PropertyService.PropertyChanged.Subscribe
                     (fun _ -> initConfig())
 
-            disposables <- [ caretChanged; documentClosed; propertyChanged ]
+            let focusLost =
+                editor.FocusLost.Subscribe
+                    (fun _ ->
+                        match x.State.mode with
+                        | ExMode _ ->
+                            x.State <- Vim.switchToNormalMode x.Editor x.State
+                            IdeApp.Workbench.StatusBar.ShowReady()
+                        | _ -> ())
+
+            disposables <- [ caretChanged; documentClosed; propertyChanged; focusLost ]
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
         | ModifierKeys.Control
         | ModifierKeys.Command when descriptor.KeyChar = 'z' ->
             // cmd-z uses the vim undo group
-            let vimState = Vim.editorStates.[x.FileName]
-            vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+            x.State.undoGroup |> Option.iter(fun d -> d.Dispose())
             EditActions.Undo x.Editor
             x.Editor.ClearSelection()
             false
         | ModifierKeys.Command when descriptor.KeyChar <> 'z' && descriptor.KeyChar <> 'r' -> false
         | _ ->
-            let vimState = Vim.editorStates.[x.FileName]
-            let oldState = vimState
+            let oldState = x.State
 
             processingKey <- true
-            let newState, handledKeyPress = Vim.handleKeyPress vimState descriptor x.Editor config
+            let newState, handledKeyPress = Vim.handleKeyPress x.State descriptor x.Editor config
             processingKey <- false
 
             match newState.statusMessage, newState.macro with
@@ -1657,7 +1671,7 @@ type XSVim() =
             | None, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage "recording"
             | _ -> IdeApp.Workbench.StatusBar.ShowReady()
 
-            Vim.editorStates.[x.FileName] <- newState
+            x.State <- newState
             match oldState.mode, newState.mode, config.insertModeEscapeKey with
             | InsertMode, InsertMode, None ->
                 base.KeyPress descriptor
@@ -1675,10 +1689,8 @@ type XSVim() =
         ci.Enabled <- true
         // dirty hack - use the command update handler to switch to insert mode
         // before the inline rename kicks in
-        let state = Vim.editorStates.[x.FileName]
-        if state.mode <> InsertMode then
-            Vim.editorStates.[x.FileName] <-
-                Vim.switchToInsertMode x.Editor state false
+        if x.State.mode <> InsertMode then
+            x.State <- Vim.switchToInsertMode x.Editor x.State false
 
     override x.Dispose() =
         base.Dispose()
