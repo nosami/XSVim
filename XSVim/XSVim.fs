@@ -1475,6 +1475,7 @@ module Vim =
             | VisualModes, [ "a"; QuoteDelimiter c ] -> [ run Visual (AQuotedBlock (char c)) ]
             | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
             | VisualModes, [ "d" ] -> [ run Delete SelectedText; switchMode NormalMode ]
+            | VisualModes, [ "D" ] -> [ run Delete EndOfLine; switchMode NormalMode ]
             | VisualModes, [ "c" ] -> [ run Change SelectedText ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
