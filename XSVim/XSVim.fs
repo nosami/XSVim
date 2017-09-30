@@ -674,6 +674,10 @@ module Vim =
         | InsertMode, Block -> EditActions.SwitchCaretMode editor
         | _ -> ()
 
+    let setAutoCompleteOnKeystroke value =
+        if SettingsPanel.AutoCompleteInNormalModeIsDisabled() then
+            IdeApp.Preferences.EnableAutoCodeCompletion.Set value |> ignore
+
     let switchToInsertMode (editor:TextEditor) state isInitial =
         let group = 
             if isInitial 
@@ -681,6 +685,7 @@ module Vim =
             else
                 state.undoGroup
 
+        setAutoCompleteOnKeystroke true
         setCaretMode editor state Insert
         { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = group }
 
@@ -691,6 +696,7 @@ module Vim =
                 Some { start = vimState.visualStartOffset; finish = editor.CaretOffset; mode = vimState.mode }
             | _ -> vimState.lastSelection
         editor.ClearSelection()
+        setAutoCompleteOnKeystroke false
         setCaretMode editor vimState Block
         // stupid hack to prevent intellisense in normal mode
         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
@@ -996,6 +1002,7 @@ module Vim =
                             | VisualBlockMode -> Some "-- VISUAL BLOCK --"
                             | _ -> None
                         let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
+                        setAutoCompleteOnKeystroke false
                         setSelection newState editor command start finish
                         match mode, editor.SelectionMode with
                         | VisualBlockMode, SelectionMode.Normal -> EditActions.ToggleBlockSelectionMode editor
