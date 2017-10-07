@@ -62,7 +62,7 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``R switches to replace mode``() =
-        let _, state = test "a$bc" "R"
+        let _, state, _ = test "a$bc" "R"
         state.mode |> should equal ReplaceMode
 
     [<Test>]

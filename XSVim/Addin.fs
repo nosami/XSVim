@@ -1,6 +1,7 @@
 ﻿namespace XSVim
 open System
 open System.Collections.Generic
+open System.Linq
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
@@ -26,6 +27,13 @@ type XSVim() =
         else
             config <- { insertModeEscapeKey = None }
 
+    let showStatus state =
+        match state.statusMessage, state.macro with
+        | Some m, None -> IdeApp.Workbench.StatusBar.ShowMessage m
+        | Some m, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage (m + "recording")
+        | None, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage "recording"
+        | _ -> IdeApp.Workbench.StatusBar.ShowReady()
+
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     member x.State
@@ -34,7 +42,6 @@ type XSVim() =
 
     override x.Initialize() =
         treeViewPads.initialize()
-
         initConfig()
         if not (Vim.editorStates.ContainsKey x.FileName) then
             Vim.editorStates.Add(x.FileName, VimState.Default)
@@ -69,11 +76,45 @@ type XSVim() =
                             IdeApp.Workbench.StatusBar.ShowReady()
                         | _ -> ())
 
-            disposables <- [ yield caretChanged
-                             if documentClosed.IsSome then
-                                yield documentClosed.Value
-                             yield propertyChanged
-                             yield focusLost ]
+            let selectionChanged =
+                let context = Runtime.MainSynchronizationContext
+                editor.SelectionChanged
+                |> Observable.throttle (TimeSpan.FromMilliseconds 1000.0)
+                //|> Observable.subscribeOn context
+                |> Observable.observeOn context
+                |> Observable.filter(fun _ -> not processingKey && not (VimHelpers.selectionMatchesVisual x.Editor x.State))
+                |> Observable.subscribe
+                    (fun _ ->
+                        // Selecting text with the mouse should switch
+                        // to visual mode
+                        if editor.SelectionRange.Length > 0 then
+                            // simulate selecting text with keyboard
+                            processingKey <- true
+                            let lead = editor.SelectionLeadOffset
+                            let anchor = editor.SelectionAnchorOffset
+                            //let lead, anchor = min lead anchor, max lead anchor
+                            let actions =
+                                [ runOnce Move (Offset (anchor))
+                                  switchMode VisualMode
+                                  runOnce Move (Offset lead) ]
+                            let state, _ =
+                                Vim.performActions x.Editor actions x.State false
+                            x.State <- state
+                            processingKey <- false
+                        else // click 
+                            //if x.Editor.Selections.Any() then
+                            if x.State.mode <> NormalMode then
+                                x.State <- Vim.switchToNormalMode x.Editor x.State
+                        showStatus x.State)
+
+            disposables <-
+                [ yield caretChanged
+                  if documentClosed.IsSome then
+                      yield documentClosed.Value
+                  yield propertyChanged
+                  yield selectionChanged
+                  yield focusLost ]
+
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with
@@ -92,12 +133,7 @@ type XSVim() =
             let newState, handledKeyPress = Vim.handleKeyPress x.State descriptor x.Editor config
             processingKey <- false
 
-            match newState.statusMessage, newState.macro with
-            | Some m, None -> IdeApp.Workbench.StatusBar.ShowMessage m
-            | Some m, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage (m + "recording")
-            | None, Some _ -> IdeApp.Workbench.StatusBar.ShowMessage "recording"
-            | _ -> IdeApp.Workbench.StatusBar.ShowReady()
-
+            showStatus newState
             x.State <- newState
             match oldState.mode, newState.mode, config.insertModeEscapeKey with
             | InsertMode, InsertMode, None ->

@@ -321,18 +321,26 @@ module VimHelpers =
     let rec findEnclosingTag(editor:TextEditor) pos =
         let search = seq { pos .. -1 .. 0 } |> Seq.tryFind(fun index -> editor.[index] = '<')
         match search with
-        | Some startTagStart -> 
+        | Some startTagStart ->
             let m = Regex.Match(editor.GetTextBetween(startTagStart, editor.Length), "<([\w|:|\.]+).*?>")
-            if m.Success then 
+            if m.Success then
                 let tagName = m.Groups.[1].Value;
                 let endTag = "</" + tagName + ">"
                 let startTagEnd = startTagStart + m.Length - 1
-                match findUnmatchedBlockEndDelimiter editor startTagEnd ("<" + tagName) endTag with 
+                match findUnmatchedBlockEndDelimiter editor startTagEnd ("<" + tagName) endTag with
                 | Some endTagStart -> Some (startTagStart, startTagEnd, endTagStart, endTagStart + endTag.Length)
                 | None -> findEnclosingTag editor (startTagStart - 1)
-            else 
+            else
                 None
         | None -> None
+
+    let selectionMatchesVisual (editor:TextEditor) state =
+        let lead = editor.SelectionLeadOffset
+        let anchor = editor.SelectionAnchorOffset
+        //(lead = x.State.visualStartOffset && (anchor - 1) = x.State.visualEndOffset)
+        let res = anchor = state.visualStartOffset && (lead-1) = state.visualEndOffset
+        res
+
 
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
@@ -850,14 +858,14 @@ module Vim =
                         // don't change desired column if we already started moving up or down
                         | MoveUpOrDown, Some _c ->
                             editor.CaretOffset <- finish
-                            vimState
+                            { vimState with visualEndOffset = finish }
                         | MoveUpOrDown, None ->
                             let res = { vimState with desiredColumn = Some editor.CaretColumn }
                             editor.CaretOffset <- finish
-                            res
+                            { res with visualEndOffset = finish }
                         | _ ->
                             editor.CaretOffset <- finish
-                            { vimState with desiredColumn = Some editor.CaretColumn }
+                            { vimState with desiredColumn = Some editor.CaretColumn; visualEndOffset = finish }
                     newState
                 | Delete ->
                     let newState = delete vimState start finish
@@ -1540,7 +1548,20 @@ module Vim =
             | _ -> resetKeys
         action, newState
 
-    let handleKeyPress state (keyPress:KeyDescriptor) editor config =
+    let rec performActions editor actions' state handled =
+        match actions' with
+        | [] -> state, handled
+        | [ only ] ->
+            match only.commandType with
+            | DoNothing -> state, true
+            | _ ->
+                let newState = runCommand state editor only
+                { newState with keys = [] }, true
+        | h::t ->
+            let newState = runCommand state editor h
+            performActions editor t newState true
+
+    let handleKeyPress state (keyPress:KeyDescriptor) (editor:TextEditor) config =
         let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =
             getInsertModeEscapeCombo config
 
@@ -1576,31 +1597,19 @@ module Vim =
 
         LoggingService.LogDebug (sprintf "%A" action)
 
-        let rec performActions actions' state handled =
-            match actions' with
-            | [] -> state, handled
-            | [ only ] ->
-                match only.commandType with
-                | DoNothing -> state, true
-                | _ ->
-                    let newState = runCommand state editor only
-                    { newState with keys = [] }, true
-            | h::t ->
-                let newState = runCommand state editor h
-                performActions t newState true
 
         let newState, handled =
             let processKey() =
                 use group = editor.OpenUndoGroup()
                 state.macro
                 |> Option.iter(fun (Macro c) -> macros.[c] <- macros.[c] @ action)
-                performActions action newState false
+                performActions editor action newState false
 
             match state.mode, newState.keys with
             | ExMode _, [ Escape ] -> processKey()
             | ExMode _, _ ->
                 let state, actions = exMode.processKey state keyPress
-                performActions actions state true
+                performActions editor actions state true
             | _ -> processKey()
 
         let firstAction = action |> List.head

@@ -1,7 +1,7 @@
 namespace XSVim
 open System
+open System.Reactive.Linq
 open System.Threading
-open System.Threading.Tasks
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 
@@ -161,6 +161,7 @@ and VimState = {
     keys: string list
     mode: VimMode
     visualStartOffset: int
+    visualEndOffset: int
     lastSelection: VimSelection option
     findCharCommand: VimAction option // f,F,t or T command to be repeated with ;
     lastAction: VimAction list // used by . command to repeat the last action
@@ -176,6 +177,7 @@ and VimState = {
         { keys=[]
           mode=NormalMode
           visualStartOffset=0
+          visualEndOffset=0
           lastSelection=None
           findCharCommand=None
           lastAction=[]
@@ -193,6 +195,16 @@ module Option =
         function
         | Some v -> v
         | None -> value
+
+module Observable =
+    let throttle (due:TimeSpan) observable =
+        Observable.Throttle(observable, due)
+
+    let subscribeOn (context:SynchronizationContext) observable =
+        Observable.SubscribeOn(observable, context)
+
+    let observeOn (context:SynchronizationContext) observable =
+        Observable.ObserveOn(observable, context)
 
 [<AutoOpen>]
 module commandHelpers =
