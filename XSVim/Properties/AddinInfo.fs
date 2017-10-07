@@ -3,7 +3,7 @@
 open Mono.Addins
 open MonoDevelop
 [<assembly:Addin (
-  "XSVim", 
+  "XSVim",
   Namespace = "XSVim",
   Version = "0.45.10"
 )>]

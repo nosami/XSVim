@@ -120,7 +120,7 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``# matches exact word``() =
         assertText "abc abcde a$bc" "#" "a$bc abcde abc"
-    
+
     [<Test>]
     let ``£ wraps to end``() =
         assertText "a$bc abc" "£" "abc a$bc"

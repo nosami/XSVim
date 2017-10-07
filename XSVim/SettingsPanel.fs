@@ -32,7 +32,7 @@ type SettingsWidget() as this =
         hboxTimeout.PackStart escapeMappingEntryTimeout
         vbox.PackStart hbox
         vbox.PackStart hboxTimeout
-        vbox.Add hbox 
+        vbox.Add hbox
         vbox.Add checkDisableAutoCompleteNormalMode
         this.Add vbox
         this.ShowAll()

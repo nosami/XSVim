@@ -28,10 +28,10 @@ module Window =
             tabs' |> Seq.map(fun tab -> tab?Tooltip) |> List.ofSeq
 
         dockNotebookContainer
-        |> Seq.map(fun notebook -> 
+        |> Seq.map(fun notebook ->
                        let firstChild = notebook?Children |> Array.tryHead
                        let isActive =
-                           firstChild 
+                           firstChild
                            |> Option.map(fun tabstrip -> tabstrip?IsActiveNotebook)
                            |> Option.defaultValue false
                        { isActive=isActive; activeTab=notebook?CurrentTabIndex; tabs=getFiles notebook } )

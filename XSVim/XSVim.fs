@@ -17,16 +17,16 @@ open Reflection
 module VimHelpers =
     let commandManager = IdeApp.CommandService |> Option.ofObj
 
-    let dispatchCommand command = 
+    let dispatchCommand command =
 
-        commandManager 
+        commandManager
         |> Option.iter(fun c -> c.DispatchCommand command |> ignore)
 
     let unregisterConflictingCommands() =
         match commandManager with
         | Some commandManager' ->
             let commands = commandManager'.GetCommands() |> Array.ofSeq
-            [ 
+            [
                 "Control+P"
                 "Control+D"
                 "Control+U"
@@ -44,9 +44,9 @@ module VimHelpers =
                 "Control+O"
                 "Control+I"
                 "Control+["
-            ] 
-            |> List.iter(fun k -> 
-                commands 
+            ]
+            |> List.iter(fun k ->
+                commands
                 |> Array.tryFind(fun command -> command.AccelKey = k)
                 |> Option.iter commandManager'.UnregisterCommand)
 
@@ -95,7 +95,7 @@ module VimHelpers =
             seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.[index] = c)
         match find openingChar, find closingChar with
         | Some s, Some e when s > e -> Some s
-        | Some s, Some e when s < e -> findUnmatchedOpeningBrace editor (s-1) openingChar closingChar 
+        | Some s, Some e when s < e -> findUnmatchedOpeningBrace editor (s-1) openingChar closingChar
         | Some s, None -> Some s
         | _,_ -> None
 
@@ -111,7 +111,7 @@ module VimHelpers =
     let isWORDChar c = not (Char.IsWhiteSpace c)
     let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
     let isEOLChar c = c = '\r' || c = '\n'
-    let isSpaceOrTab c = c = ' ' || c = '\t' 
+    let isSpaceOrTab c = c = ' ' || c = '\t'
 
     let (|WhiteSpace|_|) c =
         if Char.IsWhiteSpace c then Some WhiteSpace else None
@@ -146,7 +146,7 @@ module VimHelpers =
                     | _ -> Some newIndex)
             | _ -> Some index
 
-        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then 
+        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset + 1] then
             editor.CaretOffset + 1 |> Some
         else
             seq { editor.CaretOffset+1 .. editor.Length-1 }
@@ -157,11 +157,11 @@ module VimHelpers =
         let findFromNonLetterChar index =
             match editor.[index], commandType with
             | WhiteSpace, Move ->
-                seq { index .. -1 .. 0 } 
+                seq { index .. -1 .. 0 }
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index]))
             | _ -> Some index
 
-        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset - 1] then 
+        if not (fWordChar editor.[editor.CaretOffset]) && fWordChar editor.[editor.CaretOffset - 1] then
             editor.CaretOffset - 1 |> Some
         else
             seq { editor.CaretOffset .. -1 .. 0 }
@@ -266,7 +266,7 @@ module VimHelpers =
         let firstForwards = findCharForwardsOnLine editor line editor.CaretOffset (string quoteChar)
         let secondForwards =
             match firstForwards with
-            | Some offset when offset + 1 < editor.Length -> 
+            | Some offset when offset + 1 < editor.Length ->
                 findCharForwardsOnLine editor line offset (string quoteChar)
             | _ -> None
         firstBackwards, firstForwards, secondForwards
@@ -284,7 +284,7 @@ module VimHelpers =
     /// Get the range of the trailing or leading whitespace
     /// around a word when aw or aW is used
     let getAroundWordRange (editor:TextEditor) wordStart wordEnd =
-        let hasLeadingWhiteSpace = 
+        let hasLeadingWhiteSpace =
             wordStart > 1 && Char.IsWhiteSpace editor.[wordStart-1]
 
         let hasTrailingWhiteSpace =
@@ -446,12 +446,12 @@ module VimHelpers =
             match findQuoteTriplet editor line c with
             | Some start, Some finish, _ -> start + 1, finish // we're inside quotes
             | None, Some start, Some finish -> start + 1, finish // there's quoted text to the right
-            | _, _,_ -> editor.CaretOffset, editor.CaretOffset 
+            | _, _,_ -> editor.CaretOffset, editor.CaretOffset
         | AQuotedBlock c ->
             match findQuoteTriplet editor line c with
             | Some start, Some finish, _ -> start, finish + 1 // we're inside quotes
             | None, Some start, Some finish -> start, finish + 1 // there's quoted text to the right
-            | _, _,_ -> editor.CaretOffset, editor.CaretOffset 
+            | _, _,_ -> editor.CaretOffset, editor.CaretOffset
         | WordForwards ->
             match findWordForwards editor command.commandType isWordChar with
             | Some index -> editor.CaretOffset, index
@@ -487,7 +487,7 @@ module VimHelpers =
             | WhiteSpace ->
                 let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
                 getWordRange editor matchFunc
-            | _ -> 
+            | _ ->
                 let fWordChar = getWordCharFunc editor.[editor.CaretOffset]
                 getWordRange editor fWordChar
         | InnerWORD ->
@@ -495,23 +495,23 @@ module VimHelpers =
             | WhiteSpace ->
                 let matchFunc c = Char.IsWhiteSpace c && (not (isEOLChar c))
                 getWordRange editor matchFunc
-            | _ -> 
+            | _ ->
                 getWordRange editor isWORDChar
-        | AWord -> 
+        | AWord ->
             let getWordCharFunc = function
                 | IsWordChar -> isWordChar
                 | _ -> isNonBlankButNotWordChar
 
             match editor.[editor.CaretOffset] with
             | WhiteSpace -> getWhitespaceRange editor isWordChar
-            | _ -> 
+            | _ ->
                 let fWordChar = getWordCharFunc editor.[editor.CaretOffset]
                 let wordStart, wordEnd = getWordRange editor fWordChar
                 getAroundWordRange editor wordStart wordEnd
-        | AWORD -> 
+        | AWORD ->
             match editor.[editor.CaretOffset] with
             | WhiteSpace -> getWhitespaceRange editor isWORDChar
-            | _ -> 
+            | _ ->
                 let wordStart, wordEnd = getWordRange editor isWORDChar
                 getAroundWordRange editor wordStart wordEnd
         | ForwardToEndOfWord ->
@@ -523,11 +523,11 @@ module VimHelpers =
                  editor.CaretOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
-        | Jump HalfPageUp -> 
+        | Jump HalfPageUp ->
             let visibleLineCount = getVisibleLineCount editor
             let halfwayUp = max 1 (editor.CaretLine - visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayUp).Offset
-        | Jump HalfPageDown -> 
+        | Jump HalfPageDown ->
             let visibleLineCount = getVisibleLineCount editor
             let halfwayDown = min editor.LineCount (editor.CaretLine + visibleLineCount / 2)
             editor.CaretOffset, editor.GetLine(halfwayDown).Offset
@@ -557,7 +557,7 @@ module VimHelpers =
         | Jump (ToMark mark) ->
             if editor.FileName.FullPath.ToString() = mark.FileName then
                 editor.CaretOffset, mark.Offset
-            else 
+            else
                 let document = IdeApp.Workbench.GetDocument(mark.FileName)
                 let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
                 IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
@@ -680,8 +680,8 @@ module Vim =
             IdeApp.Preferences.EnableAutoCodeCompletion.Set value |> ignore
 
     let switchToInsertMode (editor:TextEditor) state isInitial =
-        let group = 
-            if isInitial 
+        let group =
+            if isInitial
                 then editor.OpenUndoGroup() |> Some
             else
                 state.undoGroup
@@ -727,7 +727,7 @@ module Vim =
         let setMark c =
             if markDict.ContainsKey c then
                 let marker = markDict.[c]
-                markDict.Remove c |> ignore 
+                markDict.Remove c |> ignore
                 marker.Remove()
             let marker = Marker(editor, c)
             markDict.Add (c, marker) |> ignore
@@ -744,7 +744,7 @@ module Vim =
             match state.mode with
             | VisualBlockMode ->
                 let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
-                let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine) 
+                let topLine = Math.Min(selectionStartLocation.Line, editor.CaretLine)
                 let bottomLine = Math.Max(selectionStartLocation.Line, editor.CaretLine)
                 editor.CaretColumn <- Math.Min(editor.CaretColumn, selectionStartLocation.Column)
                 let offsets = [ topLine .. bottomLine ] |> List.map (fun c -> editor.LocationToOffset(c, editor.CaretColumn))
@@ -770,7 +770,7 @@ module Vim =
             let startOffset =
                 let f = findCharBackwardsOnLineInclusive editor
                 f line (fun c -> (c < '0' || c > '9') && c <> '-')
-            let offset = 
+            let offset =
                 match startOffset with
                 | Some i -> i+1
                 | None -> editor.CaretOffset
@@ -832,7 +832,7 @@ module Vim =
                             editor.CaretOffset <- finish
                             { vimState with desiredColumn = Some editor.CaretColumn }
                     newState
-                | Delete -> 
+                | Delete ->
                     let newState = delete vimState start finish
                     let offsetBeforeDelimiter =
                         match isLineWise vimState command with
@@ -968,10 +968,10 @@ module Vim =
                 | SetMark c ->
                     setMark c
                     vimState
-                | InsertLine Before -> 
+                | InsertLine Before ->
                     EditActions.InsertNewLineAtEnd editor
                     vimState
-                | InsertLine After -> 
+                | InsertLine After ->
                     if editor.CaretLine = 1 then
                         EditActions.MoveCaretToLineStart editor
                         EditActions.InsertNewLine editor
@@ -1035,7 +1035,7 @@ module Vim =
                         let offset =
                             match m with
                             | Some m -> m.Index
-                            | None -> 
+                            | None ->
                                 let m = matches |> Seq.head
                                 m.Index
                         editor.CaretOffset <- offset
@@ -1095,19 +1095,19 @@ module Vim =
                     let rec runMacro state actions =
                         match actions with
                         | [ only ] ->
-                            processCommands (getCount only.repeat) state only false 
+                            processCommands (getCount only.repeat) state only false
                         | h :: t ->
-                            let newState = processCommands (getCount h.repeat) state h false 
+                            let newState = processCommands (getCount h.repeat) state h false
                             runMacro newState t
                         | [] -> state
-                    runMacro vimState macros.[c] 
+                    runMacro vimState macros.[c]
                 | NextTab ->
                     Window.nextTab editor
                     vimState
                 | PreviousTab ->
                     Window.previousTab editor
                     vimState
-                | Func f -> 
+                | Func f ->
                     f editor
                     vimState
                 | ChangeState s -> s
@@ -1148,7 +1148,7 @@ module Vim =
 
     let (|BlockDelimiter|_|) character =
         let pairs =
-            [ 
+            [
                 "[", ("[", "]")
                 "]", ("[", "]")
                 "(", ("(", ")")
@@ -1259,7 +1259,7 @@ module Vim =
         let numericArgument, keyList =
             match keyList, state.mode with
             | "r" :: _, _
-            | [ _ ], ReplaceMode 
+            | [ _ ], ReplaceMode
             | FindChar _ :: _, _ -> None, keyList
             // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t, _ ->
@@ -1395,11 +1395,11 @@ module Vim =
             | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
-            | NotInsertMode, [ "`"; c] -> 
+            | NotInsertMode, [ "`"; c] ->
                 match markDict.TryGetValue c with
                 | true, mark -> [ runOnce Move (Jump (ToMark mark))]
                 | _ -> [ run ResetKeys Nothing]
-            | NotInsertMode, [ "'"; c] -> 
+            | NotInsertMode, [ "'"; c] ->
                 match markDict.TryGetValue c with
                 | true, mark -> [ runOnce Move (Jump (ToMark mark)); runOnce Move FirstNonWhitespace ]
                 | _ -> [ run ResetKeys Nothing]
@@ -1457,7 +1457,7 @@ module Vim =
             | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NotInsertMode, [ "," ] ->
                 match state.findCharCommand with
-                | Some command -> 
+                | Some command ->
                     let findCommand =
                         match command.textObject with
                         | ToCharInclusive c -> ToCharInclusiveBackwards c
@@ -1465,7 +1465,7 @@ module Vim =
                         | ToCharExclusive c -> ToCharExclusiveBackwards c
                         | ToCharExclusiveBackwards c -> ToCharExclusive c
                         | _ -> failwith "Invalid find command"
-                    [ { command with textObject=findCommand } ] 
+                    [ { command with textObject=findCommand } ]
                 | None -> []
             | VisualModes, Movement m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
@@ -1494,7 +1494,7 @@ module Vim =
             | NotInsertMode, [ "<C-w>"; "o" ] -> [ dispatch FileTabCommands.CloseAllButThis ]
             | NotInsertMode, [ "<C-w>"; "c" ] -> [ func Window.closeTab ]
             | NotInsertMode, [ "<C-w>"; "v" ]
-            | NotInsertMode, [ "<C-w>"; "s" ] 
+            | NotInsertMode, [ "<C-w>"; "s" ]
             | NotInsertMode, [ "<C-w>"; "<C-v>" ]
             | NotInsertMode, [ "<C-w>"; "<C-s>" ] ->
                 let notebooks = Window.getNotebooks()

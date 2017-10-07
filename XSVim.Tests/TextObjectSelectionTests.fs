@@ -7,8 +7,8 @@ module ``Text object selection tests`` =
         // Tests for aw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#aw
         [<Test>]
         let ``daw deletes around word``() =
-            assertText "a b$c d" "daw" "a d$"    
-        
+            assertText "a b$c d" "daw" "a d$"
+
         [<Test>]
         let ``daw on a word``() =
             assertText "word1   word2$   word3" "daw" "word1   w$ord3" // three spaces before word2 preserved, two after removed
@@ -27,7 +27,7 @@ module ``Text object selection tests`` =
 
         [<Test>]
         let ``daw deletes leading whitespace if there's no trailing``() =
-            assertText "a b$" "daw" "a$" // 
+            assertText "a b$" "daw" "a$" //
 
         [<Test>]
         let ``daw stops searching at EOL``() =
@@ -48,7 +48,7 @@ module ``Text object selection tests`` =
         [<Test>]
         let ``daw on sequence of other characters``() =
             assertText "a ~!@#%^$&*=+:;?/<>(){}b " "daw" "ab$ "
-        
+
         [<Test>]
         let ``daw from white space at EOL extends to next line``() =
             assertText "a $ \n b" "daw" "a$"
@@ -66,7 +66,7 @@ module ``Text object selection tests`` =
         [<Test>]
         let ``daW removes leading space if no trailing``() =
             assertText "a W.W$" "daW" "a$"
-        
+
         [<Test>]
         let ``caW changes a WORD``() =
             assertText "a W.W$ b" "caW" "a |b"
@@ -75,12 +75,12 @@ module ``Text object selection tests`` =
         // Tests for iw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#iw
         [<Test>]
         let ``diw deletes inside word``() =
-            assertText "a b$c d" "diw" "a  $d"    
+            assertText "a b$c d" "diw" "a  $d"
 
         [<Test>]
         let ``diw on sequence of other characters``() =
             assertText "a ~!@#%^&*=+:;?/<>(){}$b " "diw" "a b$ "
-        
+
         [<Test>]
         let ``ciw changes a word``() =
             assertText "a b$ c" "ciw" "a | c"
@@ -96,10 +96,10 @@ module ``Text object selection tests`` =
         [<Test>]
         let ``diw does not extend to next line``() =
             assertText "a $ \n b" "diw" "a$\n b"
-            
+
         [<Test>]
         let ``ciw changes inside word``() =
-            assertText "a b$c d" "ciw" "a | d"    
+            assertText "a b$c d" "ciw" "a | d"
 
         // Tests for iW.
         [<Test>]
@@ -131,19 +131,19 @@ module ``Text object selection tests`` =
     // TODO: ca" and da" tests cheat. The commands should delete the white space after the closing quote
     [<Test>]
     let ``ca" before quoted string``()  =
-        assertText "var$ a = \"value\"" "ca\"" "var a = |" 
+        assertText "var$ a = \"value\"" "ca\"" "var a = |"
 
     [<Test>]
     let ``ca` inside quoted string``() =
-        assertText "var a = `value$`" "ca`" "var a = |" 
+        assertText "var a = `value$`" "ca`" "var a = |"
 
     [<Test>]
     let ``da' before quoted string``() =
-        assertText "var$ a = 'value'" "da'" "var a = $" 
+        assertText "var$ a = 'value'" "da'" "var a = $"
 
     [<Test>]
     let ``da` inside quoted string``() =
-        assertText "var a = `value$`" "da`" "var a = $" 
+        assertText "var a = `value$`" "da`" "var a = $"
 
     [<Test>]
     [<Ignore "Didn't find out how to signal NoOp from getRange">]

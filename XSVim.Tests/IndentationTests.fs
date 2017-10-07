@@ -14,7 +14,7 @@ module ``Indentation tests`` =
 
     [<Test>]
     let ``V> indents line right``() =
-        let text, state = test "a$bc\ndef" "V>" 
+        let text, state = test "a$bc\ndef" "V>"
         text |> should equal "    a$bc\ndef"
         state.mode |> should equal NormalMode
 

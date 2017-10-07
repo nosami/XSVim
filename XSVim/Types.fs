@@ -24,10 +24,10 @@ type Config = {
     insertModeEscapeKey: InsertModeEscapeKeyCombo option
 }
 
-type Register = 
+type Register =
     | Register of char
     | EmptyRegister
-   
+
 type VimMode =
     | NormalMode
     | VisualMode
@@ -169,7 +169,7 @@ and VimState = {
     lastSearch: TextObject option // Last term searched for with / or ?
     macro: Macro option
     insertModeCancellationTokenSource: CancellationTokenSource option
-} with 
+} with
     static member Default =
         { keys=[]
           mode=NormalMode
@@ -180,14 +180,14 @@ and VimState = {
           desiredColumn=None
           undoGroup=None
           statusMessage=None
-          lastSearch=None 
-          searchAction=None 
+          lastSearch=None
+          searchAction=None
           macro=None
           insertModeCancellationTokenSource=None }
 
 // shim for the build server which runs Mono 4.6.1
 module Option =
-    let inline defaultValue value = 
+    let inline defaultValue value =
         function
         | Some v -> v
         | None -> value
