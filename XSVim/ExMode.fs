@@ -36,8 +36,8 @@ module exMode =
             match state.statusMessage with
             | Some message ->
                 let firstChar, rest = getFirstCharAndRest message
-                let getSearchAction() = match state.searchAction with | Some action -> action | _ -> Move 
-                let restIsNumeric, number = Int32.TryParse rest 
+                let getSearchAction() = match state.searchAction with | Some action -> action | _ -> Move
+                let restIsNumeric, number = Int32.TryParse rest
                 // really bad parser. TODO: try and use https://github.com/jaredpar/VsVim/blob/447d980da9aa6c761238e39df9d2b64424643de1/Src/VimCore/Interpreter_Parser.fs
                 match firstChar, rest with
                 | '/', rest ->
@@ -78,7 +78,7 @@ module exMode =
                     normalMode, resetKeys
                 | ':', "qa!"  ->
                     IdeApp.Workbench.Documents
-                    |> Seq.iter(fun doc -> 
+                    |> Seq.iter(fun doc ->
                         async {
                             do! doc.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
                         } |> Async.StartImmediate)

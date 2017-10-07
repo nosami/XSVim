@@ -43,7 +43,7 @@ module ``Visual tests`` =
 
     [<Test>]
     let ``Visual to start of document``() =
-        let _, state = test "abc\nde$f\nghi" "vggy" 
+        let _, state = test "abc\nde$f\nghi" "vggy"
         getClipboard() |> should equal "abc\nde"
 
     [<Test>]
@@ -53,12 +53,12 @@ module ``Visual tests`` =
 
     [<Test>]
     let ``Visual line to start of document``() =
-        let _, state = test "abc\nde$f\nghi" "Vggy" 
+        let _, state = test "abc\nde$f\nghi" "Vggy"
         getClipboard() |> should equal "abc\ndef\n"
 
     [<Test>]
     let ``Visual line supports multipler``() =
-        let _, state = test "abc\nde$f\nghi" "2Vy" 
+        let _, state = test "abc\nde$f\nghi" "2Vy"
         getClipboard() |> should equal "def\nghi"
 
     [<Test>]

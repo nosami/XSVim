@@ -24,7 +24,7 @@ module ``Delete tests`` =
 
     [<Test>]
     let ``dd next line is blank``() =
-        assertText 
+        assertText
 
             """
 {
@@ -34,7 +34,7 @@ module ``Delete tests`` =
 }
             """
 
-            "dd" 
+            "dd"
 // $ is over \n here
             """
 {

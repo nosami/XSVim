@@ -100,13 +100,13 @@ module TestHelpers =
         | "bs" -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None) |]
         | CtrlKey ch -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
         | keys ->
-            keys.ToCharArray() 
+            keys.ToCharArray()
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
 
     let parseKeys (keys:string) =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
         keys.Split '§' |> Array.collect groupToKeys
-          
+
     let testWithEol (source:string) (keys:string) eolMarker =
         FixtureSetup.initialiseMonoDevelop()
         let config = { insertModeEscapeKey = None }
@@ -152,4 +152,4 @@ module TestHelpers =
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
             let actual, _ = testWithEol (source |> switchLineEndings) keys "\r\n"
-            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n") 
+            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
