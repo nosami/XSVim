@@ -20,6 +20,10 @@ module ``Movement tests`` =
         assertText "aa$aa" "w" "aaaa$"
 
     [<Test>]
+    let ``w skips over tabs``() =
+        assertText "\t$\t\taaaa" "w" "\t\t\ta$aaa"
+
+    [<Test>]
     let ``Move to word end``() =
         assertText "aa$a bbb" "e" "aaa$ bbb"
 

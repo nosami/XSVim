@@ -111,6 +111,7 @@ module VimHelpers =
     let isWORDChar c = not (Char.IsWhiteSpace c)
     let isNonBlankButNotWordChar c = isWORDChar c && not (isWordChar c)
     let isEOLChar c = c = '\r' || c = '\n'
+    let isSpaceOrTab c = c = ' ' || c = '\t' 
 
     let (|WhiteSpace|_|) c =
         if Char.IsWhiteSpace c then Some WhiteSpace else None
@@ -128,7 +129,7 @@ module VimHelpers =
             | WhiteSpace, Move
             | WhiteSpace, Delete ->
                 seq { index+1 .. editor.Length-1 }
-                |> Seq.tryFind(fun index -> not (editor.[index] = ' '))
+                |> Seq.tryFind(fun index -> not (isSpaceOrTab editor.[index]))
                 |> Option.bind(fun newIndex ->
 
                     let findFirstWordOnLine startOffset =
