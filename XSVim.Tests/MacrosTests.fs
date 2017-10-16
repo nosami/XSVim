@@ -6,12 +6,12 @@ open XSVim
 module ``Macro tests`` =
     [<Test>]
     let ``Start recording macro q``() =
-        let _, state, _ = test " $" "qq"
+        let _, state = test " $" "qq"
         state.macro |> should equal (Some (Macro 'q'))
 
     [<Test>]
     let ``Stop recording macro q``() =
-        let _, state, _ = test " $" "qqq"
+        let _, state = test " $" "qqq"
         state.macro |> should equal None
 
     [<Test>]
