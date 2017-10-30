@@ -107,9 +107,8 @@ module TestHelpers =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
         keys.Split '§' |> Array.collect groupToKeys
 
-    let testWithEol (source:string) (keys:string) eolMarker =
+    let createEditor (source:string) = 
         FixtureSetup.initialiseMonoDevelop()
-        let config = { insertModeEscapeKey = None }
         let editor = TextEditorFactory.CreateNewEditor()
         let caret = source.IndexOf "$"
         if caret = 0 then
@@ -118,28 +117,34 @@ module TestHelpers =
             failwith "No caret found in test code"
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
-        editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
-        let keyDescriptors = parseKeys keys
-        let newState =
-            keyDescriptors
-            |> Array.fold(fun state c ->
-                let handledState, handledKeyPress = Vim.handleKeyPress state c editor config
-                printfn "%A" handledState
-                printfn "%s" editor.Text
-                if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
-                    editor.InsertAtCaret (c.KeyChar.ToString())
-                handledState) VimState.Default
+        editor
 
-        let cursor = if newState.mode = InsertMode then "|" else "$"
+    let processKeys editor keys initialState =
+        let config = { insertModeEscapeKey = None }
+        let keyDescriptors = parseKeys keys
+        keyDescriptors
+        |> Array.fold(fun state c ->
+            let handledState, handledKeyPress = Vim.handleKeyPress state c editor config
+            printfn "%A" handledState
+            printfn "%s" editor.Text
+            if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
+                editor.InsertAtCaret (c.KeyChar.ToString())
+            handledState) initialState
+
+    let testWithEol (source:string) (keys:string) eolMarker =
+        let editor = createEditor source
+        editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
+        let state = processKeys editor keys VimState.Default
+        let cursor = if state.mode = InsertMode then "|" else "$"
         let text =
-            if newState.mode = InsertMode then
+            if state.mode = InsertMode then
                 editor.Text.Insert(editor.CaretOffset, "|")
             else
                 if editor.CaretOffset = editor.Text.Length then
                     editor.Text + "$"
                 else
                     editor.Text.Insert(editor.CaretOffset+1, "$")
-        text, newState
+        text, state
 
     let test source keys = testWithEol source keys "\n"
 

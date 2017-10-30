@@ -1561,6 +1561,39 @@ module Vim =
             let newState = runCommand state editor h
             performActions editor t newState true
 
+    /// Process selection made using the mouse or non-vim commands
+    /// to act as if it had been made with Vim's visual mode
+    let processSelection (editor:TextEditor) (state:VimState) =
+        let isVisual = function
+            | VisualModes -> true
+            | _ -> false
+
+
+        if not (isVisual state.mode) (* && not processingKey *) && not (VimHelpers.selectionMatchesVisual editor state) then
+            // Selecting text with the mouse should switch
+            // to visual mode
+            if editor.SelectionRange.Length > 0 then
+                // simulate selecting text with keyboard
+                //processingKey <- true
+                let lead = editor.SelectionLeadOffset
+                let anchor = editor.SelectionAnchorOffset
+                //let lead, anchor = min lead anchor, max lead anchor
+                let actions =
+                    [ runOnce Move (Offset (anchor))
+                      switchMode VisualMode
+                      runOnce Move (Offset lead) ]
+                let state, _ = performActions editor actions state false
+                //processingKey <- false
+                state
+            else // click 
+                //if x.Editor.Selections.Any() then
+                match state.mode with
+                | VisualMode ->
+                    switchToNormalMode editor state
+                | _ -> state
+        else
+            state
+
     let handleKeyPress state (keyPress:KeyDescriptor) (editor:TextEditor) config =
         let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =
             getInsertModeEscapeCombo config

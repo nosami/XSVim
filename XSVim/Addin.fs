@@ -40,6 +40,7 @@ type XSVim() =
         with get() = Vim.editorStates.[x.FileName]
         and set(value) = Vim.editorStates.[x.FileName] <- value
 
+
     override x.Initialize() =
         treeViewPads.initialize()
         initConfig()
@@ -82,37 +83,12 @@ type XSVim() =
                 |> Observable.throttle (TimeSpan.FromMilliseconds 100.0)
                 //|> Observable.subscribeOn context
                 |> Observable.observeOn context
-                |> Observable.filter(fun _ ->
-                    let isVisualMode =
-                        match x.State.mode with
-                        | VisualModes -> true
-                        | _ -> false
-                    not isVisualMode && not processingKey && not (VimHelpers.selectionMatchesVisual x.Editor x.State))
-                |> Observable.subscribe
-                    (fun _ ->
-                        // Selecting text with the mouse should switch
-                        // to visual mode
-                        if editor.SelectionRange.Length > 0 then
-                            // simulate selecting text with keyboard
-                            processingKey <- true
-                            let lead = editor.SelectionLeadOffset
-                            let anchor = editor.SelectionAnchorOffset
-                            //let lead, anchor = min lead anchor, max lead anchor
-                            let actions =
-                                [ runOnce Move (Offset (anchor))
-                                  switchMode VisualMode
-                                  runOnce Move (Offset lead) ]
-                            let state, _ =
-                                Vim.performActions x.Editor actions x.State false
-                            x.State <- state
-                            processingKey <- false
-                        else // click 
-                            //if x.Editor.Selections.Any() then
-                            match x.State.mode with
-                            | VisualMode ->
-                                x.State <- Vim.switchToNormalMode x.Editor x.State
-                            | _ -> ()
-                        showStatus x.State)
+                //|> Observable.filter(fun _ ->
+                    //not (isVisual x.State.mode) && not processingKey && not (VimHelpers.selectionMatchesVisual x.Editor x.State))
+                |> Observable.subscribe (fun _ -> x.State <- Vim.processSelection editor x.State
+                                                  showStatus x.State)
+
+
 
             disposables <-
                 [ yield caretChanged

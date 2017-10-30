@@ -1,6 +1,7 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
 open XSVim
+open MonoDevelop.Ide.Editor
 
 [<TestFixture>]
 module ``Visual tests`` =
@@ -70,3 +71,49 @@ module ``Visual tests`` =
     let ``Visual inside quotes``() =
         let _, state = test "let s = \"some$ string\"" "vi\"y"
         getClipboard() |> should equal "some string"
+
+    [<Test>]
+    let ``Selection outside vim``() =
+        let editor = createEditor "a$bcdef"
+        // simulate a selection using the mouse, or shift + arrow keys
+        editor.SetSelection(0,2)
+        let state = Vim.processSelection editor VimState.Default
+        state.mode |> should equal VisualMode
+        let newState = processKeys editor "y" state
+        getClipboard() |> should equal "abc"
+
+    [<Test>]
+    let ``Left to right selection outside vim can be extended``() =
+        let editor = createEditor "a$bcdef"
+        // simulate a selection using the mouse, or shift + arrow keys
+        editor.SetSelection(0,2) // a -> c
+        let state = Vim.processSelection editor VimState.Default
+        let newState = processKeys editor "ly" state
+        getClipboard() |> should equal "abcd"
+
+    [<Test>]
+    let ``Left to right selection outside vim can be contracted``() =
+        let editor = createEditor "a$bcdef"
+        // simulate a selection using the mouse, or shift + arrow keys
+        editor.SetSelection(0,2) // a -> c
+        let state = Vim.processSelection editor VimState.Default
+        let newState = processKeys editor "hy" state
+        getClipboard() |> should equal "ab"
+
+    [<Test>]
+    let ``Right to left selection outside vim can be contracted``() =
+        let editor = createEditor "a$bcdef"
+        // simulate a selection using the mouse, or shift + arrow keys
+        editor.SetSelection(2,0) // c -> a
+        let state = Vim.processSelection editor VimState.Default
+        let newState = processKeys editor "ly" state
+        getClipboard() |> should equal "bc"
+
+    [<Test>]
+    let ``Right to left selection outside vim can be expanded``() =
+        let editor = createEditor "a$bcdef"
+        // simulate a selection using the mouse, or shift + arrow keys
+        editor.SetSelection(3,1) // d -> b
+        let state = Vim.processSelection editor VimState.Default
+        let newState = processKeys editor "hy" state
+        getClipboard() |> should equal "abcd"
