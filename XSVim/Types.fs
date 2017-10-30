@@ -220,3 +220,8 @@ module commandHelpers =
     let func f = runOnce (Func f) Nothing
     let delayedFunc f ms = runOnce (DelayedFunc (f, ms)) Nothing
     let dispatchCommand command = IdeApp.CommandService.DispatchCommand command |> ignore
+
+    let (|VisualModes|_|) = function
+        | VisualMode | VisualLineMode | VisualBlockMode -> Some VisualModes
+        | _ -> None
+

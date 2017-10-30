@@ -79,10 +79,15 @@ type XSVim() =
             let selectionChanged =
                 let context = Runtime.MainSynchronizationContext
                 editor.SelectionChanged
-                |> Observable.throttle (TimeSpan.FromMilliseconds 1000.0)
+                |> Observable.throttle (TimeSpan.FromMilliseconds 100.0)
                 //|> Observable.subscribeOn context
                 |> Observable.observeOn context
-                |> Observable.filter(fun _ -> not processingKey && not (VimHelpers.selectionMatchesVisual x.Editor x.State))
+                |> Observable.filter(fun _ ->
+                    let isVisualMode =
+                        match x.State.mode with
+                        | VisualModes -> true
+                        | _ -> false
+                    not isVisualMode && not processingKey && not (VimHelpers.selectionMatchesVisual x.Editor x.State))
                 |> Observable.subscribe
                     (fun _ ->
                         // Selecting text with the mouse should switch
@@ -103,8 +108,10 @@ type XSVim() =
                             processingKey <- false
                         else // click 
                             //if x.Editor.Selections.Any() then
-                            if x.State.mode <> NormalMode then
+                            match x.State.mode with
+                            | VisualMode ->
                                 x.State <- Vim.switchToNormalMode x.Editor x.State
+                            | _ -> ()
                         showStatus x.State)
 
             disposables <-
