@@ -338,7 +338,7 @@ module VimHelpers =
         let lead = editor.SelectionLeadOffset
         let anchor = editor.SelectionAnchorOffset
         //(lead = x.State.visualStartOffset && (anchor - 1) = x.State.visualEndOffset)
-        let res = anchor = state.visualStartOffset && (lead-1) = state.visualEndOffset
+        let res = anchor = state.visualStartOffset && lead = state.visualEndOffset
         res
 
 
@@ -865,7 +865,7 @@ module Vim =
                             { res with visualEndOffset = finish }
                         | _ ->
                             editor.CaretOffset <- finish
-                            { vimState with desiredColumn = Some editor.CaretColumn; visualEndOffset = finish }
+                            { vimState with desiredColumn = Some editor.CaretColumn; visualEndOffset = editor.SelectionLeadOffset }
                     newState
                 | Delete ->
                     let newState = delete vimState start finish
@@ -1037,14 +1037,17 @@ module Vim =
                             | VisualLineMode -> Some "-- VISUAL LINE --"
                             | VisualBlockMode -> Some "-- VISUAL BLOCK --"
                             | _ -> None
-                        let newState = { vimState with mode = mode; visualStartOffset = editor.CaretOffset; statusMessage = statusMessage }
+
+                        let newState = { vimState with mode = mode; visualStartOffset = start; visualEndOffset = finish; statusMessage = statusMessage }
                         setAutoCompleteOnKeystroke false
                         setSelection newState editor command start finish
+
+                        let newState2 = { newState with mode = mode; visualStartOffset = editor.SelectionAnchorOffset; visualEndOffset = editor.SelectionLeadOffset; statusMessage = statusMessage }
                         match mode, editor.SelectionMode with
                         | VisualBlockMode, SelectionMode.Normal -> EditActions.ToggleBlockSelectionMode editor
                         | _, SelectionMode.Block -> EditActions.ToggleBlockSelectionMode editor
                         | _ -> ()
-                        newState
+                        newState2
                     | InsertMode ->
                         switchToInsertMode editor vimState isInitial
                     | ReplaceMode ->
@@ -1568,11 +1571,12 @@ module Vim =
             | VisualModes -> true
             | _ -> false
 
-
-        if not (isVisual state.mode) (* && not processingKey *) && not (VimHelpers.selectionMatchesVisual editor state) then
+        match state.mode, VimHelpers.selectionMatchesVisual editor state with 
+        | ExMode _, _ -> state
+        | _, false ->
             // Selecting text with the mouse should switch
             // to visual mode
-            if editor.SelectionRange.Length > 0 then
+            if editor.IsSomethingSelected then
                 // simulate selecting text with keyboard
                 //processingKey <- true
                 let lead = editor.SelectionLeadOffset
@@ -1588,11 +1592,11 @@ module Vim =
             else // click 
                 //if x.Editor.Selections.Any() then
                 match state.mode with
-                | VisualMode ->
+                | VisualModes ->
+                //| VisualMode ->
                     switchToNormalMode editor state
                 | _ -> state
-        else
-            state
+        | _ -> state
 
     let handleKeyPress state (keyPress:KeyDescriptor) (editor:TextEditor) config =
         let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =

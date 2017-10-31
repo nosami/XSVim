@@ -117,3 +117,29 @@ module ``Visual tests`` =
         let state = Vim.processSelection editor VimState.Default
         let newState = processKeys editor "hy" state
         getClipboard() |> should equal "abcd"
+
+    [<Test>]
+    let ``Visual line mode is retained``() =
+        let editor = createEditor "a$bcdef"
+        let state = processKeys editor "V" VimState.Default
+        state.mode |> should equal VisualLineMode
+        let state = Vim.processSelection editor state
+        state.mode |> should equal VisualLineMode
+
+    [<Test>]
+    let ``Clearing selection reverts to normal mode``() =
+        let editor = createEditor "a$bcdef"
+        let state = processKeys editor "V" VimState.Default
+        state.mode |> should equal VisualLineMode
+        editor.ClearSelection()
+        let state = Vim.processSelection editor state
+        state.mode |> should equal NormalMode
+
+    [<Test>]
+    let ``Process selection doesn't modify selection``() =
+        let editor = createEditor "a$bcdef"
+        let state1 = processKeys editor "vl" VimState.Default
+        let state2 = Vim.processSelection editor state1
+        let state3 = Vim.processSelection editor state2
+        let state4 = processKeys editor "y" state3
+        getClipboard() |> should equal "ab"

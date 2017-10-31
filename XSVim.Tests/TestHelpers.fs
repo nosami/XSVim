@@ -127,6 +127,7 @@ module TestHelpers =
             let handledState, handledKeyPress = Vim.handleKeyPress state c editor config
             printfn "%A" handledState
             printfn "%s" editor.Text
+            let handledState = Vim.processSelection editor handledState
             if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
                 editor.InsertAtCaret (c.KeyChar.ToString())
             handledState) initialState
