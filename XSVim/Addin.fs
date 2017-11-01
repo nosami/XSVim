@@ -80,7 +80,7 @@ type XSVim() =
             let selectionChanged =
                 let context = Runtime.MainSynchronizationContext
                 editor.SelectionChanged
-                |> Observable.throttle (TimeSpan.FromMilliseconds 100.0)
+                |> Observable.throttle (TimeSpan.FromMilliseconds 1000.0)
                 //|> Observable.subscribeOn context
                 |> Observable.observeOn context
                 //|> Observable.filter(fun _ ->

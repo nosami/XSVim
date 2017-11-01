@@ -172,6 +172,7 @@ and VimState = {
     lastSearch: TextObject option // Last term searched for with / or ?
     macro: Macro option
     insertModeCancellationTokenSource: CancellationTokenSource option
+    processingSelection: bool  
 } with
     static member Default =
         { keys=[]
@@ -187,7 +188,8 @@ and VimState = {
           lastSearch=None
           searchAction=None
           macro=None
-          insertModeCancellationTokenSource=None }
+          insertModeCancellationTokenSource=None
+          processingSelection=false }
 
 // shim for the build server which runs Mono 4.6.1
 module Option =

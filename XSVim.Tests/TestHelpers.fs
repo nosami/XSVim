@@ -119,15 +119,26 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
         editor
 
-    let processKeys editor keys initialState =
+    let textWithFakeCursor (editor:TextEditor) state =
+        if state.mode = InsertMode then
+            editor.Text.Insert(editor.CaretOffset, "|")
+        else
+            if editor.CaretOffset = editor.Text.Length then
+                editor.Text + "$"
+            else
+                editor.Text.Insert(editor.CaretOffset+1, "$")
+
+    let processKeys (editor:TextEditor) keys initialState =
         let config = { insertModeEscapeKey = None }
         let keyDescriptors = parseKeys keys
         keyDescriptors
         |> Array.fold(fun state c ->
+            printfn "before %c %A %s" c.KeyChar state editor.SelectedText
             let handledState, handledKeyPress = Vim.handleKeyPress state c editor config
-            printfn "%A" handledState
-            printfn "%s" editor.Text
+            printfn "after %c %A %s" c.KeyChar handledState editor.SelectedText
+            printfn "%s" (textWithFakeCursor editor handledState)
             let handledState = Vim.processSelection editor handledState
+            printfn "after selection processing %A %s" handledState editor.SelectedText
             if state.mode = InsertMode && c.ModifierKeys <> ModifierKeys.Control && c.SpecialKey <> SpecialKey.Escape then
                 editor.InsertAtCaret (c.KeyChar.ToString())
             handledState) initialState
@@ -137,14 +148,7 @@ module TestHelpers =
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
         let state = processKeys editor keys VimState.Default
         let cursor = if state.mode = InsertMode then "|" else "$"
-        let text =
-            if state.mode = InsertMode then
-                editor.Text.Insert(editor.CaretOffset, "|")
-            else
-                if editor.CaretOffset = editor.Text.Length then
-                    editor.Text + "$"
-                else
-                    editor.Text.Insert(editor.CaretOffset+1, "$")
+        let text = textWithFakeCursor editor state
         text, state
 
     let test source keys = testWithEol source keys "\n"

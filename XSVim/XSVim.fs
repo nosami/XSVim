@@ -337,7 +337,6 @@ module VimHelpers =
     let selectionMatchesVisual (editor:TextEditor) state =
         let lead = editor.SelectionLeadOffset
         let anchor = editor.SelectionAnchorOffset
-        //(lead = x.State.visualStartOffset && (anchor - 1) = x.State.visualEndOffset)
         let res = anchor = state.visualStartOffset && lead = state.visualEndOffset
         res
 
@@ -645,11 +644,13 @@ module Vim =
         match vimState.mode, command.commandType with
         | VisualMode, Move | VisualMode, SwitchMode _ ->
             let start, finish =
-                if finish < vimState.visualStartOffset then
+                if finish < vimState.visualStartOffset && vimState.visualEndOffset > vimState.visualStartOffset then
                     finish, vimState.visualStartOffset + 1
                 else
                     vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
+            //let finish = finish + if command.textObject = EndOfLine then 0 else 1
             editor.SetSelection(start, finish)
+            //editor.SetSelection(vimState.visualStartOffset, finish)
             if editor.SelectionMode = SelectionMode.Block then EditActions.ToggleBlockSelectionMode editor
         | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
@@ -738,7 +739,7 @@ module Vim =
         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
         if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
-        { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
+        { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None; visualStartOffset = -1; visualEndOffset = -1 }
 
     let runCommand vimState editor command =
         let delete state start finish =
@@ -858,11 +859,11 @@ module Vim =
                         // don't change desired column if we already started moving up or down
                         | MoveUpOrDown, Some _c ->
                             editor.CaretOffset <- finish
-                            { vimState with visualEndOffset = finish }
+                            { vimState with visualEndOffset = editor.SelectionLeadOffset }
                         | MoveUpOrDown, None ->
                             let res = { vimState with desiredColumn = Some editor.CaretColumn }
                             editor.CaretOffset <- finish
-                            { res with visualEndOffset = finish }
+                            { res with visualEndOffset = editor.SelectionLeadOffset }
                         | _ ->
                             editor.CaretOffset <- finish
                             { vimState with desiredColumn = Some editor.CaretColumn; visualEndOffset = editor.SelectionLeadOffset }
@@ -1571,31 +1572,42 @@ module Vim =
             | VisualModes -> true
             | _ -> false
 
-        match state.mode, VimHelpers.selectionMatchesVisual editor state with 
-        | ExMode _, _ -> state
-        | _, false ->
+        let selectionMatchesVisual = VimHelpers.selectionMatchesVisual editor state
+        match state.mode, state.processingSelection, selectionMatchesVisual, editor.IsSomethingSelected with 
+        | ExMode _, _, _, _ -> state
+        | _, false, false, true ->
             // Selecting text with the mouse should switch
             // to visual mode
-            if editor.IsSomethingSelected then
-                // simulate selecting text with keyboard
-                //processingKey <- true
-                let lead = editor.SelectionLeadOffset
-                let anchor = editor.SelectionAnchorOffset
-                //let lead, anchor = min lead anchor, max lead anchor
-                let actions =
-                    [ runOnce Move (Offset (anchor))
-                      switchMode VisualMode
-                      runOnce Move (Offset lead) ]
-                let state, _ = performActions editor actions state false
-                //processingKey <- false
-                state
-            else // click 
+            // simulate selecting text with keyboard
+            //processingKey <- true
+            printfn "processing selection %s" editor.SelectedText
+            let lead = editor.SelectionLeadOffset
+            let anchor = editor.SelectionAnchorOffset
+            let newLead, newAnchor =
+                if lead > anchor then
+                    // LTR lead is one bigger than it should be
+                    lead-1, anchor
+                else
+                    // RTL anchor is one bigger than it should be
+                    lead, anchor-1
+            printfn "Lead %d Anchor %d" newLead newAnchor
+            let actions =
+                [ runOnce Move (Offset (newAnchor))
+                  switchMode VisualMode
+                  runOnce Move (Offset newLead) ]
+            let state, _ = performActions editor actions { state with processingSelection=true } false
+            printfn "new selection %s" editor.SelectedText
+            //processingKey <- false
+            { state with visualStartOffset = newAnchor; visualEndOffset = newLead; processingSelection=false }
+        | _, false, false, false ->
+            // click - clear any selection + revert to normal mode
                 //if x.Editor.Selections.Any() then
-                match state.mode with
-                | VisualModes ->
-                //| VisualMode ->
-                    switchToNormalMode editor state
-                | _ -> state
+            match state.mode with
+            | VisualModes ->
+            //| VisualMode ->
+                let newState = switchToNormalMode editor state
+                { newState with visualStartOffset = -1; visualEndOffset = -1 }
+            | _ -> state
         | _ -> state
 
     let handleKeyPress state (keyPress:KeyDescriptor) (editor:TextEditor) config =
