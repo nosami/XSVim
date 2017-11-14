@@ -167,3 +167,86 @@ module ``Text object selection tests`` =
     [<Test>]
     let ``da{ handles nested braces forwards``() =
         assertText "{a$ {b}}\n{ignored}" "da{" "\n${ignored}"
+
+    // Tags. Reeference: http://vimdoc.sourceforge.net/htmldoc/motion.html#tag-blocks
+
+    [<Test>]
+    let ``dat from tag content``() =
+        assertText "<a><b>val$</b></a>" "dat" "<a><$/a>"
+
+    [<Test>]
+    let ``dat from tag declaration``() =
+        assertText "<a><b$>val</b></a>" "dat" "<a><$/a>"
+
+    [<Test>]
+    let ``dat ignores unclosed tag``() =
+        assertText "<a$>val" "dat" "<a$>val"
+
+    [<Test>]
+    let ``dat ignores self-closing tag``() =
+        assertText "<a><b$/></a>" "dat" "$"
+
+    [<Test>]
+    let ``dat handles tags with attributes``() =
+        assertText "<a><b atr='val'>val$</b></a>" "dat" "<a><$/a>"
+
+    [<Test>]
+    let ``dat handles tags with namespaces``() =
+        assertText "<a><ns:b>val$</ns:b></a>" "dat" "<a><$/a>"
+
+    [<Test>]
+    let ``dat finds unmatched closing tag``() =
+        assertText "<a><b$><b></b></b></a>" "dat" "<a><$/a>"
+
+    [<Test>]
+    let ``cat from tag content``() =
+        assertText "<a><b>val$</b></a>" "cat" "<a>|</a>"
+
+    [<Test>]
+    let ``cat from tag declaration``() =
+        assertText "<a><b$>val</b></a>" "cat" "<a>|</a>"
+
+    [<Test>]
+    let ``cat ignores unclosed tag``() =
+        assertText "<a$>val" "cat" "<a$>val"
+
+    [<Test>]
+    let ``cat handles tags with attributes``() =
+        assertText "<a><b atr='val'>val$</b></a>" "cat" "<a>|</a>"
+
+    [<Test>]
+    let ``cat ignores self-closing tag``() =
+        assertText "<a><b$/></a>" "cat" "|"
+
+    [<Test>]
+    let ``dit from tag content``() =
+        assertText "<a><b>val$</b></a>" "dit" "<a><b><$/b></a>"
+
+    [<Test>]
+    let ``dit from tag declaration``() =
+        assertText "<a><b$>val</b></a>" "dit" "<a><b><$/b></a>"
+
+    [<Test>]
+    let ``dit finds unmatched tag``() =
+        assertText "<a><b$><b></b></b></a>" "dit" "<a><b><$/b></a>"
+
+    [<Test>]
+    let ``dit outside a tag does nothing``() =
+        assertText " $ <a>val</a>" "dit" " $ <a>val</a>"
+
+    [<Test>]
+    let ``cit from tag content``() =
+        assertText "<a><b>val$</b></a>" "cit" "<a><b>|</b></a>"
+
+    [<Test>]
+    let ``cit from tag declaration``() =
+        assertText "<a><b$>val</b></a>" "cit" "<a><b>|</b></a>"
+
+    [<Test>]
+    let ``cit finds unmatched tag``() =
+        assertText "<a><b$><b></b></b></a>" "cit" "<a><b>|</b></a>"
+
+    [<Test>]
+    let ``cit outside a tag does nothing``() =
+        assertText " $ <a>val</a>" "cit" " $ <a>val</a>"
+
