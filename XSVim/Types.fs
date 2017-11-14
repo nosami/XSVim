@@ -76,6 +76,8 @@ type TextObject =
     | InnerQuotedBlock of char
     | WholeLine
     | WholeLineIncludingDelimiter
+    | ATag
+    | InnerTag
     // motions
     | Up
     | Down

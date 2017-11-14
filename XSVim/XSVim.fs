@@ -90,21 +90,23 @@ module VimHelpers =
         seq { editor.CaretOffset .. -1 .. 0 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
-    let rec findUnmatchedOpeningBrace(editor:TextEditor) pos openingChar closingChar =
-        let find c =
-            seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.[index] = c)
-        match find openingChar, find closingChar with
+    let rec findUnmatchedBlockStartDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter =
+        let find (c:string) =
+            seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.GetTextAt(index, c.Length) = c)
+        match find blockStartDelimiter, find blockEndDelimiter with
         | Some s, Some e when s > e -> Some s
-        | Some s, Some e when s < e -> findUnmatchedOpeningBrace editor (s-1) openingChar closingChar
+        | Some s, Some e when s < e -> findUnmatchedBlockStartDelimiter editor (s-1) blockStartDelimiter blockEndDelimiter
         | Some s, None -> Some s
         | _,_ -> None
 
-    let rec findUnmatchedClosingBrace(editor:TextEditor) pos openingChar closingChar =
-        let find c =
-            seq { pos+1 .. editor.Length-1} |> Seq.tryFind(fun index -> editor.[index] = c)
-        match find openingChar, find closingChar with
+    let rec findUnmatchedBlockEndDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter =
+        let find (c:string) =
+            let ndx = editor.Text.IndexOf(c, pos + 1)
+            if ndx = -1 then None else Some ndx
+        match find blockStartDelimiter, find blockEndDelimiter with
         | Some s, Some e when s > e -> Some e
-        | Some s, Some e when s < e -> findUnmatchedClosingBrace editor e openingChar closingChar
+        | Some s, Some e when s < e -> findUnmatchedBlockEndDelimiter editor e blockStartDelimiter blockEndDelimiter
+        | None, Some e -> Some e
         | _,_ -> None
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
@@ -316,8 +318,25 @@ module VimHelpers =
         let nextWordEnd = findWordEnd editor fWordChar
         prevWordEnd + 1, nextWordEnd + 1
 
+    let rec findEnclosingTag(editor:TextEditor) pos =
+        let search = seq { pos .. -1 .. 0 } |> Seq.tryFind(fun index -> editor.[index] = '<')
+        match search with
+        | Some startTagStart -> 
+            let m = Regex.Match(editor.GetTextBetween(startTagStart, editor.Length), "<([\w|:|\.]+).*?>")
+            if m.Success then 
+                let tagName = m.Groups.[1].Value;
+                let endTag = "</" + tagName + ">"
+                let startTagEnd = startTagStart + m.Length - 1
+                match findUnmatchedBlockEndDelimiter editor startTagEnd ("<" + tagName) endTag with 
+                | Some endTagStart -> Some (startTagStart, startTagEnd, endTagStart, endTagStart + endTag.Length)
+                | None -> findEnclosingTag editor (startTagStart - 1)
+            else 
+                None
+        | None -> None
+
     let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
+        let noOp = (editor.CaretOffset, editor.CaretOffset)
         match command.textObject with
         | Right behaviour ->
             let line = editor.GetLine editor.CaretLine
@@ -431,14 +450,14 @@ module VimHelpers =
             | Some index -> editor.CaretOffset, index-1
             | None -> editor.CaretOffset, editor.CaretOffset
         | InnerBlock (startChar, endChar) ->
-            let opening = findUnmatchedOpeningBrace editor editor.CaretOffset (char startChar) (char endChar)
-            let closing = findUnmatchedClosingBrace editor editor.CaretOffset (char startChar) (char endChar)
+            let opening = findUnmatchedBlockStartDelimiter editor editor.CaretOffset startChar endChar
+            let closing = findUnmatchedBlockEndDelimiter editor editor.CaretOffset startChar endChar
             match opening, closing with
             | Some start, Some finish -> start+1, finish
             | _, _ -> editor.CaretOffset, editor.CaretOffset
         | ABlock (startChar, endChar) ->
-            let opening = findUnmatchedOpeningBrace editor editor.CaretOffset (char startChar) (char endChar)
-            let closing = findUnmatchedClosingBrace editor editor.CaretOffset (char startChar) (char endChar)
+            let opening = findUnmatchedBlockStartDelimiter editor editor.CaretOffset startChar endChar
+            let closing = findUnmatchedBlockEndDelimiter editor editor.CaretOffset startChar endChar
             match opening, closing with
             | Some start, Some finish when finish < editor.Length -> start, finish+1
             | _, _ -> editor.CaretOffset, editor.CaretOffset
@@ -523,6 +542,14 @@ module VimHelpers =
                  editor.CaretOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, findWordEnd editor isWordChar
         | ForwardToEndOfWORD -> editor.CaretOffset, findWordEnd editor isWORDChar
+        | ATag -> 
+            match findEnclosingTag editor editor.CaretOffset with
+            | Some (startTagStart, _, _, endTagEnd) -> startTagStart, endTagEnd
+            | None -> noOp
+        | InnerTag -> 
+            match findEnclosingTag editor editor.CaretOffset with
+            | Some (_, startTagEnd, endTagStart, _) -> startTagEnd + 1, endTagStart
+            | None -> noOp
         | Jump HalfPageUp ->
             let visibleLineCount = getVisibleLineCount editor
             let halfwayUp = max 1 (editor.CaretLine - visibleLineCount / 2)
@@ -1413,10 +1440,14 @@ module Vim =
             | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
             | NotInsertMode, [ Action action; "i"; "W" ] -> [ run action InnerWORD ]
             | NotInsertMode, [ Action action; "a"; "W" ] -> [ run action AWORD ]
+            | NotInsertMode, [Action action; "a"; "t"] -> [ run action ATag ]
+            | NotInsertMode, [Action action; "i"; "t"] -> [ run action InnerTag ]
             | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
             | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
             | VisualMode, [ "i"; "W" ] -> [ run Visual InnerWORD ]
             | VisualMode, [ "a"; "W" ] -> [ run Visual AWORD ]
+            | VisualMode, [ "a"; "t" ] -> [ run Visual ATag ]
+            | VisualMode, [ "i"; "t" ] -> [ run Visual InnerTag ]
             | VisualMode, [ "u"] -> [ dispatch EditCommands.LowercaseSelection ]
             | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
             | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
