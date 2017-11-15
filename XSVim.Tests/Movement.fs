@@ -171,3 +171,18 @@ module ``Movement tests`` =
     let ``% moves to matching parens``() =
         assertText "($foo(bar))" "%" "(foo(bar))$"
 
+    [<Test>]
+    let ``[{ goes to previous unmatched {``() =
+        assertText "func { case { a } case$ { b } }" "[{" "func {$ case { a } case { b } }"
+
+    [<Test>]
+    let ``[( goes to previous unmatched (``() =
+        assertText "if (a == (b)c$)" "[(" "if ($a == (b)c)"
+
+    [<Test>]
+    let ``]} goes to next unmatched }``() =
+        assertText "func { case$ { a } case { b } }" "]}" "func { case { a } case { b } }$"
+
+    [<Test>]
+    let ``]) goes to next unmatched )``() =
+        assertText "if (a$ == (b)c)" "])" "if (a == (b)c)$"

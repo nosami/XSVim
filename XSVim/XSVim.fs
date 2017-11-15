@@ -581,6 +581,22 @@ module VimHelpers =
                 EditActions.GotoMatchingBrace editor
                 startOffset, editor.CaretOffset
             | _ -> editor.CaretOffset, editor.CaretOffset
+        | PrevUnmatchedBrace -> 
+            match findUnmatchedBlockStartDelimiter editor editor.CaretOffset "{" "}" with
+            | Some jumpPos -> jumpPos, jumpPos
+            | None -> noOp
+        | NextUnmatchedBrace -> 
+            match findUnmatchedBlockEndDelimiter editor editor.CaretOffset "{" "}" with
+            | Some jumpPos -> jumpPos, jumpPos
+            | None -> noOp
+        | PrevUnmatchedParen -> 
+            match findUnmatchedBlockStartDelimiter editor editor.CaretOffset "(" ")" with
+            | Some jumpPos -> jumpPos, jumpPos
+            | None -> noOp
+        | NextUnmatchedParen -> 
+            match findUnmatchedBlockEndDelimiter editor editor.CaretOffset "(" ")" with
+            | Some jumpPos -> jumpPos, jumpPos
+            | None -> noOp
         | Jump (ToMark mark) ->
             if editor.FileName.FullPath.ToString() = mark.FileName then
                 editor.CaretOffset, mark.Offset
@@ -740,6 +756,10 @@ module Vim =
                 | ForwardToEndOfWORD
                 | EndOfLine
                 | MatchingBrace
+                | PrevUnmatchedBrace
+                | NextUnmatchedBrace
+                | PrevUnmatchedParen
+                | NextUnmatchedParen
                 | ToCharInclusive _
                 | ToCharExclusive _ -> finish + 1
                 | _ -> finish
@@ -1217,12 +1237,17 @@ module Vim =
         | ["b"] -> Some WordBackwards
         | ["B"] -> Some WORDBackwards
         | ["e"] -> Some ForwardToEndOfWord
+
         | ["E"] -> Some ForwardToEndOfWORD
         | ["g"; "e"] -> Some BackwardToEndOfWord
         | ["g"; "E"] -> Some BackwardToEndOfWORD
         | ["{"] -> Some (Jump ParagraphBackwards)
         | ["}"] -> Some (Jump ParagraphForwards)
         | ["%"] -> Some MatchingBrace
+        | ["["; "{"] -> Some PrevUnmatchedBrace
+        | ["]"; "}"] -> Some NextUnmatchedBrace
+        | ["["; "("] -> Some PrevUnmatchedParen
+        | ["]"; ")"] -> Some NextUnmatchedParen
         | ["G"] -> Some (Jump LastLine)
         | ["H"] -> Some (Jump FirstVisibleLine)
         | ["M"] -> Some (Jump MiddleVisibleLine)
@@ -1362,6 +1387,8 @@ module Vim =
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
+            | NormalMode, [ "[" ] -> wait
+            | NormalMode, [ "]" ] -> wait
             | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]

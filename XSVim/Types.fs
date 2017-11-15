@@ -104,6 +104,10 @@ type TextObject =
     | SelectedText
     | SelectionStart
     | MatchingBrace
+    | PrevUnmatchedBrace
+    | NextUnmatchedBrace
+    | PrevUnmatchedParen
+    | NextUnmatchedParen
     | Offset of int
 
 type CommandType =
