@@ -50,10 +50,12 @@ type XSVim() =
                                 editor.CaretOffset <- editor.CaretOffset - 1)
 
             let documentClosed =
-                IdeApp.Workbench.DocumentClosed.Subscribe
-                    (fun e -> let documentName = e.Document.Name
-                              if Vim.editorStates.ContainsKey documentName then
-                                  Vim.editorStates.Remove documentName |> ignore)
+                IdeApp.Workbench |> Option.ofObj
+                |> Option.map(fun workbench ->
+                    workbench.DocumentClosed.Subscribe
+                        (fun e -> let documentName = e.Document.Name
+                                  if Vim.editorStates.ContainsKey documentName then
+                                      Vim.editorStates.Remove documentName |> ignore))
 
             let propertyChanged =
                 PropertyService.PropertyChanged.Subscribe (fun _ -> initConfig())
@@ -67,7 +69,11 @@ type XSVim() =
                             IdeApp.Workbench.StatusBar.ShowReady()
                         | _ -> ())
 
-            disposables <- [ caretChanged; documentClosed; propertyChanged; focusLost ]
+            disposables <- [ yield caretChanged
+                             if documentClosed.IsSome then
+                                yield documentClosed.Value
+                             yield propertyChanged
+                             yield focusLost ]
 
     override x.KeyPress descriptor =
         match descriptor.ModifierKeys with

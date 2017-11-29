@@ -10,11 +10,14 @@ open Reflection
 /// Set up TreeViewPads to accept hjkl keys
 module treeViewPads =
     let getTreeViewPads() =
-        IdeApp.Workbench.Pads
-        |> List.ofSeq
-        |> List.map(fun pad -> pad.Content)
-        |> List.filter(fun pad -> pad :? TreeViewPad)
-        |> Seq.cast<TreeViewPad>
+        match IdeApp.Workbench |> Option.ofObj with
+        | Some workbench ->
+            workbench.Pads
+            |> List.ofSeq
+            |> List.map(fun pad -> pad.Content)
+            |> List.filter(fun pad -> pad :? TreeViewPad)
+            |> Seq.cast<TreeViewPad>
+        | None -> Seq.empty
 
     let select (tree:TreeView) (iter:TreeIter ref) =
         tree.Selection.UnselectAll()
