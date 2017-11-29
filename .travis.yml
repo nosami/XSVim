@@ -2,8 +2,6 @@ language: csharp
 os: osx
 mono: latest
 solution: XSVim.sln
-before_install:
-- rvm get head
 install:
 - nuget restore XSVim.sln
 - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.0.1.24.dmg
