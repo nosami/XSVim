@@ -104,6 +104,17 @@ module ``Visual tests`` =
         getClipboard() |> should equal "ab"
 
     [<Test>]
+    let ``Right to left selection inside vim can be contracted``() =
+        let editor = createEditor " abc$def"
+        // simulate a selection using the mouse, or shift + arrow keys
+        //editor.SetSelection(4,1) // c -> a
+        let state = processKeys editor "vhh" VimState.Default
+        //editor.SelectedText |> should equal "abc"
+        let state = Vim.processSelection editor state
+        let newState = processKeys editor "ly" state
+        getClipboard() |> should equal "bc"
+
+    [<Test>]
     let ``Right to left selection outside vim can be contracted``() =
         let editor = createEditor " a$bcdef"
         // simulate a selection using the mouse, or shift + arrow keys
