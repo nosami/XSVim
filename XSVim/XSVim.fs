@@ -23,8 +23,8 @@ module VimHelpers =
         |> Option.iter(fun c -> c.DispatchCommand command |> ignore)
 
     let unregisterConflictingCommands() =
-        match commandManager with
-        | Some commandManager' ->
+        match commandManager, Platform.IsMac with
+        | Some commandManager', true ->
             let commands = commandManager'.GetCommands() |> Array.ofSeq
             [
                 "Control+P"
@@ -50,7 +50,7 @@ module VimHelpers =
                 |> Array.tryFind(fun command -> command.AccelKey = k)
                 |> Option.iter commandManager'.UnregisterCommand)
 
-        | None -> ()
+        | _ -> ()
     unregisterConflictingCommands()
 
     let closingBraces = [')'; '}'; ']'] |> set
