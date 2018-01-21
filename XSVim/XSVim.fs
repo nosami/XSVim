@@ -15,7 +15,7 @@ open Reflection
 [<AutoOpen>]
 module VimHelpers =
     let commandManager = IdeApp.CommandService |> Option.ofObj
-
+       
     let dispatchCommand command =
 
         commandManager
@@ -1236,7 +1236,6 @@ module Vim =
         | ["b"] -> Some WordBackwards
         | ["B"] -> Some WORDBackwards
         | ["e"] -> Some ForwardToEndOfWord
-
         | ["E"] -> Some ForwardToEndOfWORD
         | ["g"; "e"] -> Some BackwardToEndOfWord
         | ["g"; "E"] -> Some BackwardToEndOfWORD
@@ -1258,6 +1257,14 @@ module Vim =
         | ["n"] -> Some (Jump SearchAgain)
         | ["N"] -> Some (Jump SearchAgainBackwards)
         | _ -> None
+
+    let unfinishedMovements = [ "g"; "["; "]"; "@"; "m"; "`"; "'" ] |> set
+
+    let (|UnfinishedMovement|_|) character =
+        if unfinishedMovements.Contains character then
+            Some UnfinishedMovement
+        else
+            None
 
     let (|IndentChar|_|) = function
         | ">" -> Some Indent
@@ -1384,14 +1391,9 @@ module Vim =
                 | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move (Right StopAtEndOfLine) ]
                 | None -> [ switchMode VisualMode ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
-            | NormalMode, [ "d"; "g" ] -> wait
+            | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
+            | NotInsertMode, [ UnfinishedMovement ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
-            | NotInsertMode, [ "[" ] -> wait
-            | NotInsertMode, [ "]" ] -> wait
-            | NotInsertMode, [ "d"; "]" ] -> wait
-            | NotInsertMode, [ "d"; "[" ] -> wait
-            | NotInsertMode, [ "c"; "[" ] -> wait
-            | NotInsertMode, [ "c"; "]" ] -> wait
             | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
@@ -1496,12 +1498,7 @@ module Vim =
             | NotInsertMode, [ "q" ] when state.macro.IsNone -> wait
             | NotInsertMode, [ "q"; c ] -> [ run (MacroStart (char c)) Nothing ]
             | NotInsertMode, [ "q" ] -> [ run MacroEnd Nothing ]
-            | NotInsertMode, [ "@" ] -> wait
             | NotInsertMode, [ "@"; c ] -> [ run (ReplayMacro (char c)) Nothing ]
-            | NotInsertMode, [ "g" ] -> wait
-            | NotInsertMode, [ "m" ] -> wait
-            | NotInsertMode, [ "`" ] -> wait
-            | NotInsertMode, [ "'" ] -> wait
             | NotInsertMode, [ "g"; "g" ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
