@@ -70,3 +70,8 @@ module ``Visual tests`` =
     let ``Visual inside quotes``() =
         let _, state = test "let s = \"some$ string\"" "vi\"y"
         getClipboard() |> should equal "some string"
+
+    [<Test>]
+    let ``v]) goes to next unmatched )``() =
+        let _, state = test "if (a$ == (b)c)" "v])y" 
+        getClipboard() |> should equal "a == (b)c)"

@@ -126,3 +126,7 @@ $    bar
     [<Test>]
     let ``dw to brace #167``() =
         assertText "abc\n $  {" "dw" "abc\n{$"
+
+    [<Test>]
+    let ``d]) deletes to next unmatched )``() =
+        assertText "if (a$ == (b)c)" "d])" "if ($"

@@ -4,7 +4,6 @@ open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
 open System.Threading
-open MonoDevelop.Components.Commands
 open MonoDevelop.Core
 open MonoDevelop.Core.Text
 open MonoDevelop.Ide
@@ -583,19 +582,19 @@ module VimHelpers =
             | _ -> editor.CaretOffset, editor.CaretOffset
         | PrevUnmatchedBrace -> 
             match findUnmatchedBlockStartDelimiter editor editor.CaretOffset "{" "}" with
-            | Some jumpPos -> jumpPos, jumpPos
+            | Some jumpPos -> editor.CaretOffset, jumpPos
             | None -> noOp
         | NextUnmatchedBrace -> 
             match findUnmatchedBlockEndDelimiter editor editor.CaretOffset "{" "}" with
-            | Some jumpPos -> jumpPos, jumpPos
+            | Some jumpPos -> editor.CaretOffset, jumpPos
             | None -> noOp
         | PrevUnmatchedParen -> 
             match findUnmatchedBlockStartDelimiter editor editor.CaretOffset "(" ")" with
-            | Some jumpPos -> jumpPos, jumpPos
+            | Some jumpPos -> editor.CaretOffset, jumpPos
             | None -> noOp
         | NextUnmatchedParen -> 
             match findUnmatchedBlockEndDelimiter editor editor.CaretOffset "(" ")" with
-            | Some jumpPos -> jumpPos, jumpPos
+            | Some jumpPos -> editor.CaretOffset, jumpPos
             | None -> noOp
         | Jump (ToMark mark) ->
             if editor.FileName.FullPath.ToString() = mark.FileName then
@@ -1387,8 +1386,12 @@ module Vim =
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
             | NormalMode, [ "d"; "g" ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
-            | NormalMode, [ "[" ] -> wait
-            | NormalMode, [ "]" ] -> wait
+            | NotInsertMode, [ "[" ] -> wait
+            | NotInsertMode, [ "]" ] -> wait
+            | NotInsertMode, [ "d"; "]" ] -> wait
+            | NotInsertMode, [ "d"; "[" ] -> wait
+            | NotInsertMode, [ "c"; "[" ] -> wait
+            | NotInsertMode, [ "c"; "]" ] -> wait
             | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
             | NotInsertMode, Movement m -> [ run Move m ]
             | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
@@ -1467,8 +1470,8 @@ module Vim =
             | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
             | NotInsertMode, [ Action action; "i"; "W" ] -> [ run action InnerWORD ]
             | NotInsertMode, [ Action action; "a"; "W" ] -> [ run action AWORD ]
-            | NotInsertMode, [Action action; "a"; "t"] -> [ run action ATag ]
-            | NotInsertMode, [Action action; "i"; "t"] -> [ run action InnerTag ]
+            | NotInsertMode, [ Action action; "a"; "t" ] -> [ run action ATag ]
+            | NotInsertMode, [ Action action; "i"; "t" ] -> [ run action InnerTag ]
             | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
             | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
             | VisualMode, [ "i"; "W" ] -> [ run Visual InnerWORD ]
