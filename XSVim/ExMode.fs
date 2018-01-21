@@ -95,6 +95,14 @@ module exMode =
                         do! forceClose()
                     } |> Async.StartImmediate
                     normalMode, resetKeys
+                | ':', "vs"
+                | ':', "vsplit"
+                | ':', "sp"
+                | ':', "split" ->
+                    let notebooks = Window.getNotebooks()
+                    if notebooks.Length < 2 then
+                        dispatchCommand "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode"
+                    normalMode, resetKeys
                 | ':', _  ->
                     { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
                     , resetKeys

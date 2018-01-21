@@ -5,7 +5,7 @@ open MonoDevelop
 [<assembly:Addin (
   "XSVim",
   Namespace = "XSVim",
-  Version = "0.47.1"
+  Version = "0.48.0"
 )>]
 
 [<assembly:AddinName ("Vim")>]
