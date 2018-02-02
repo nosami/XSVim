@@ -321,7 +321,7 @@ module VimHelpers =
         let search = seq { pos .. -1 .. 0 } |> Seq.tryFind(fun index -> editor.[index] = '<')
         match search with
         | Some startTagStart -> 
-            let m = Regex.Match(editor.GetTextBetween(startTagStart, editor.Length), "<([\w|:|\.]+).*?>")
+            let m = Regex.Match(editor.GetTextBetween(startTagStart, editor.Length), "<([\w|:|\.]+).*?>", RegexOptions.Singleline)
             if m.Success then 
                 let tagName = m.Groups.[1].Value;
                 let endTag = "</" + tagName + ">"
