@@ -46,6 +46,14 @@ module ``Text object selection tests`` =
             assertText ".a_8$ b" "caw" ".|b"
 
         [<Test>]
+        let ``daw on a word delimited by punctuation``() =
+            assertText "w1.w2$.w3" "daw" "w1..$w3"
+
+        [<Test>]
+        let ``caw on a word delimited by punctuation``() =
+            assertText "w1(w2$)w3" "caw" "w1(|)w3"
+
+        [<Test>]
         let ``daw on sequence of other characters``() =
             assertText "a ~!@#%^$&*=+:;?/<>(){}b " "daw" "ab$ "
 
