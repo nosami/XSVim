@@ -305,7 +305,7 @@ module VimHelpers =
                 |> Seq.tryFind(fun index -> not (Char.IsWhiteSpace editor.[index-1]))
                 |> Option.defaultValue line.Offset
             start, wordEnd
-        | _ -> wordStart, wordEnd - 1
+        | _ -> wordStart, wordEnd
 
     let getWordRange (editor:TextEditor) fWordChar =
         let wordStart = findCurrentWordStart editor fWordChar
