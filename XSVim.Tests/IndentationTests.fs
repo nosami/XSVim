@@ -49,3 +49,19 @@ module ``Indentation tests`` =
     [<Test>]
     let ``>2G indents to line 2``() =
         assertText "abc\ndef\ngh$i" ">2G" "abc\n    def\n    gh$i"
+
+    [<Test>]
+    let ``== autoindents line``() =
+        assertText "abc\n    def\ngh$i" "==" "abc\n    def\n    g$hi"
+
+    [<Test>]
+    let ``= autoindents selection``() =
+        assertText "abc\n    def\ngh$i" "V=" "abc\n    def\n    g$hi"
+
+    [<Test>]
+    let ``= autoindents multiple line selection``() =
+            assertText "abc\n    de$f\n   ghi" "Vj=" "abc\nd$ef\nghi"
+
+    [<Test>]
+    let ``=gg indents to top of file``() =
+        assertText "abc\n  def\n  gh$i" "=gg" "a$bc\ndef\nghi"

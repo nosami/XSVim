@@ -910,6 +910,22 @@ module Vim =
                     EditActions.UnIndentSelection editor
                     editor.ClearSelection()
                     vimState
+                | EqualIndent ->
+                    // Always work top to bottom
+                    let start, finish = min start finish, max start finish
+
+                    let startLine = editor.GetLineByOffset(start)
+                    let endLine = editor.GetLineByOffset(finish).LineNumber
+
+                    for line in [startLine.LineNumber..endLine] do
+                        let currentIndent = editor.GetLineIndent (line)
+                        let newIndent = editor.IndentationTracker.GetIndentationString(line-1)
+                        editor.ReplaceText(editor.GetLine(line).Offset, currentIndent.Length, newIndent)
+
+                    editor.CaretOffset <-
+                        let startLine = editor.GetLineByOffset(start)
+                        startLine.Offset + editor.GetLineIndent(startLine).Length
+                    vimState
                 | Substitute ->
                     let newState = delete vimState start finish
                     switchToInsertMode editor newState isInitial
@@ -1269,6 +1285,7 @@ module Vim =
     let (|IndentChar|_|) = function
         | ">" -> Some Indent
         | "<" -> Some UnIndent
+        | "=" -> Some EqualIndent
         | _ -> None
 
     let (|FindChar|_|) = function
@@ -1382,6 +1399,7 @@ module Vim =
                 [ runOnce indent (Jump (StartOfLineNumber lineNumber)) ]
             | NormalMode, [ ">"; ">" ] -> [ run Indent WholeLine ]
             | NormalMode, [ "<"; "<" ] -> [ run UnIndent WholeLine ]
+            | NormalMode, [ "="; "=" ] -> [ run EqualIndent WholeLine ]
             | NormalMode, [ "V" ] ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
@@ -1542,6 +1560,7 @@ module Vim =
             | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter; switchMode NormalMode ]
             | VisualModes, [ ">" ] -> [ run (Func EditActions.IndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "<" ] -> [ run (Func EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]

@@ -150,6 +150,7 @@ type CommandType =
     | ChangeState of VimState
     | Indent
     | UnIndent
+    | EqualIndent
 
 and VimAction = {
     repeat: int option
