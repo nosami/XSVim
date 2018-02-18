@@ -913,7 +913,11 @@ module Vim =
                 | EqualIndent ->
                     // Always work top to bottom
                     let start, finish = min start finish, max start finish
-
+                    let finish =
+                        if editor.[finish-1] = '\n' then
+                            finish - 1
+                        else
+                            finish
                     let startLine = editor.GetLineByOffset(start)
                     let endLine = editor.GetLineByOffset(finish).LineNumber
 
