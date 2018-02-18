@@ -60,7 +60,7 @@ module ``Indentation tests`` =
 
     [<Test>]
     let ``= autoindents multiple line selection``() =
-            assertText "abc\n    de$f\n   ghi" "Vj=" "abc\nd$ef\nghi"
+            assertText "abc\n    de$f\n   ghi\n   jkl" "Vj=" "abc\nd$ef\nghi\n   jkl"
 
     [<Test>]
     let ``=gg indents to top of file``() =
