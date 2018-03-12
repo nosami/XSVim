@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<scheme version="1.0">
+    <!-- Vim keybinding scheme containing all the keys that
+         conflict with keybindings in the Visual Studio keybinding scheme-->
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.DeleteRightChar" shortcut="" />
+    <binding command="XSVim.HalfPageDown" shortcut="Control+D" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.LineUp" shortcut="" />
+    <binding command="XSVim.FindFile" shortcut="Control+P" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.CharRight" shortcut="" />
+    <binding command="XSVim.PageDown" shortcut="Control+F" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.CharLeft" shortcut="" />
+    <binding command="XSVim.PageUp" shortcut="Control+B" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.LineDown" shortcut="" />
+    <binding command="XSVim.DynamicAbbrev" shortcut="Control+N" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.InsertNewLinePreserveCaretPosition" shortcut="" />
+    <binding command="XSVim.NavigateBackwards" shortcut="Control+O" />
+    <binding command="MonoDevelop.Ide.CodeFormatting.CodeFormattingCommands.FormatBuffer" shortcut="" />
+    <binding command="XSVim.NavigateForwards" shortcut="Control+I" />
+    <binding command="MonoDevelop.Ide.Commands.TextEditorCommands.LineStart" shortcut = "Meta+Left"/> <!-- removed ctrl-a -->
+    <binding command="XSVim.DecrementNumber" shortcut="Control+A" />
+    <binding command="XSVim.IncrementNumber" shortcut="Control+X" />
+    <binding command="XSVim.Escape" shortcut="Escape Control+C Control+[" />
+</scheme>
