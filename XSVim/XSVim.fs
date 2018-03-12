@@ -17,40 +17,8 @@ module VimHelpers =
     let commandManager = IdeApp.CommandService |> Option.ofObj
        
     let dispatchCommand command =
-
         commandManager
         |> Option.iter(fun c -> c.DispatchCommand command |> ignore)
-
-    let unregisterConflictingCommands() =
-        match commandManager, Platform.IsMac with
-        | Some commandManager', true ->
-            let commands = commandManager'.GetCommands() |> Array.ofSeq
-            [
-                "Control+P"
-                "Control+D"
-                "Control+U"
-                "Control+F"
-                "Control+B"
-                "Control+W"
-                "Control+V"
-                "Control+C"
-                "Control+R"
-                "Control+Y"
-                "Control+E"
-                "Control+A"
-                "Control+X"
-                "Control+N"
-                "Control+O"
-                "Control+I"
-                "Control+["
-            ]
-            |> List.iter(fun k ->
-                commands
-                |> Array.tryFind(fun command -> command.AccelKey = k)
-                |> Option.iter commandManager'.UnregisterCommand)
-
-        | _ -> ()
-    unregisterConflictingCommands()
 
     let closingBraces = [')'; '}'; ']'] |> set
     let openingbraces = ['('; '{'; '[' ] |> set

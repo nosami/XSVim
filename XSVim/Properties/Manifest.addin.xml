@@ -1,19 +1,37 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <ExtensionModel>
-	<Runtime>
-	</Runtime>
+    <Runtime>
+    </Runtime>
     <Extension path="/MonoDevelop/Ide/TextEditorExtensions">
         <Class class="XSVim.XSVim" />
     </Extension>
     <Extension path = "/MonoDevelop/Ide/Commands">
-        <Command id = "MonoDevelop.Ide.Commands.EditCommands.Undo"
-            _label = "_Undo"
-            icon = "gtk-undo"
-            _description = "Undo (vim)"
-            shortcut = "Control|Z"
-            macShortcut = "Meta|Z" />
+        <Category _name = "Vim" id = "Vim" >
+            <!-- Override undo to use the vim undo stack -->
+            <Command id = "MonoDevelop.Ide.Commands.EditCommands.Undo"
+                _label = "_Undo"
+                icon = "gtk-undo"
+                _description = "Undo (vim)"
+                shortcut = "Control|Z"
+                macShortcut = "Meta|Z" />
+            <!-- Commands that may conflict with built in keybinding schemes -->
+            <Command id="XSVim.HalfPageDown" _label="Half page down" _description="Move half a page down" shortcut="Control|D" />
+            <Command id="XSVim.FindFile" _label="Find file" shortcut="Control|P" />
+            <Command id="XSVim.PageDown" _label="Page down" shortcut="Control|F" />
+            <Command id="XSVim.PageUp" _label="Page up" shortcut="Control|B" />
+            <Command id="XSVim.DynamicAbbrev" _label="Complete from file" shortcut="Control|N" />
+            <Command id="XSVim.NavigateBackwards" _label="Navigate Backwards" shortcut="Control|O" />
+            <Command id="XSVim.NavigateForwards" _label="Navigate Forwards" shortcut="Control|I" />
+            <Command id="XSVim.NavigateForwards" _label="Navigate Forwards" shortcut="Control|I" />
+            <Command id="XSVim.IncrementNumber" _label="Increment Number" shortcut="Control|X" />
+            <Command id="XSVim.DecrementNumber" _label="Decrement Number" shortcut="Control|A" />
+            <Command id="XSVim.Escape" _label="Return to normal mode" shortcut="Escape Control|C Control|[" />
+        </Category>
     </Extension>
     <Extension path="/MonoDevelop/Ide/GlobalOptionsDialog/Other">
         <Section id="VimSettings" _label="Vim Settings" class = "XSVim.SettingsPanel" icon="md-prefs-source" />
+    </Extension>
+    <Extension path = "/MonoDevelop/Ide/KeyBindingSchemes">
+        <Scheme id="Vim" _name = "Visual Studio + Vim" resource="KeyBindingSchemeVim.xml" forMac="true" />
     </Extension>
 </ExtensionModel>
