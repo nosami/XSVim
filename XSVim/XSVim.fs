@@ -1479,7 +1479,7 @@ module Vim =
             | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction Move) Nothing ]
             | NotInsertMode, [ ":" ] -> [ switchMode (ExMode ':') ]
             | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction action) Nothing ]
-            | NormalMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
+            | NormalMode, [ "z"; "z" ] -> [ dispatch ViewCommands.CenterAndFocusCurrentDocument ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
@@ -1540,6 +1540,7 @@ module Vim =
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
             | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
             | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
+            | NotInsertMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
             | NotInsertMode, [ "g"; "v" ] ->
                 match state.lastSelection with
                 | Some selection -> [ run Move (Offset selection.start)
