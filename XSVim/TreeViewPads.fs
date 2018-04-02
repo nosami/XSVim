@@ -2,7 +2,6 @@
 open System
 open Gtk
 open MonoDevelop.Ide
-open MonoDevelop.Ide.Gui
 open MonoDevelop.Ide.Gui.Components
 open MonoDevelop.Ide.Gui.Pads
 open Reflection
@@ -14,10 +13,16 @@ module treeViewPads =
         | Some workbench ->
             workbench.Pads
             |> List.ofSeq
-            |> List.map(fun pad -> pad.Content)
-            |> List.filter(fun pad -> pad :? TreeViewPad)
-            |> Seq.cast<TreeViewPad>
-        | None -> Seq.empty
+            |> List.choose(fun pad ->
+                try
+                    // fetching pad.Content can throw when there is an exception
+                    // when initializing the pad
+                    match pad.Content with
+                    | :? TreeViewPad as pad -> Some pad
+                    | _ -> None
+                with
+                | _ -> None)
+        | None -> List.empty
 
     let select (tree:TreeView) (iter:TreeIter ref) =
         tree.Selection.UnselectAll()
