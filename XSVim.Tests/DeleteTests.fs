@@ -84,6 +84,10 @@ $    bar
         assertText "abc$ def\nghi" "D" "ab$\nghi"
 
     [<Test>]
+    let ``Delete to end of line from start keeps caret on current line``() =
+        assertText "abc\nd$ef\nghi" "D" "abc\n\n$ghi"
+
+    [<Test>]
     let ``Deletes word``() =
         assertText "a$bc     def" "dw" "d$ef"
 

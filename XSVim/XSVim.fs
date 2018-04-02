@@ -890,8 +890,11 @@ module Vim =
                                 else
                                     line
                             line.Offset + editor.GetLineIndent(line.LineNumber).Length
-                        | false when editor.CaretOffset < editor.Length ->
-                            if editor.[editor.CaretOffset] = '\n' || editor.[editor.CaretOffset] = '\r' then
+                        | false when editor.CaretOffset < editor.Length && editor.CaretOffset > 0 ->
+                            let charAtCaret = editor.[editor.CaretOffset]
+                            let previous = editor.[editor.CaretOffset - 1]
+
+                            if isEOLChar charAtCaret && not (isEOLChar previous) then
                                 editor.CaretOffset - 1
                             else
                                 editor.CaretOffset
