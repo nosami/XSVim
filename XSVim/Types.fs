@@ -151,6 +151,7 @@ type CommandType =
     | Indent
     | UnIndent
     | EqualIndent
+    | SelectionOtherEnd
 
 and VimAction = {
     repeat: int option

@@ -1014,6 +1014,16 @@ module Vim =
                 | Put OverSelection ->
                     EditActions.ClipboardPaste editor
                     { vimState with mode = NormalMode }
+                | SelectionOtherEnd ->
+                    let offset = editor.CaretOffset
+                    editor.CaretOffset <- vimState.visualStartOffset
+                    let start, finish =
+                        if offset > vimState.visualStartOffset then
+                            vimState.visualStartOffset, offset + 1
+                        else
+                            offset, vimState.visualStartOffset + 1
+                    editor.SetSelection(start, finish)
+                    { vimState with visualStartOffset = offset }
                 | Visual ->
                     editor.SetSelection(start, finish); vimState
                 | Undo -> EditActions.Undo editor; editor.ClearSelection(); vimState
@@ -1562,6 +1572,7 @@ module Vim =
             | VisualModes, [ "D" ] -> [ run Delete EndOfLine; switchMode NormalMode ]
             | VisualModes, [ "c" ]
             | VisualModes, [ "s" ] -> [ run Change SelectedText ]
+            | VisualModes, [ "o" ] -> [ run SelectionOtherEnd Nothing ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]

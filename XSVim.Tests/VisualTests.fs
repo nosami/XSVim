@@ -75,3 +75,12 @@ module ``Visual tests`` =
     let ``v]) goes to next unmatched )``() =
         let _, state = test "if (a$ == (b)c)" "v])y" 
         getClipboard() |> should equal "a == (b)c)"
+
+    [<Test>]
+    let ``caret moves to other end of selection``() =
+        assertText "abc$def" "vlllo" "abc$def"
+
+    [<Test>]
+    let ``selection is not affected when you move to other end``() =
+        let _, state = test "abc$def" "vllloy"
+        getClipboard() |> should equal "cde"
