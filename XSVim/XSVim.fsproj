@@ -70,9 +70,6 @@
     <Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
     <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
     <Reference Include="Mono.Cairo" />
-    <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.3.4\lib\net45\FSharp.Core.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.fs" />
@@ -87,7 +84,6 @@
     <Compile Include="TreeViewPads.fs" />
     <Compile Include="XSVim.fs" />
     <Compile Include="Addin.fs" />
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(FSharpTargetsPath)" />
 </Project>
