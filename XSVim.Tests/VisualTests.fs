@@ -83,4 +83,4 @@ module ``Visual tests`` =
     [<Test>]
     let ``selection is not affected when you move to other end``() =
         let _, state = test "abc$def" "vllloy"
-        getClipboard() |> should equal "cde"
+        getClipboard() |> should equal "cdef"
