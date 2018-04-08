@@ -1541,6 +1541,9 @@ module Vim =
             | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
             | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
             | NotInsertMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
+            | NotInsertMode, [ "z"; "a" ] -> [ dispatch EditCommands.ToggleAllFoldings ]
+            | NotInsertMode, [ "z"; "o" ] -> [ dispatch EditCommands.ToggleFolding ]
+            | NotInsertMode, [ "z"; "c" ] -> [ dispatch EditCommands.ToggleFolding ]
             | NotInsertMode, [ "g"; "v" ] ->
                 match state.lastSelection with
                 | Some selection -> [ run Move (Offset selection.start)
