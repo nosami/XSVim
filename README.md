@@ -28,6 +28,7 @@ Most Vim commands should work. If you see something that doesn't work, please fi
 - `gd` - Goto declaration
 - `gu` - Find usages
 - `gb` - Go to base symbol
+- `gh` - Show tooltip at current caret location (`G`o `H`over)
 - `hjkl` support on the Solution Explorer pad and Test Explorer pad. Pressing `<esc>` on these will switch focus back to the last editor window. This feature does not yet work on the Search Results pad.
 
 # Looking for the latest release?
