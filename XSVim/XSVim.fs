@@ -1538,6 +1538,8 @@ module Vim =
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
             | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
+            | NotInsertMode, [ "g"; "u" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.FindReferences" ]
+            | NotInsertMode, [ "g"; "b" ] -> [ dispatch "MonoDevelop.RefactoryCommands.NavigationCommands.FindBaseSymbols" ]
             | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
             | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
             | NotInsertMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
