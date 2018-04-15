@@ -100,6 +100,8 @@ type XSVim() =
 
             x.State <- newState
             match oldState.mode, newState.mode, config.insertModeEscapeKey with
+            | InsertMode, InsertMode, _ when descriptor.ModifierKeys = ModifierKeys.Control && descriptor.KeyChar = 'n' ->
+                false // Hack: Ctrl-N seems to be hardwired inside VS somehow to Emacs' line down
             | InsertMode, InsertMode, None ->
                 base.KeyPress descriptor
             | InsertMode, InsertMode, Some escapeCombo when descriptor.KeyChar.ToString() <> escapeCombo.insertModeEscapeKey1 ->
