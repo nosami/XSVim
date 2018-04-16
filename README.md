@@ -30,7 +30,9 @@ Most Vim commands should work. If you see something that doesn't work, please fi
 - `gb` - Go to base symbol
 - `gh` - Show tooltip at current caret location (`G`o `H`over)
 - `hjkl` support on the Solution Explorer pad and Test Explorer pad. Pressing `<esc>` on these will switch focus back to the last editor window. This feature does not yet work on the Search Results pad.
+- Insert mode escape binding. See example screenshot to see how to configure `jj` to escape when in insert mode.
 
+![Insert mode escape screenshot](screenshots/InsertModeMapping.png)
 # Looking for the latest release?
 
 Check the [release page](https://github.com/nosami/XSVim/releases) as there is usually a more recent version of the addin here than on the Visual Studio for Mac feed. Grab the .mpack file and install it via Visual Studio -> Extensions -> Install from file
