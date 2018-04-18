@@ -711,10 +711,18 @@ module Vim =
         let linewise = isLineWise vimState command
         { linewise=linewise; content=editor.SelectedText }
 
-    let setCaretMode editor state caretMode =
-        match state.mode, caretMode with
-        | NotInsertMode, Insert -> EditActions.SwitchCaretMode editor
-        | InsertMode, Block -> EditActions.SwitchCaretMode editor
+    let getCaretMode (editor:TextEditor) =
+        let caret = editor.Carets.[0]
+        let caretMode:bool = caret?IsInInsertMode
+        match caretMode with
+        | true -> Insert
+        | false -> Block
+
+    let setCaretMode (editor:TextEditor) caretMode =
+        let currentMode = getCaretMode editor
+        match currentMode, caretMode with
+        | Block, Insert -> EditActions.SwitchCaretMode editor
+        | Insert, Block -> EditActions.SwitchCaretMode editor
         | _ -> ()
 
     let setAutoCompleteOnKeystroke value =
@@ -729,7 +737,7 @@ module Vim =
                 state.undoGroup
 
         setAutoCompleteOnKeystroke true
-        setCaretMode editor state Insert
+        setCaretMode editor Insert
         { state with mode = InsertMode; statusMessage = "-- INSERT --" |> Some; keys = []; undoGroup = group }
 
     let switchToNormalMode (editor:TextEditor) vimState =
@@ -740,7 +748,7 @@ module Vim =
             | _ -> vimState.lastSelection
         editor.ClearSelection()
         setAutoCompleteOnKeystroke false
-        setCaretMode editor vimState Block
+        setCaretMode editor Block
         // stupid hack to prevent intellisense in normal mode
         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
         if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
@@ -1073,7 +1081,7 @@ module Vim =
                         else
                             state
                     | VisualMode | VisualLineMode | VisualBlockMode ->
-                        setCaretMode editor vimState Block
+                        setCaretMode editor Block
                         let start, finish = VimHelpers.getRange vimState editor command
                         let statusMessage =
                             match mode with

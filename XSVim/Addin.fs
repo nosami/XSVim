@@ -37,10 +37,15 @@ type XSVim() =
 
         initConfig()
         if not (Vim.editorStates.ContainsKey x.FileName) then
-            Vim.editorStates.Add(x.FileName, VimState.Default)
             let editor = x.Editor
+            let state =
+                match Vim.getCaretMode editor with
+                | Insert -> { VimState.Default with mode = InsertMode }
+                | Block -> VimState.Default
+
+            let state = Vim.switchToNormalMode editor state
+            Vim.editorStates.Add(x.FileName, state)
             editor.GrabFocus()
-            EditActions.SwitchCaretMode editor
             let caretChanged =
                 editor.CaretPositionChanged.Subscribe
                     (fun _e ->
