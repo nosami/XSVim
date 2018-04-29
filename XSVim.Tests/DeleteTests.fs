@@ -64,6 +64,14 @@ $    bar
         assertText "abc$def" "x" "abd$ef"
 
     [<Test>]
+    let ``Delete char at EOL``() =
+        assertText "abcdef$\n" "xx" "abcd$\n"
+
+    [<Test>]
+    let ``x with multiplier stops at EOL``() =
+        assertText "abcdef$" "4x" "abcde$"
+
+    [<Test>]
     let ``Delete char to left of caret``() =
         assertText "abc$def" "X" "ac$def"
 
