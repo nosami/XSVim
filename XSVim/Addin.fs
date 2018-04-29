@@ -3,17 +3,17 @@ open System
 open System.Collections.Generic
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
-open MonoDevelop.Core.Text
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
+open MonoDevelop.Ide.FindInFiles
 
 type XSVim() =
     inherit TextEditorExtension()
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
     let mutable config = { insertModeEscapeKey = None }
-
+    let searchPads = HashSet<string>() 
     let initConfig() =
         let mapping = SettingsPanel.InsertModeEscapeMapping()
         if mapping.Length = 2 then
@@ -26,6 +26,24 @@ type XSVim() =
         else
             config <- { insertModeEscapeKey = None }
 
+    let initializeSearchResultsPads() =
+        IdeApp.Workbench
+        |> Option.ofObj
+        |> Option.iter(fun workbench ->
+            workbench.Pads
+            |> Seq.iter(fun pad ->
+                try
+                    // fetching pad.Content can throw when there is an exception
+                    // when initializing the pad
+                    tryUnbox<SearchResultPad> pad.Content
+                    |> Option.iter(fun pad ->
+                        let padId = pad.Window.Id
+                        if not (searchPads.Contains padId) then
+                            searchPads.Add padId |> ignore
+                            searchResultsPad.initialize pad)
+                with
+                | _ -> ()))
+
     member x.FileName = x.Editor.FileName.FullPath.ToString()
 
     member x.State
@@ -34,6 +52,7 @@ type XSVim() =
 
     override x.Initialize() =
         treeViewPads.initialize()
+        x.Editor.FocusLost.Add(fun _ -> initializeSearchResultsPads())
 
         initConfig()
         if not (Vim.editorStates.ContainsKey x.FileName) then

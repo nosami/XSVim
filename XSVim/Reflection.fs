@@ -37,9 +37,9 @@ module Reflection =
 
             // Static member call (on value of type System.Type)?
             if (typeof<System.Type>).IsAssignableFrom(o.GetType()) then
-              let methods = (unbox<Type> o).GetMethods(staticFlags) |> Array.map asMethodBase
-              let ctors = (unbox<Type> o).GetConstructors(ctorFlags) |> Array.map asMethodBase
-              Array.concat [ methods; ctors ], null, args
+                let methods = (unbox<Type> o).GetMethods(staticFlags) |> Array.map asMethodBase
+                let ctors = (unbox<Type> o).GetConstructors(ctorFlags) |> Array.map asMethodBase
+                Array.concat [ methods; ctors ], null, args
             else
               o.GetType().GetMethods(instanceFlags) |> Array.map asMethodBase, o, args
 
@@ -60,8 +60,8 @@ module Reflection =
         // The result type is not an F# function, so we're getting a property
         // When the 'o' object is 'System.Type', we access static properties
         let typ, flags, instance =
-          if (typeof<System.Type>).IsAssignableFrom(o.GetType())
-            then unbox o, staticFlags, null
+            if (typeof<System.Type>).IsAssignableFrom(o.GetType())
+                then unbox o, staticFlags, null
             else o.GetType(), instanceFlags, o
 
         // Find a property that we can call and get the value
@@ -71,17 +71,24 @@ module Reflection =
           let nested = typ.Assembly.GetType(typ.FullName + "+" + name)
           // Return nested type if we found one
           if nested = null then
-            failwithf "Property or nested type '%s' not found in '%s'." name typ.Name
+              failwithf "Property nested type '%s' not found in '%s'." name typ.Name
           elif not ((typeof<'R>).IsAssignableFrom(typeof<System.Type>)) then
-            let rname = (typeof<'R>.Name)
-            failwithf "Cannot return nested type '%s' as a type '%s'." nested.Name rname
+              let rname = (typeof<'R>.Name)
+              failwithf "Cannot return nested type '%s' as a type '%s'." nested.Name rname
           else nested |> box |> unbox<'R>
         else
-          // Call property and return result if we found some
-          let meth = prop.GetGetMethod(true)
-          if prop = null then failwithf "Property '%s' found, but doesn't have 'get' method." name
-          try meth.Invoke(instance, [| |]) |> unbox<'R>
-          with _ -> failwithf "Failed to get value of '%s' property (of type '%s')" name typ.Name
+            if prop = null then
+                // if we didn't find a nested type then search for a field
+                let field = typ.GetField(name, flags)
+                if not (isNull field) then
+                    field.GetValue(o) |> unbox<'R>
+                else
+                    failwithf "Property '%s' found, but doesn't have 'get' method." name
+            else
+                // Call property and return result if we found some
+                let meth = prop.GetGetMethod(true)
+                try meth.Invoke(instance, [| |]) |> unbox<'R>
+                with _ -> failwithf "Failed to get value of '%s' property (of type '%s')" name typ.Name
 
     let (?<-) (this:obj) (property:string) (value:'Value) =
       this.GetType().GetProperty(property).SetValue(this, value, null)
