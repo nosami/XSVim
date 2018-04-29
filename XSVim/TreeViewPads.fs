@@ -24,9 +24,12 @@ module treeViewPads =
                 | _ -> None)
         | None -> List.empty
 
-    let select (tree:TreeView) (iter:TreeIter ref) =
-        tree.Selection.UnselectAll()
-        tree.Selection.SelectIter iter.Value
+    let select (tree:TreeView) path =
+        if tree.Selection.GetSelectedRows().Length > 0 then
+            tree.Selection.UnselectAll()
+        let column = tree.Columns.[0]
+        tree.Selection.SelectPath path
+        tree.SetCursor(path, column, false)
 
     let getSelectedNode (pad:TreeViewPad) =
         let (node:ITreeNavigator) = pad.TreeView?GetSelectedNode()
@@ -35,75 +38,67 @@ module treeViewPads =
     let getPath (tree:TreeView) =
         tree.Selection.GetSelectedRows().[0]
 
-    let getIter (store:TreeStore) path =
+    let pathExists (store:TreeStore) path =
         let iter : TreeIter ref = ref Unchecked.defaultof<_>
-        let res = store.GetIter (iter, path)
-        res, iter
+        store.GetIter (iter, path)
 
     let moveDown (tree:TreeView) (store:TreeStore) pad =
         let selected = tree.Selection.GetSelectedRows()
-        let getIter = getIter store
-        if selected.Length = 1 then
+        let pathExists = pathExists store
+        if selected.Length > 0 then
             let path = selected.[0]
-            let _res, iterOriginal = getIter path
             path.Down()
             let node = getSelectedNode pad
-            let res, iter = getIter path
+            let res = pathExists path
             if res && node.Expanded then
-                select tree iter
+                select tree path
             else
                 let path = getPath tree
                 path.Next()
-                let res, iter = getIter path
+                let res = pathExists path
                 if res then
-                    select tree iter
+                    select tree path
                 else
                     // parent, then sibling
                     let path = getPath tree
                     let _res = path.Up()
-                    let res, iter = getIter path
+                    let res = pathExists path
                     if res then
-                        select tree iter
-                        let path = getPath tree
                         path.Next()
-                        let res, iter = getIter path
+                        let res = pathExists path
                         if res then
-                            select tree iter
-                        else
-                            // must be at the bottom, so select original node
-                            select tree iterOriginal
+                            select tree path
 
     let moveUp (tree:TreeView) (store:TreeStore) pad =
         let selected = tree.Selection.GetSelectedRows()
-        let getIter = getIter store
-        if selected.Length = 1 then
+        let pathExists = pathExists store
+        if selected.Length > 0 then
             let path = selected.[0]
             let prev = path.Prev()
-            let res, iter = getIter path
+            let res = pathExists path
             if prev && res then
-                select tree iter
+                select tree path
                 let node = getSelectedNode pad
                 if node.Expanded then
                     // move to last child
                     let path = getPath tree
                     path.Down()
-                    let _res, iter = getIter path
-                    let rec moveNext lastIter =
+                    let rec moveNext lastPath =
                         path.Next()
-                        let res, iter = getIter path
+                        let res = pathExists path
                         if res then
-                            moveNext iter
+                            moveNext (path.Copy())
                         else
-                            select tree lastIter
+                            select tree lastPath
 
-                    moveNext iter
+                    moveNext (path.Copy())
             else
                 let path = getPath tree
                 if path.Depth > 1 then
                     let up = path.Up()
-                    let res, iter = getIter path
+                    let res = pathExists path
                     if res && up then
-                        select tree iter
+                        select tree path
 
     let mutable initialized = false
 
