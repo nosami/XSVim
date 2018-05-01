@@ -59,6 +59,36 @@ type Jump =
     | ParagraphForwards
     | ParagraphBackwards
 
+type VimKey =
+    | Esc
+    | Ret
+    | Left
+    | Down
+    | Up
+    | Right
+    | Backspace
+    | Delete
+    | Control of char
+    | Super of char
+    | Key of char
+    | EscapeKey of char // The key is part of an insert escape mapping
+
+    override x.ToString() =
+        match x with
+        | Esc -> "<esc>"
+        | Backspace -> "<bs>"
+        | Ret -> "<ret>"
+        | Delete -> "<del>"
+        | Control k -> sprintf "<C-%c>" k
+        | Super k -> sprintf "<D-%c>" k
+        | Down -> "<down>"
+        | Up -> "<up>"
+        | Left -> "<left>"
+        | Right -> "<right>"
+        | EscapeKey c -> string c
+        | Key c -> string c
+
+
 type TextObject =
     | Jump of Jump
     | Character
@@ -132,7 +162,7 @@ type CommandType =
     | DoNothing
     | Star of BeforeOrAfter
     | ToggleCase
-    | InsertChar of string
+    | InsertChar of VimKey
     | IncrementNumber
     | DecrementNumber
     | SetMark of string
@@ -164,7 +194,7 @@ and Macro = Macro of char
 and VimSelection = { start: int; finish: int; mode: VimMode }
 
 and VimState = {
-    keys: string list
+    keys: VimKey list
     mode: VimMode
     visualStartOffset: int
     lastSelection: VimSelection option

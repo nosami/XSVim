@@ -5,7 +5,7 @@ open NUnit.Framework
 [<TestFixture>]
 module ``Key parsing tests`` =
     let test keys =
-        let keys = [for c in keys -> c.ToString()]
+        let keys = [for c in keys -> Key c]
         let state = { VimState.Default with keys=keys }
         let config = { insertModeEscapeKey = None }
         let action, _state = Vim.parseKeys state config

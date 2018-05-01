@@ -41,6 +41,14 @@ module ``Miscellaneous tests`` =
         assertText " $" "iabc <esc>." "abcabc  $ "
 
     [<Test>]
+    let ``backspace is repeated``() =
+        assertText " $" "iabc<bs> <esc>." "abab  $ "
+
+    [<Test>]
+    let ``delete key is repeated``() =
+        assertText "d$" "i<del>abc<esc>." "ababc$"
+
+    [<Test>]
     let ``<C-[> escapes``() =
         assertText "    abc$" "i<C-[>" "    ab$c"
 
