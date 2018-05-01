@@ -429,7 +429,7 @@ module VimHelpers =
         | ToCharExclusiveBackwards c ->
             let startOffset =
                 match vimState.keys with
-                | ";" :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                | Key ';' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
                     editor.CaretOffset-1
                 | _ -> editor.CaretOffset
             match findStringCharBackwardsOnLine editor line startOffset c with
@@ -442,7 +442,7 @@ module VimHelpers =
         | ToCharExclusive c ->
             let startOffset =
                 match vimState.keys with
-                | ";" :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                | Key ';' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
                     editor.CaretOffset+1
                 | _ -> editor.CaretOffset
             match findCharForwardsOnLine editor line startOffset c with
@@ -608,7 +608,7 @@ module VimHelpers =
         | Jump (ToSearch search) ->
             let startOffset =
                 match vimState.keys with
-                | ["n"] | ["N"] -> editor.CaretOffset + 1
+                | [Key 'n'] | [Key 'N'] -> editor.CaretOffset + 1
                 | _ -> editor.CaretOffset
             let offset = findNextSearchOffset editor search startOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
@@ -754,6 +754,21 @@ module Vim =
         if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
         { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
+
+    let processVimKey (editor:TextEditor) =
+        function
+        | Key k -> editor.InsertAtCaret (string k)
+        | VimKey.Delete -> EditActions.Delete editor
+        | VimKey.Backspace -> EditActions.Backspace editor
+        | VimKey.Left -> EditActions.MoveCaretLeft editor
+        | VimKey.Right -> EditActions.MoveCaretRight editor
+        | VimKey.Up -> EditActions.MoveCaretUp editor
+        | VimKey.Down -> EditActions.MoveCaretDown editor
+        | Ret -> EditActions.InsertNewLine editor
+        | Super _
+        | Esc
+        | EscapeKey _
+        | Control _ -> ()
 
     let runCommand vimState editor command =
         let delete state start finish =
@@ -1153,7 +1168,7 @@ module Vim =
                 | InsertChar c ->
                     match vimState.mode with
                     | InsertMode ->
-                        editor.InsertAtCaret c
+                        processVimKey editor c
                         vimState
                     | _ -> vimState
                 | IncrementNumber -> modifyNumber (fun i -> i + 1)
@@ -1381,11 +1396,10 @@ module Vim =
         match config.insertModeEscapeKey with
         | Some combo ->
             combo.insertModeEscapeKey1, combo.insertModeEscapeKey2, combo.insertModeEscapeTimeout
-        | None ->
-            "", "", 0
+        | None -> "", "", 0
 
     let parseKeys (state:VimState) (config: Config) =
-        let keyList = state.keys
+        let keyList = state.keys |> List.map string
         let numericArgument, keyList =
             match keyList, state.mode with
             | "r" :: _, _
@@ -1437,7 +1451,7 @@ module Vim =
             | InsertMode, [ c; _ ] when c = insertModeEscapeFirstChar ->
                 [ run CancelFunc Nothing
                   run (ChangeState { state with keys = [] }) Nothing
-                  typeChar insertModeEscapeFirstChar ]
+                  typeChar (Key (char insertModeEscapeFirstChar)) ]
             | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
@@ -1650,34 +1664,38 @@ module Vim =
             | _ -> resetKeys
         action, newState
 
-    let handleKeyPress state (keyPress:KeyDescriptor) editor config =
-        let insertModeEscapeFirstChar, _insertModeEscapeSecondChar, _insertModeTimeout =
-            getInsertModeEscapeCombo config
+    let keyPressToVimKey (keyPress:KeyDescriptor) =
+        match keyPress.KeyChar with
+        | c when keyPress.ModifierKeys = ModifierKeys.Control ->
+            Control c
+        | c when keyPress.ModifierKeys = ModifierKeys.Command ->
+            Super c
+        | 'z' when keyPress.ModifierKeys = ModifierKeys.Command ->
+            Key 'u'
+        | c when keyPress.KeyChar <> '\000' ->
+            Key c
+        | _ ->
+            match keyPress.SpecialKey with
+            | SpecialKey.Escape -> Esc
+            | SpecialKey.Return -> Ret
+            | SpecialKey.Left -> VimKey.Left
+            | SpecialKey.Down -> VimKey.Down
+            | SpecialKey.Up -> VimKey.Up
+            | SpecialKey.Right -> VimKey.Right
+            | SpecialKey.BackSpace -> Backspace
+            | SpecialKey.Delete -> VimKey.Delete
+            | _ -> Key keyPress.KeyChar
 
-        let newKeys, insertChar =
-            match state.mode, keyPress.KeyChar with
-            | _, c when keyPress.ModifierKeys = ModifierKeys.Control ->
-                state.keys @ [sprintf "<C-%c>" c], None
-            | _, c when keyPress.ModifierKeys = ModifierKeys.Command ->
-                state.keys @ [sprintf "<D-%c>" c], None
-            | _, 'z' when keyPress.ModifierKeys = ModifierKeys.Command ->
-                state.keys @ ["u"], None
-            | NotInsertMode, c when keyPress.KeyChar <> '\000' ->
-                state.keys @ [c |> string], None
-            | InsertMode, c when (c |> string) = insertModeEscapeFirstChar ->
-                state.keys @ [insertModeEscapeFirstChar], None
-            | InsertMode, c when state.keys |> List.tryHead = Some insertModeEscapeFirstChar ->
-                state.keys @ [c |> string], None
-            | _ ->
-                match keyPress.SpecialKey with
-                | SpecialKey.Escape -> state.keys @ ["<esc>"], None
-                | SpecialKey.Return -> state.keys @ ["<ret>"], None
-                | SpecialKey.Left -> state.keys @ ["<left>"], None
-                | SpecialKey.Down -> state.keys @ ["<down>"], None
-                | SpecialKey.Up -> state.keys @ ["<up>"], None
-                | SpecialKey.Right -> state.keys @ ["<right>"], None
-                | _ -> state.keys, Some keyPress.KeyChar
-        let newState = { state with keys = newKeys }
+    let handleKeyPress state (keyPress:KeyDescriptor) editor config =
+        let vimKey =
+            match state.mode, keyPress.KeyChar, config.insertModeEscapeKey with
+            | InsertMode, c, Some combo when (string c) = combo.insertModeEscapeKey1 ->
+                EscapeKey c
+            | InsertMode, c, Some combo when state.keys |> List.tryHead = Some (Key (char combo.insertModeEscapeKey1)) ->
+                EscapeKey c
+            | _ -> keyPressToVimKey keyPress
+
+        let newState = { state with keys = state.keys @ [ vimKey ] }
         let action, newState = parseKeys newState config
         let newState =
             match state.statusMessage, state.mode, newState.mode with
@@ -1706,7 +1724,7 @@ module Vim =
                 |> Option.iter(fun (Macro c) -> macros.[c] <- macros.[c] @ action)
                 performActions action newState false
 
-            match state.mode, newState.keys with
+            match state.mode, newState.keys |> List.map string with
             | ExMode _, [ Escape ] -> processKey()
             | ExMode _, _ ->
                 let state, actions = exMode.processKey state keyPress
@@ -1716,21 +1734,21 @@ module Vim =
         let firstAction = action |> List.head
 
         let newState =
-            match insertChar, firstAction.commandType, keyPress.KeyChar with
-            | Some c, _, _ ->
+            match state.mode, vimKey, firstAction.commandType with
+            | InsertMode, _, _ ->
                 newState.macro |> Option.iter(fun (Macro m) ->
-                    macros.[m] <- macros.[m] @ [ typeChar (c |> string) ])
-                { newState with lastAction = newState.lastAction @ [ typeChar (c |> string) ]}
-            | None, Delete, _
-            | None, Change, _
-            | None, Indent, _
-            | None, UnIndent, _
-            | None, Put _, _
-            | None, ReplaceChar _, _
-            | None, _, 'a'
-            | None, _, 'i'
-            | None, _, 'o'
-            | None, _, 'O'
-            | None, _, 'A' -> { newState with lastAction = action }
+                    macros.[m] <- macros.[m] @ [ typeChar vimKey ])
+                { newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
+            | NotInsertMode, _, Delete
+            | NotInsertMode, _, Change
+            | NotInsertMode, _, Indent
+            | NotInsertMode, _, UnIndent
+            | NotInsertMode, _, Put _
+            | NotInsertMode, _, ReplaceChar _
+            | NotInsertMode, Key 'a', _
+            | NotInsertMode, Key 'i', _
+            | NotInsertMode, Key 'o', _
+            | NotInsertMode, Key 'O', _
+            | NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
             | _ -> newState
         newState, handled
