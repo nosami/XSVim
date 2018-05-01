@@ -753,6 +753,8 @@ module Vim =
         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
         if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
+        if vimState.mode = InsertMode then
+            EditActions.MoveCaretLeft editor
         { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
 
     let processVimKey (editor:TextEditor) =
@@ -1439,20 +1441,18 @@ module Vim =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
             | NormalMode, [ Escape ] -> resetKeys
-            | VisualModes, [ Escape ] -> [ switchMode NormalMode ]
-            | ExMode _, [ Escape ] -> [ switchMode NormalMode ]
+            | _, [ Escape ] -> [ switchMode NormalMode ]
             | InsertMode, [ c ] when c = insertModeEscapeFirstChar ->
                 delayedFunc (fun editor ->
                                  editor.InsertAtCaret insertModeEscapeFirstChar
                                  let oldState = editorStates.[editor.FileName.FullPath |> string]
                                  editorStates.[editor.FileName.FullPath |> string] <- { oldState with keys = [] }  ) insertModeTimeout :: wait
             | InsertMode, [ c1; c2 ] when c1 = insertModeEscapeFirstChar && c2 = insertModeEscapeSecondChar ->
-                [ run CancelFunc Nothing; switchMode NormalMode; run Move Left ]
+                [ run CancelFunc Nothing; switchMode NormalMode ]
             | InsertMode, [ c; _ ] when c = insertModeEscapeFirstChar ->
                 [ run CancelFunc Nothing
                   run (ChangeState { state with keys = [] }) Nothing
                   typeChar (Key (char insertModeEscapeFirstChar)) ]
-            | _, [ Escape ] -> [ switchMode NormalMode; run Move Left ]
             | NotInsertMode, [ "G" ] ->
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
@@ -1747,6 +1747,7 @@ module Vim =
             | NotInsertMode, _, ReplaceChar _
             | NotInsertMode, Key 'a', _
             | NotInsertMode, Key 'i', _
+            | NotInsertMode, Key 'I', _
             | NotInsertMode, Key 'o', _
             | NotInsertMode, Key 'O', _
             | NotInsertMode, Key 'A', _ -> { newState with lastAction = action }

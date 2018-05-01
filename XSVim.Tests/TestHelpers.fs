@@ -110,6 +110,15 @@ module TestHelpers =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
         keys.Split '§' |> Array.collect groupToKeys
 
+    let getEditorText (editor:TextEditor) state =
+        if state.mode = InsertMode then
+            editor.Text.Insert(editor.CaretOffset, "|")
+        else
+            if editor.CaretOffset = editor.Text.Length then
+                editor.Text + "$"
+            else
+                editor.Text.Insert(editor.CaretOffset+1, "$")
+
     let testWithEol (source:string) (keys:string) eolMarker =
         FixtureSetup.initialiseMonoDevelop()
         let config = { insertModeEscapeKey = None }
@@ -128,20 +137,13 @@ module TestHelpers =
             |> Array.fold(fun state (descriptor, vimKey) ->
                 let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
                 printfn "%A" handledState
-                printfn "%s" editor.Text
+                printfn "\"%s\"" (getEditorText editor handledState)
                 if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
                     Vim.processVimKey editor vimKey
                 handledState) VimState.Default
 
         let cursor = if newState.mode = InsertMode then "|" else "$"
-        let text =
-            if newState.mode = InsertMode then
-                editor.Text.Insert(editor.CaretOffset, "|")
-            else
-                if editor.CaretOffset = editor.Text.Length then
-                    editor.Text + "$"
-                else
-                    editor.Text.Insert(editor.CaretOffset+1, "$")
+        let text = getEditorText editor newState
         text, newState
 
     let test source keys = testWithEol source keys "\n"

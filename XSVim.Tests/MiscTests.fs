@@ -38,11 +38,11 @@ module ``Miscellaneous tests`` =
 
     [<Test>]
     let ``Repeat typed chars``() =
-        assertText " $" "iabc <esc>." "abcabc  $ "
+        assertText "d$" "iabc <esc>." "abcabc $ d"
 
     [<Test>]
     let ``backspace is repeated``() =
-        assertText " $" "iabc<bs> <esc>." "abab  $ "
+        assertText "d$" "iabc<bs> <esc>." "abab $ d"
 
     [<Test>]
     let ``delete key is repeated``() =
@@ -53,12 +53,42 @@ module ``Miscellaneous tests`` =
         assertText "    abc$" "i<C-[>" "    ab$c"
 
     [<Test>]
+    let ``dot repeats at start of line``() =
+        assertText 
+            """
+            def$
+            def
+            """ 
+
+            "Iabc<esc>j."
+
+            """
+            abcdef
+            abc$def
+            """ 
+
+    [<Test>]
+    let ``dot repeats at end of line``() =
+        assertText 
+            """
+            a$bc
+            a$bc
+            """ 
+
+            "Adef<esc>j."
+
+            """
+            abcdef
+            abcdef$
+            """ 
+
+    [<Test>]
     let ``Repeat delete word``() =
         assertText "a$bc de fgh" "dww." "de $"
 
     [<Test>]
     let ``Repeat change word``() =
-        assertText "a$bc de fgz " "cwxxx<esc>ww." "xxx de xxx $"
+        assertText "a$bc de fgz " "cwxxx<esc>ww." "xxx de xxx$ "
 
     [<Test>]
     let ``r should be repeatable``() =
