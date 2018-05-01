@@ -89,22 +89,20 @@ module FixtureSetup =
 
 [<AutoOpen>]
 module TestHelpers =
-    type KeyPair = KeyDescriptor * VimKey
-         
     let (|CtrlKey|_|) (s:string) =
         match s with
         | s when s.Length = 3 && s.StartsWith "C-" -> Some s.[2]
         | _ -> None
 
     let groupToKeys = function
-        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None), VimKey.Esc |]
-        | "ret" -> [| KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None), VimKey.Ret |]
-        | "bs" -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None), VimKey.Backspace |]
-        | "del" -> [| KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None), VimKey.Delete |]
-        | CtrlKey ch -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask), VimKey.Control ch |]
+        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
+        | "ret" -> [| KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None) |]
+        | "bs" -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None) |]
+        | "del" -> [| KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None) |]
+        | CtrlKey ch -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
         | keys ->
             keys.ToCharArray()
-            |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None), VimKey.Key c)
+            |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
 
     let parseKeys (keys:string) =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
@@ -134,12 +132,12 @@ module TestHelpers =
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
-            |> Array.fold(fun state (descriptor, vimKey) ->
+            |> Array.fold(fun state descriptor ->
                 let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
                 printfn "%A" handledState
                 printfn "\"%s\"" (getEditorText editor handledState)
                 if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
-                    Vim.processVimKey editor vimKey
+                    Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
                 handledState) VimState.Default
 
         let cursor = if newState.mode = InsertMode then "|" else "$"
