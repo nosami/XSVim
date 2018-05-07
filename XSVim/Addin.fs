@@ -9,6 +9,25 @@ open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open MonoDevelop.Ide.FindInFiles
 
+module Subscriptions =
+    let textChanged (editor:TextEditor) (changes: Text.TextChangeEventArgs) =
+        for change in changes.TextChanges do
+            if change.RemovalLength > 0 then
+                let state = Vim.editorStates.[editor.FileName]
+                let actions =
+                    [ yield! state.lastAction
+                      for _i in 1..change.RemovalLength do
+                          yield (typeChar VimKey.Backspace) ]
+
+                let newState = { state with lastAction = actions }
+                Vim.editorStates.[editor.FileName] <- newState
+            if change.Offset + change.InsertionLength = editor.CaretOffset then
+                let vimState = 
+                    change.InsertedText.Text
+                    |> Seq.fold(fun state c ->
+                                   { state with lastAction = state.lastAction @ [ typeChar (Key c) ]}) (Vim.editorStates.[editor.FileName])
+                Vim.editorStates.[editor.FileName] <- vimState
+
 type XSVim() as this =
     inherit TextEditorExtension()
     let mutable disposables : IDisposable list = []
@@ -50,7 +69,7 @@ type XSVim() as this =
         KeyDescriptor.FromGtk(Enum.Parse(typeof<Gdk.Key>, c) :?> Gdk.Key, char c, Gdk.ModifierType.ControlMask)
         |> this.KeyPress
 
-    member x.FileName = x.Editor.FileName.FullPath.ToString()
+    member x.FileName = x.Editor.FileName.FullPath
 
     member x.State
         with get() = Vim.editorStates.[x.FileName]
@@ -68,8 +87,8 @@ type XSVim() as this =
                 | Insert -> { VimState.Default with mode = InsertMode }
                 | Block -> VimState.Default
 
-            let state = Vim.switchToNormalMode editor state
-            Vim.editorStates.Add(x.FileName, state)
+            let initialState = Vim.switchToNormalMode editor state
+            Vim.editorStates.Add(x.FileName, initialState)
             editor.GrabFocus()
             let caretChanged =
                 editor.CaretPositionChanged.Subscribe
@@ -83,9 +102,11 @@ type XSVim() as this =
                 IdeApp.Workbench |> Option.ofObj
                 |> Option.map(fun workbench ->
                     workbench.DocumentClosed.Subscribe
-                        (fun e -> let documentName = e.Document.Name
+                        (fun e -> let documentName = e.Document.FileName
                                   if Vim.editorStates.ContainsKey documentName then
                                       Vim.editorStates.Remove documentName |> ignore))
+            
+            let textChanged = editor.TextChanging.Subscribe(fun changes -> Subscriptions.textChanged editor changes)
 
             let propertyChanged =
                 PropertyService.PropertyChanged.Subscribe (fun _ -> initConfig())
@@ -103,6 +124,7 @@ type XSVim() as this =
                              if documentClosed.IsSome then
                                 yield documentClosed.Value
                              yield propertyChanged
+                             yield textChanged
                              yield focusLost ]
 
     override x.KeyPress descriptor =

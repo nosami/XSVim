@@ -605,7 +605,7 @@ module VimHelpers =
 
 module Vim =
     let registers = Dictionary<Register, XSVim.Selection>()
-    let editorStates = Dictionary<string, VimState>()
+    let editorStates = Dictionary<FilePath, VimState>()
 
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
@@ -1390,8 +1390,8 @@ module Vim =
             | InsertMode, [ c ] when c = insertModeEscapeFirstChar ->
                 delayedFunc (fun editor ->
                                  editor.InsertAtCaret insertModeEscapeFirstChar
-                                 let oldState = editorStates.[editor.FileName.FullPath |> string]
-                                 editorStates.[editor.FileName.FullPath |> string] <- { oldState with keys = [] }  ) insertModeTimeout :: wait
+                                 let oldState = editorStates.[editor.FileName]
+                                 editorStates.[editor.FileName] <- { oldState with keys = [] }  ) insertModeTimeout :: wait
             | InsertMode, [ c1; c2 ] when c1 = insertModeEscapeFirstChar && c2 = insertModeEscapeSecondChar ->
                 [ run CancelFunc Nothing; switchMode NormalMode ]
             | InsertMode, [ c; _ ] when c = insertModeEscapeFirstChar ->
@@ -1683,7 +1683,8 @@ module Vim =
             | InsertMode, _, _ ->
                 newState.macro |> Option.iter(fun (Macro m) ->
                     macros.[m] <- macros.[m] @ [ typeChar vimKey ])
-                { newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
+                //{ newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
+                newState
             | NotInsertMode, _, Delete
             | NotInsertMode, _, Change
             | NotInsertMode, _, Indent
@@ -1697,4 +1698,5 @@ module Vim =
             | NotInsertMode, Key 'O', _
             | NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
             | _ -> newState
+        editorStates.[editor.FileName] <- newState
         newState, handled

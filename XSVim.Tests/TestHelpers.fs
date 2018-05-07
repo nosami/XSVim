@@ -121,6 +121,8 @@ module TestHelpers =
         FixtureSetup.initialiseMonoDevelop()
         let config = { insertModeEscapeKey = None }
         let editor = TextEditorFactory.CreateNewEditor()
+        editor.FileName <- FilePath "test.txt"
+        editor.TextChanged.Add(fun changes -> Subscriptions.textChanged editor changes)
         let caret = source.IndexOf "$"
         if caret = 0 then
             failwith "$ can't be the first position. It needs to be after the char the caret would appear over."
@@ -129,18 +131,21 @@ module TestHelpers =
         editor.Text <- source.Replace("$", "")
         editor.CaretOffset <- caret-1
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
+        Vim.editorStates.[editor.FileName] <- VimState.Default
         let keyDescriptors = parseKeys keys
         let newState =
             keyDescriptors
             |> Array.fold(fun state descriptor ->
+                let state = Vim.editorStates.[editor.FileName]
                 let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
                 printfn "%A" handledState
                 printfn "\"%s\"" (getEditorText editor handledState)
                 if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
                     Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
-                handledState) VimState.Default
+                handledState) Vim.editorStates.[editor.FileName]
 
-        let cursor = if newState.mode = InsertMode then "|" else "$"
+        //let newState = Vim.editorStates.[editor.FileName]
+
         let text = getEditorText editor newState
         text, newState
 
