@@ -1237,34 +1237,7 @@ module Vim =
 
             match count with
             | 1 -> newState
-            | _ ->
-                match command.commandType, command.textObject with
-                | Delete, CurrentLocation ->
-                    // When the caret is at the end of the line,
-                    // the multiplier should be ignored.
-                    // As far as I can tell, this is an exception
-                    // to the rule.
-                    // `x` usually deletes the character
-                    // at the caret and then moves right,
-                    // unless the caret is at the EOL, in which case
-                    // it deletes and then moves to the left.
-                    // We need to suppress this behaviour when repeat is used.
-                    let offset = min (editor.Length-1) (editor.CaretOffset+1)
-                    let charAtCaret = editor.[offset]
-
-                    if not (isEOLChar charAtCaret) then
-                        processCommands (count-1) newState command false
-                    else
-                        match command.repeat with
-                        | Some repeat ->
-                            // stop repeating
-                            if count < repeat then
-                                // we need to loop one more time 
-                                processCommands 1 newState command false
-                            else
-                                newState
-                        | None -> newState
-                | _ -> processCommands (count-1) newState command false
+            | _ -> processCommands (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
 
         processCommands count vimState command true
