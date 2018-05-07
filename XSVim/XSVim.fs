@@ -387,6 +387,10 @@ module VimHelpers =
             else
                 editor.CaretOffset
         | EndOfLine -> editor.CaretOffset, line.EndOffset-1
+        | Character repeat ->
+            let line = editor.GetLine editor.CaretLine
+            let endOffset = min line.EndOffset (editor.CaretOffset + repeat)
+            editor.CaretOffset, endOffset
         | EndOfLineIncludingDelimiter ->
             editor.CaretOffset,
             if eofOnLine line then
@@ -1516,7 +1520,7 @@ module Vim =
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
-            | NormalMode, [ "x" ] -> [ run Delete CurrentLocation ]
+            | NormalMode, [ "x" ] -> [ runOnce Delete (Character (numericArgument |> Option.defaultValue 1)) ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
             | NormalMode, [ "s"] -> [ run Substitute CurrentLocation]
             | NormalMode, [ "S"] -> [ run Delete WholeLineIncludingDelimiter; runOnce (InsertLine After) Nothing; switchMode InsertMode ]

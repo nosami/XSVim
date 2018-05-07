@@ -88,10 +88,11 @@ type VimKey =
         | EscapeKey c -> string c
         | Key c -> string c
 
+type Repeat = int
 
 type TextObject =
     | Jump of Jump
-    | Character
+    | Character of Repeat
     | AWord
     | InnerWord
     | AWORD

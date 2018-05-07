@@ -78,3 +78,7 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``Multi line put on line without delimiter places caret at top line of paste``() =
         assertText "aa$a\nbbb\nccc" "Vjdp" "ccc\na$aa\nbbb"
+
+    [<Test>]
+    let ``x with multiplier stops at EOL``() =
+        assertText "ab$cdef\n" "100xp" "abcdef$\n"
