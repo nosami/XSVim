@@ -1,6 +1,7 @@
 ﻿namespace XSVim
 
 open System
+open System.Collections.Generic
 open MonoDevelop.Components.Commands
 open MonoDevelop.Core
 open MonoDevelop.Ide
@@ -171,7 +172,7 @@ type XSVim() as this =
     member x.NavigateBackwards() = ctrl "o"
 
     [<CommandHandler ("XSVim.NavigateForwards")>]
-    member x.NavigateForwards() = ctrl "p"
+    member x.NavigateForwards() = ctrl "i"
 
     [<CommandHandler ("XSVim.IncrementNumber")>]
     member x.IncrementNumber() = ctrl "x"
