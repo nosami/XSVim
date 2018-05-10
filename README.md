@@ -23,6 +23,12 @@ Most Vim commands should work. If you see something that doesn't work, please fi
 - `.` for repeat breaks when the commands to be repeated contain intellisense insertions.
 - No leader key support or configurable key bindings.
 
+# Why don't the control keys work?
+
+Some Vim keybindings (such as Ctrl-F, Ctrl-D etc) conflict with VS's own built in keybindings. However, there is a keybinding scheme included that you may apply if you want (Visual Studio + Vim)
+
+![image](https://user-images.githubusercontent.com/667194/37340194-39775566-26b5-11e8-9119-58d171aa9a01.png)
+
 # Extras
 
 - `gd` - Goto declaration
