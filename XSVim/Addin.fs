@@ -105,8 +105,8 @@ type XSVim() as this =
                         (fun e -> let documentName = e.Document.FileName
                                   if Vim.editorStates.ContainsKey documentName then
                                       Vim.editorStates.Remove documentName |> ignore))
-            
-            let textChanged = editor.TextChanging.Subscribe(fun changes -> Subscriptions.textChanged editor changes)
+
+            let textChanged = editor.TextChanged.Subscribe(fun changes -> Subscriptions.textChanged editor changes)
 
             let propertyChanged =
                 PropertyService.PropertyChanged.Subscribe (fun _ -> initConfig())

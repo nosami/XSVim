@@ -11,7 +11,7 @@ module ``Yank and put tests`` =
 
     [<Test>]
     let ``Yanking line supports multiplier``() =
-        let _, state = test "a$bc\ndef\nghi" "2yy"
+        let _  = test "a$bc\ndef\nghi" "2yy"
         Vim.registers.[EmptyRegister].content |> should equal "abc\ndef\n"
 
     [<Test>]
@@ -36,7 +36,7 @@ module ``Yank and put tests`` =
 
     [<Test>]
     let ``Can yank into a named register``() =
-        let _, state = test "ab$cd ef" "\"dyl"
+        let _  = test "ab$cd ef" "\"dyl"
         Vim.registers.[Register 'd'].content |> should equal "b"
 
     [<Test>]

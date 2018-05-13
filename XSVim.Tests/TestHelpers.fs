@@ -117,6 +117,22 @@ module TestHelpers =
             else
                 editor.Text.Insert(editor.CaretOffset+1, "$")
 
+    let sendKeysToEditor (editor:TextEditor) keys config =
+        let keyDescriptors = parseKeys keys
+        let newState =
+            keyDescriptors
+            |> Array.fold(fun state descriptor ->
+                let state = Vim.editorStates.[editor.FileName]
+                let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
+                printfn "%A" handledState
+                printfn "\"%s\"" (getEditorText editor handledState)
+                if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
+                    Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
+                handledState) Vim.editorStates.[editor.FileName]
+
+        let text = getEditorText editor newState
+        text, newState, editor
+
     let testWithEol (source:string) (keys:string) eolMarker =
         FixtureSetup.initialiseMonoDevelop()
         let config = { insertModeEscapeKey = None }
@@ -132,22 +148,7 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
         Vim.editorStates.[editor.FileName] <- VimState.Default
-        let keyDescriptors = parseKeys keys
-        let newState =
-            keyDescriptors
-            |> Array.fold(fun state descriptor ->
-                let state = Vim.editorStates.[editor.FileName]
-                let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
-                printfn "%A" handledState
-                printfn "\"%s\"" (getEditorText editor handledState)
-                if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
-                    Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
-                handledState) Vim.editorStates.[editor.FileName]
-
-        //let newState = Vim.editorStates.[editor.FileName]
-
-        let text = getEditorText editor newState
-        text, newState
+        sendKeysToEditor editor keys config
 
     let test source keys = testWithEol source keys "\n"
 
@@ -155,9 +156,9 @@ module TestHelpers =
         s.Replace("\n", "\r\n")
 
     let assertText (source:string) (keys:string) expected =
-        let actual, _ = test source keys
+        let actual, _, _ = test source keys
         Assert.AreEqual(expected, actual, "Failed with \n")
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
-            let actual, _ = testWithEol (source |> switchLineEndings) keys "\r\n"
+            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n"
             Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
