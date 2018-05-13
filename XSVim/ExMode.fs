@@ -39,73 +39,75 @@ module exMode =
                 let getSearchAction() = match state.searchAction with | Some action -> action | _ -> Move
                 let restIsNumeric, number = Int32.TryParse rest
                 // really bad parser. TODO: try and use https://github.com/jaredpar/VsVim/blob/447d980da9aa6c761238e39df9d2b64424643de1/Src/VimCore/Interpreter_Parser.fs
-                match firstChar, rest with
-                | '/', rest ->
+                match firstChar with
+                | '/' ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (Jump (ToSearch rest)) }
                     , [ runOnce (getSearchAction()) (Jump (ToSearch rest))]
-                | '?', rest ->
+                | '?' ->
                     { state with statusMessage = None; mode = NormalMode; lastSearch = Some (Jump (ToSearchBackwards rest)) }
                     , [ runOnce (getSearchAction()) (Jump (ToSearchBackwards rest))]
-                | ':', _rest when restIsNumeric ->
+                | ':' when restIsNumeric ->
                     { state with statusMessage = None; mode = NormalMode; }
                     , [ runOnce Move (Jump (StartOfLineNumber number)) ]
-                | ':', "q"  ->
-                    async {
-                        dispatchCommand FileCommands.CloseFile
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "q!"  ->
-                    async {
-                        do! forceClose()
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "w"
-                | ':', "w!"  ->
-                    async {
-                        do! save()
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "wa"
-                | ':', "wa!"  ->
-                    async {
-                        dispatchCommand FileCommands.SaveAll
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "qa"  ->
-                    async {
-                        dispatchCommand FileCommands.CloseAllFiles
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "qa!"  ->
-                    IdeApp.Workbench.Documents
-                    |> Seq.iter(fun doc ->
+                | ':'  ->
+                    match rest with
+                    | "q" ->
                         async {
-                            do! doc.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
-                        } |> Async.StartImmediate)
-                    normalMode, resetKeys
-                | ':', "wq"  ->
-                    async {
-                        do! save()
-                        dispatchCommand FileCommands.CloseFile
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "wq!"  ->
-                    async {
-                        do! save()
-                        do! forceClose()
-                    } |> Async.StartImmediate
-                    normalMode, resetKeys
-                | ':', "vs"
-                | ':', "vsplit"
-                | ':', "sp"
-                | ':', "split" ->
-                    let notebooks = Window.getNotebooks()
-                    if notebooks.Length < 2 then
-                        dispatchCommand "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode"
-                    normalMode, resetKeys
-                | ':', _  ->
-                    { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
-                    , resetKeys
+                            dispatchCommand FileCommands.CloseFile
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "q!"  ->
+                        async {
+                            do! forceClose()
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "w"
+                    | "w!"  ->
+                        async {
+                            do! save()
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "wa"
+                    | "wa!"  ->
+                        async {
+                            dispatchCommand FileCommands.SaveAll
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "qa"  ->
+                        async {
+                            dispatchCommand FileCommands.CloseAllFiles
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "qa!"  ->
+                        IdeApp.Workbench.Documents
+                        |> Seq.iter(fun doc ->
+                            async {
+                                do! doc.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
+                            } |> Async.StartImmediate)
+                        normalMode, resetKeys
+                    | "wq"  ->
+                        async {
+                            do! save()
+                            dispatchCommand FileCommands.CloseFile
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "wq!"  ->
+                        async {
+                            do! save()
+                            do! forceClose()
+                        } |> Async.StartImmediate
+                        normalMode, resetKeys
+                    | "vs"
+                    | "vsplit"
+                    | "sp"
+                    | "split" ->
+                        let notebooks = Window.getNotebooks()
+                        if notebooks.Length < 2 then
+                            dispatchCommand "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode"
+                        normalMode, resetKeys
+                    | _  ->
+                        { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
+                        , resetKeys
                 | _ -> normalMode, resetKeys
             | _ -> normalMode, resetKeys
         | _ ->
