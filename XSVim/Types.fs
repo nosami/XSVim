@@ -176,6 +176,7 @@ type CommandType =
     | NextTab
     | PreviousTab
     | Func of (TextEditor -> unit)
+    | GotoPad of string
     | DelayedFunc of (TextEditor -> unit) * int
     | CancelFunc
     | ChangeState of VimState
@@ -245,3 +246,4 @@ module commandHelpers =
     let func f = runOnce (Func f) Nothing
     let delayedFunc f ms = runOnce (DelayedFunc (f, ms)) Nothing
     let dispatchCommand command = IdeApp.CommandService.DispatchCommand command |> ignore
+    let gotoPad padId = runOnce (GotoPad padId) Nothing

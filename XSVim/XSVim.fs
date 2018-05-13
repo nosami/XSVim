@@ -1186,6 +1186,9 @@ module Vim =
                 | Func f ->
                     f editor
                     vimState
+                | GotoPad padId ->
+                    Window.gotoPad padId
+                    vimState
                 | ChangeState s -> s
                 | DelayedFunc (f, ms) ->
                     let token = new CancellationTokenSource()
@@ -1385,7 +1388,7 @@ module Vim =
         let action =
             match state.mode, keyList with
             | VisualBlockMode, [ Escape ] -> [ switchMode NormalMode; run Move SelectionStart ]
-            | NormalMode, [ Escape ] -> resetKeys
+            | NormalMode, [ Escape ] -> [ yield! resetKeys; yield dispatch "MonoDevelop.Ide.Commands.ViewCommands.FocusCurrentDocument" ]
             | _, [ Escape ] -> [ switchMode NormalMode ]
             | InsertMode, [ c ] when c = insertModeEscapeFirstChar ->
                 delayedFunc (fun editor ->
@@ -1605,6 +1608,25 @@ module Vim =
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
             | NotInsertMode, [ "<C-a>" ] -> [ run IncrementNumber Nothing; switchMode NormalMode ]
             | NotInsertMode, [ "<C-x>" ] -> [ run DecrementNumber Nothing; switchMode NormalMode ]
+            | NotInsertMode, [ "g"; "p" ] -> wait
+            | NotInsertMode, [ "g"; "p"; "s" ] -> [ gotoPad "ProjectPad" ]
+            | NotInsertMode, [ "g"; "p"; "c" ] -> [ gotoPad "ClassPad" ]
+            | NotInsertMode, [ "g"; "p"; "e" ] -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.ErrorListPad" ]
+            | NotInsertMode, [ "g"; "p"; "t" ] -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.TaskListPad" ]
+            | NotInsertMode, [ "g"; "p"; "p" ] -> [ gotoPad "MonoDevelop.DesignerSupport.PropertyPad" ]
+            | NotInsertMode, [ "g"; "p"; "o" ] -> [ gotoPad "MonoDevelop.DesignerSupport.DocumentOutlinePad" ]
+            | NotInsertMode, [ "g"; "p"; "b" ] -> [ gotoPad "MonoDevelop.Debugger.BreakpointPad" ]
+            | NotInsertMode, [ "g"; "p"; "l" ] -> [ gotoPad "MonoDevelop.Debugger.LocalsPad" ]
+            | NotInsertMode, [ "g"; "p"; "w" ] -> [ gotoPad "MonoDevelop.Debugger.WatchPad" ]
+            | NotInsertMode, [ "g"; "p"; "i" ] -> [ gotoPad "MonoDevelop.Debugger.ImmediatePad" ]
+            | NotInsertMode, [ "g"; "p"; "f" ] -> [ gotoPad "MonoDevelop.FSharp.FSharpInteractivePad" ]
+            | NotInsertMode, [ "g"; "p"; "d" ] -> wait
+            | NotInsertMode, [ "g"; "p"; "d"; "t" ] -> [ gotoPad "MonoDevelop.Debugger.ThreadsPad" ]
+            | NotInsertMode, [ "g"; "p"; "d"; "s" ] -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
+            | NotInsertMode, [ "g"; "p"; "d"; "c" ] -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
+            | NotInsertMode, [ "g"; "p"; "u" ] -> wait
+            | NotInsertMode, [ "g"; "p"; "u"; "t" ] -> [ gotoPad "MonoDevelop.UnitTesting.TestPad" ]
+            | NotInsertMode, [ "g"; "p"; "u"; "r" ] -> [ gotoPad "MonoDevelop.UnitTesting.TestResultsPad" ]
             | _, [] when numericArgument.IsSome  -> wait
             | _ -> resetKeys
         action, newState

@@ -93,3 +93,8 @@ module Window =
             dispatch FileCommands.CloseFile
             openDocument active.tabs.[active.activeTab-1]
         | _ -> dispatch FileCommands.CloseFile
+
+    let gotoPad padId =
+        IdeApp.Workbench.Pads
+        |> Seq.tryFind(fun p -> p.Id = padId)
+        |> Option.iter(fun pad -> pad.BringToFront(true))

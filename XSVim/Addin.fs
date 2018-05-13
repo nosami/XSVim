@@ -33,7 +33,7 @@ type XSVim() as this =
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
     let mutable config = { insertModeEscapeKey = None }
-    let searchPads = HashSet<string>() 
+    static let searchPads = HashSet<string>() 
     let initConfig() =
         let mapping = SettingsPanel.InsertModeEscapeMapping()
         if mapping.Length = 2 then
