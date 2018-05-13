@@ -20,7 +20,6 @@ Most Vim commands should work. If you see something that doesn't work, please fi
 - Vim split windows. XSVim uses VS for Mac's side by side mode to emulate this, but it's only possible to have 2 vertical split windows. `<C-w>s` and `<C-w>v` both switch to side by side mode.
 - Visual block mode works for most tasks, but there are some differences in the way that VS handles virtual spacing at the end of lines.
 - Selecting text with the mouse or using cmd+arrow keys doesn't switch to Visual mode
-- `.` for repeat breaks when the commands to be repeated contain intellisense insertions.
 - No leader key support or configurable key bindings.
 
 # Why don't the control keys work?
