@@ -46,30 +46,30 @@ module ``Ex mode tests`` =
 
     [<Test>]
     let ``Backspacing ex mode returns to normal mode``() =
-        let _, state = test "abc abc a$bc" "/a<bs><bs>"
+        let _, state, _ = test "abc abc a$bc" "/a<bs><bs>"
         state.mode |> should equal NormalMode
 
     [<Test>]
     let ``<esc> returns to normal mode``() =
-        let _, state = test "abc abc a$bc" "/<esc>"
+        let _, state, _ = test "abc abc a$bc" "/<esc>"
         state.mode |> should equal NormalMode
 
     [<Test>]
     let ``<C-c> returns to normal mode``() =
-        let _, state = test "abc abc a$bc" "/<C-c>"
+        let _, state, _ = test "abc abc a$bc" "/<C-c>"
         state.mode |> should equal NormalMode
 
     [<Test>]
     let ``<C-[> returns to normal mode``() =
-        let _, state = test "abc abc a$bc" "/<C-[>"
+        let _, state, _ = test "abc abc a$bc" "/<C-[>"
         state.mode |> should equal NormalMode
 
     [<Test>]
     let ``Displays could not parse message``() =
-        let _, state = test "a$bc" ":garbage<ret>"
+        let _, state, _ = test "a$bc" ":garbage<ret>"
         state.statusMessage.Value |> should equal "Could not parse :garbage"
 
     [<Test>]
     let ``Could not parse message is reset``() =
-        let _, state = test "a$bc" ":garbage<ret>l"
+        let _, state, _ = test "a$bc" ":garbage<ret>l"
         state.statusMessage |> should equal None
