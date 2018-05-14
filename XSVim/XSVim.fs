@@ -23,6 +23,8 @@ module VimHelpers =
     let closingBraces = [')'; '}'; ']'] |> set
     let openingbraces = ['('; '{'; '[' ] |> set
 
+    let markDict = Dictionary<string, Marker>()
+
     let findNextBraceForwardsOnLine (editor:TextEditor) (line:IDocumentLine) =
         if closingBraces.Contains(editor.[editor.CaretOffset]) then
             Some editor.CaretOffset
@@ -568,15 +570,26 @@ module VimHelpers =
             match findUnmatchedBlockEndDelimiter editor editor.CaretOffset "(" ")" with
             | Some jumpPos -> editor.CaretOffset, jumpPos
             | None -> noOp
-        | Jump (ToMark mark) ->
-            if editor.FileName.FullPath.ToString() = mark.FileName then
-                editor.CaretOffset, mark.Offset
-            else
-                let document = IdeApp.Workbench.GetDocument(mark.FileName)
-                let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
-                IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
-                editor.CaretOffset, editor.CaretOffset
+        | Jump (ToMark (c, jumpType)) ->
+            match markDict.TryGetValue c with
+            | true, mark ->
+                let offset =
+                    match jumpType with
+                    | MarkerJumpType.Offset -> mark.Offset
+                    | MarkerJumpType.StartOfLine ->
+                        let line = editor.GetLineByOffset mark.Offset
+                        line.Offset + editor.GetLineIndent(line).Length
+
+                if editor.FileName.FullPath.ToString() = mark.FileName then
+                    editor.CaretOffset, offset
+                else
+                    let document = IdeApp.Workbench.GetDocument(mark.FileName)
+                    let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
+                    IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
+                    editor.CaretOffset, offset
+            | _ -> editor.CaretOffset, editor.CaretOffset
         | Offset offset -> editor.CaretOffset, offset
+        | Range (startOffset, endOffset) -> startOffset, endOffset
         | Jump (ToSearch search) ->
             let startOffset =
                 match vimState.keys with
@@ -609,7 +622,6 @@ module Vim =
 
     registers.[EmptyRegister] <- { linewise=false; content="" }
 
-    let markDict = Dictionary<string, Marker>()
     let macros = Dictionary<char, VimAction list>()
 
     let (|VisualModes|_|) = function
@@ -658,6 +670,7 @@ module Vim =
     let (|LineWise|_|) = function
         | WholeLine
         | WholeLineIncludingDelimiter
+        | Jump (ToMark (_, MarkerJumpType.StartOfLine))
         | Jump LastLine -> Some LineWise
         | _ -> None
 
@@ -1292,6 +1305,8 @@ module Vim =
         | ["<C-b>"] -> Some (Jump PageUp)
         | ["n"] -> Some (Jump SearchAgain)
         | ["N"] -> Some (Jump SearchAgainBackwards)
+        | ["'"; c] -> Some (Jump (ToMark (c, MarkerJumpType.StartOfLine)))
+        | ["`"; c] -> Some (Jump (ToMark (c, MarkerJumpType.Offset)))
         | _ -> None
 
     let unfinishedMovements = [ "g"; "["; "]"; "@"; "m"; "`"; "'" ] |> set
@@ -1489,15 +1504,14 @@ module Vim =
             | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
-            | NotInsertMode, [ "`"; c] ->
-                match markDict.TryGetValue c with
-                | true, mark -> [ runOnce Move (Jump (ToMark mark))]
-                | _ -> [ run ResetKeys Nothing]
-            | NotInsertMode, [ "'"; c] ->
-                match markDict.TryGetValue c with
-                | true, mark -> [ runOnce Move (Jump (ToMark mark)); runOnce Move FirstNonWhitespace ]
-                | _ -> [ run ResetKeys Nothing]
-            | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
+            //| NotInsertMode, [ "`"; c] ->
+                //match markDict.TryGetValue c with
+                //| true, mark -> [ runOnce Move (Jump (ToMark mark))]
+                //| _ -> [ run ResetKeys Nothing]
+            //| NotInsertMode, [ "'"; c] ->
+                //match markDict.TryGetValue c with
+                //| true, mark -> [ runOnce Move (Jump (ToMark mark)); runOnce Move FirstNonWhitespace ]
+                //| _ -> [ run ResetKeys Nothing]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]

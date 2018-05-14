@@ -1,5 +1,6 @@
 ﻿namespace XSVim
 open System
+open System.Text.RegularExpressions
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor.Extension
@@ -16,6 +17,14 @@ module exMode =
 
     let save() = IdeApp.Workbench.ActiveDocument.Save() |> Async.AwaitTask
     let forceClose() = IdeApp.Workbench.ActiveDocument.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
+
+    let (|DeleteBetweenMarks|_|) input =
+        let matches = Regex.Matches(input, "'([a-z]),'([a-z])d", RegexOptions.Compiled)
+        if matches.Count = 1 then 
+            let m = matches.[0]
+            Some (m.Groups.[1].Value, m.Groups.[2].Value)
+        else
+            None
 
     let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
@@ -105,6 +114,11 @@ module exMode =
                         if notebooks.Length < 2 then
                             dispatchCommand "MonoDevelop.Ide.Commands.ViewCommands.SideBySideMode"
                         normalMode, resetKeys
+                    | DeleteBetweenMarks (startMarker, endMarker) ->
+                        let actions =
+                            [ runOnce Move (Jump (ToMark (startMarker, MarkerJumpType.StartOfLine)))
+                              runOnce DeleteWholeLines (Jump (ToMark (endMarker, MarkerJumpType.StartOfLine))) ]
+                        normalMode, actions
                     | _  ->
                         { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
                         , resetKeys

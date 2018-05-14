@@ -40,10 +40,12 @@ type VimMode =
 
 type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd | IncludeDelimiter
 
+type MarkerJumpType = Offset | StartOfLine
+
 type Jump =
     | StartOfLineNumber of int
     | StartOfDocument
-    | ToMark of Marker
+    | ToMark of string * MarkerJumpType
     | ToSearch of string
     | ToSearchBackwards of string
     | SearchAgain
@@ -89,6 +91,7 @@ type VimKey =
         | Key c -> string c
 
 type Repeat = int
+type Offset = int
 
 type TextObject =
     | Jump of Jump
@@ -139,7 +142,8 @@ type TextObject =
     | NextUnmatchedBrace
     | PrevUnmatchedParen
     | NextUnmatchedParen
-    | Offset of int
+    | Offset of Offset
+    | Range of Offset * Offset
 
 type CommandType =
     | Move
