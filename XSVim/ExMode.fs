@@ -27,7 +27,7 @@ module exMode =
             None
 
     let (|DeleteLines|_|) input =
-        let matches = Regex.Matches(input, "([\d+]),([\d+])d", RegexOptions.Compiled)
+        let matches = Regex.Matches(input, "([\d]+),([\d]+)d", RegexOptions.Compiled)
         if matches.Count = 1 then 
             let m = matches.[0]
             Some (int m.Groups.[1].Value, int m.Groups.[2].Value)
