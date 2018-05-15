@@ -26,6 +26,14 @@ module exMode =
         else
             None
 
+    let (|DeleteLines|_|) input =
+        let matches = Regex.Matches(input, "([\d+]),([\d+])d", RegexOptions.Compiled)
+        if matches.Count = 1 then 
+            let m = matches.[0]
+            Some (int m.Groups.[1].Value, int m.Groups.[2].Value)
+        else
+            None
+
     let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
         let normalMode = { state with statusMessage = None; mode = NormalMode }
@@ -118,6 +126,11 @@ module exMode =
                         let actions =
                             [ runOnce Move (Jump (ToMark (startMarker, MarkerJumpType.StartOfLine)))
                               runOnce DeleteWholeLines (Jump (ToMark (endMarker, MarkerJumpType.StartOfLine))) ]
+                        normalMode, actions
+                    | DeleteLines (startLine, endLine) ->
+                        let actions =
+                            [ runOnce Move (Jump (StartOfLineNumber startLine))
+                              runOnce DeleteWholeLines (Jump (StartOfLineNumber endLine)) ]
                         normalMode, actions
                     | _  ->
                         { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }

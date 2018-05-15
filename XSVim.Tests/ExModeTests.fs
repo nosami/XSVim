@@ -73,3 +73,17 @@ module ``Ex mode tests`` =
     let ``Could not parse message is reset``() =
         let _, state, _ = test "a$bc" ":garbage<ret>l"
         state.statusMessage |> should equal None
+
+    [<Test>]
+    let ``Deletes lines 2 to 4``() =
+        assertText
+            """11111
+22222
+33333
+44444
+55555$"""
+
+            ":2,4d<ret>"
+
+            """11111
+5$5555"""
