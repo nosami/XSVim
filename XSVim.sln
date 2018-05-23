@@ -6,6 +6,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E0ACA694-13C8-4B99-9FC9-196E85272651}"
 	ProjectSection(SolutionItems) = preProject
 		addin-project.xml = addin-project.xml
+		.travis.yml = .travis.yml
+		build.sh = build.sh
+		test.sh = test.sh
 	EndProjectSection
 EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "XSVim.Tests", "XSVim.Tests\XSVim.Tests.fsproj", "{3C522649-67F6-4F65-9CC9-D5847768FE68}"
