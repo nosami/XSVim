@@ -7,11 +7,11 @@ install:
 - wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.4.1.48.dmg
 - sudo hdiutil attach VisualStudioForMac-7.4.1.48.dmg
 script:
-- msbuild
+- msbuild /p:Configuration=Release
 - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
-  run-md-tests XSVim.Tests/bin/Debug/XSVim.Tests.dll -labels
+  run-md-tests XSVim.Tests/bin/Release/XSVim.Tests.dll -labels
 - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
-  setup pack XSVim/bin/Debug/XSVim.dll
+  setup pack XSVim/bin/Release/XSVim.dll
 deploy:
   provider: releases
   api_key:
