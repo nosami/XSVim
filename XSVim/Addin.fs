@@ -30,6 +30,8 @@ module Subscriptions =
 
 type XSVim() as this =
     inherit TextEditorExtension()
+
+
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
     let mutable config = { insertModeEscapeKey = None }
@@ -75,10 +77,15 @@ type XSVim() as this =
         with get() = Vim.editorStates.[x.FileName]
         and set(value) = Vim.editorStates.[x.FileName] <- value
 
+
+    override x.IsValidInContext documentContext =
+        documentContext.Name <> "__FSI__.fsx"
+
     override x.Initialize() =
         treeViewPads.initialize()
         x.Editor.FocusLost.Add(fun _ -> initializeSearchResultsPads())
 
+        LoggingService.LogDebug("XSVim initializing - " + string x.FileName)
         initConfig()
         if not (Vim.editorStates.ContainsKey x.FileName) then
             let editor = x.Editor
