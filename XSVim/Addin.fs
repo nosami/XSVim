@@ -8,6 +8,8 @@ open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open MonoDevelop.Ide.FindInFiles
+open MonoDevelop.Ide.Gui.Components
+open Reflection
 
 module Subscriptions =
     let textChanged (editor:TextEditor) (changes: Text.TextChangeEventArgs) =
@@ -63,7 +65,8 @@ type XSVim() as this =
                         let padId = pad.Window.Id
                         if not (searchPads.Contains padId) then
                             searchPads.Add padId |> ignore
-                            searchResultsPad.initialize pad)
+                            let tree = pad.Control?nativeWidget?treeviewSearchResults
+                            padTreeViews.initialize tree)
                 with
                 | _ -> ()))
 
