@@ -81,7 +81,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="WindowManagement.fs" />
     <Compile Include="ExMode.fs" />
-    <Compile Include="SearchResultsPad.fs" />
+    <Compile Include="PadTreeViews.fs" />
     <Compile Include="TreeViewPads.fs" />
     <Compile Include="XSVim.fs" />
     <Compile Include="Addin.fs" />

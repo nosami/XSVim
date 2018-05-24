@@ -106,7 +106,9 @@ module treeViewPads =
     let initialize() =
         if not initialized then
             initialized <- true
-
+            let errorPad = IdeApp.Workbench.Pads.ErrorsPad.Content
+            let errorPadTree = errorPad?view
+            padTreeViews.initialize errorPadTree
             for pad in getTreeViewPads() do
                 let (tree:TreeView) = pad.TreeView?Tree
                 let (store:TreeStore) = pad.TreeView?Store

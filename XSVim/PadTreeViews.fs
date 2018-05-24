@@ -1,11 +1,9 @@
 ﻿namespace XSVim
-open System
-open Gtk
-open MonoDevelop.Ide.FindInFiles
-open MonoDevelop.Ide.Gui.Components
-open Reflection
 
-module searchResultsPad =
+open Gtk
+open MonoDevelop.Ide.Gui.Components
+
+module padTreeViews =
     let select (tree:TreeView) path =
         let column = tree.Columns.[0]
         tree.Selection.SelectPath path
@@ -24,8 +22,7 @@ module searchResultsPad =
         path.Prev() |> ignore
         select tree path
 
-    let initialize (pad:SearchResultPad) =
-        let tree:PadTreeView = pad.Control?nativeWidget?treeviewSearchResults
+    let initialize (tree:PadTreeView) =
         let processKey (key:KeyPressEventArgs) =
             match key.Event.Key with
             | Gdk.Key.Escape ->
