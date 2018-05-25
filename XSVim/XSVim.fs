@@ -617,6 +617,8 @@ module VimHelpers =
         | _ -> editor.CaretOffset, editor.CaretOffset
 
 module Vim =
+    LoggingService.LogInfo ("XSVim " + version)
+
     let registers = Dictionary<Register, XSVim.Selection>()
     let editorStates = Dictionary<FilePath, VimState>()
 
