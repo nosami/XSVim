@@ -1506,14 +1506,6 @@ module Vim =
             | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
             | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
             | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
-            //| NotInsertMode, [ "`"; c] ->
-                //match markDict.TryGetValue c with
-                //| true, mark -> [ runOnce Move (Jump (ToMark mark))]
-                //| _ -> [ run ResetKeys Nothing]
-            //| NotInsertMode, [ "'"; c] ->
-                //match markDict.TryGetValue c with
-                //| true, mark -> [ runOnce Move (Jump (ToMark mark)); runOnce Move FirstNonWhitespace ]
-                //| _ -> [ run ResetKeys Nothing]
             | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
             | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
             | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
