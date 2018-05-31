@@ -4,8 +4,8 @@ mono: latest
 solution: XSVim.sln
 install:
 - nuget restore XSVim.sln
-- wget https://dl.xamarin.com/VsMac/VisualStudioForMac-7.4.1.48.dmg
-- sudo hdiutil attach VisualStudioForMac-7.4.1.48.dmg
+- wget https://dl.xamarin.com/VsMac/VisualStudioForMac-Preview-7.6.0.947.dmg
+- sudo hdiutil attach VisualStudioForMac-Preview-7.6.0.947.dmg
 script:
 - msbuild /p:Configuration=Release
 - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
