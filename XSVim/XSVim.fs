@@ -670,6 +670,7 @@ module Vim =
         | _ -> None
 
     let (|LineWise|_|) = function
+        | Up | Down
         | WholeLine
         | WholeLineIncludingDelimiter
         | Jump (ToMark (_, MarkerJumpType.StartOfLine))
@@ -891,9 +892,25 @@ module Vim =
                             { vimState with desiredColumn = Some editor.CaretColumn }
                     newState
                 | Delete ->
+                    let linewise = isLineWise vimState command
+                    let start, finish =
+                        match linewise with
+                        | true ->
+
+                            let min = min start finish
+                            let maxOffset = max start finish
+                            let line = editor.GetLineByOffset min
+                            let finish = editor.GetLineByOffset(maxOffset).EndOffsetIncludingDelimiter
+                            if eofOnLine line && line.LineNumber <> 1 then
+                                let delimiter = inferDelimiter editor
+                                line.Offset-delimiter.Length, finish
+                            else
+                                line.Offset, finish
+                        | false -> start, finish
+
                     let newState = delete vimState start finish
                     let offsetBeforeDelimiter =
-                        match isLineWise vimState command with
+                        match linewise with
                         | true ->
                             let line = editor.GetLineByOffset(editor.CaretOffset)
                             let line =
@@ -1443,6 +1460,18 @@ module Vim =
                 | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move (Right StopAtEndOfLine) ]
                 | None -> [ switchMode VisualMode ]
             | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
+            | NormalMode, [ "d"; "j" ] ->
+                let numberOfLines =
+                    match numericArgument with
+                    | Some lines -> lines
+                    | None -> 1
+                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText ]
+            | NormalMode, [ "d"; "k" ] ->
+                let numberOfLines =
+                    match numericArgument with
+                    | Some lines -> lines
+                    | None -> 1
+                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText ]
             | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
             | NotInsertMode, [ UnfinishedMovement ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
@@ -1462,7 +1491,7 @@ module Vim =
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] ->
                 match numericArgument with
-                | None -> [ run Delete WholeLineIncludingDelimiter ]
+                | None -> [ run Delete WholeLine ]
                 | Some lines ->
                     [ switchMode VisualLineMode
                       getCommand (lines-1 |> Some) Move Down
@@ -1484,7 +1513,7 @@ module Vim =
             | NormalMode, [ "x" ] -> [ runOnce Delete (Character (numericArgument |> Option.defaultValue 1)) ]
             | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
             | NormalMode, [ "s"] -> [ run Substitute CurrentLocation]
-            | NormalMode, [ "S"] -> [ run Delete WholeLineIncludingDelimiter; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
+            | NormalMode, [ "S"] -> [ run Delete WholeLine; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
             | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
             | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
             | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
@@ -1591,7 +1620,7 @@ module Vim =
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLineIncludingDelimiter; switchMode NormalMode ]
+            | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLine; switchMode NormalMode ]
             | VisualModes, [ ">" ] -> [ run (Func EditActions.IndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "<" ] -> [ run (Func EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]

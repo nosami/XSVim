@@ -19,6 +19,35 @@ module ``Delete tests`` =
         assertText source "Vjd" expected
 
     [<Test>]
+    let ``Delete line and line below``() =
+        let source =
+            @"aaaaaa
+              bb$bbbb
+              cccccc
+              dddddd
+              eeeeee";
+
+        let expected =
+            @"aaaaaa
+              d$ddddd
+              eeeeee";
+        assertText source "dj" expected
+
+    [<Test>]
+    let ``Delete line and next two lines``() =
+        let source =
+            @"aaaaaa
+              bb$bbbb
+              cccccc
+              dddddd
+              eeeeee";
+
+        let expected =
+            @"aaaaaa
+              e$eeeee";
+        assertText source "d2j" expected
+
+    [<Test>]
     let ``dd first line``() =
         assertText "ab$c\n  def" "dd" "  d$ef"
 
