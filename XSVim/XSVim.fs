@@ -1465,13 +1465,13 @@ module Vim =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText ]
+                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText; switchMode NormalMode ]
             | NormalMode, [ "d"; "k" ] ->
                 let numberOfLines =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText ]
+                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; switchMode NormalMode ]
             | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
             | NotInsertMode, [ UnfinishedMovement ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
