@@ -741,7 +741,7 @@ module Vim =
         // https://github.com/mono/monodevelop/blob/fdbfbe89529bd9076e1906e7b70fdb51a9ae6b99/main/src/core/MonoDevelop.Ide/MonoDevelop.Ide.Editor.Extension/CompletionTextEditorExtension.cs#L153
         if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
         vimState.undoGroup |> Option.iter(fun d -> d.Dispose())
-        if vimState.mode = InsertMode then
+        if vimState.mode = InsertMode && editor.CaretColumn > 1 then
             EditActions.MoveCaretLeft editor
         { vimState with mode = NormalMode; lastSelection = lastSelection; undoGroup = None; statusMessage = None }
 

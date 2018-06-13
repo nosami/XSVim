@@ -77,6 +77,10 @@ module ``Miscellaneous tests`` =
         assertText "    abc$" "i<C-[>" "    ab$c"
 
     [<Test>]
+    let ``Return to normal mode doesn't move past start of line``() =
+        assertText "abc\nd$ef" "i<esc>" "abc\nd$ef"
+
+    [<Test>]
     let ``dot repeats at start of line``() =
         assertText 
             """
