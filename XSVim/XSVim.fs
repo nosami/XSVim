@@ -1522,9 +1522,10 @@ module Vim =
             | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
-            | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction Move) Nothing ]
-            | NotInsertMode, [ ":" ] -> [ switchMode (ExMode ':') ]
-            | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode c); runOnce (SetSearchAction action) Nothing ]
+            | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction Move) Nothing ]
+            | VisualModes, [ ":" ] -> [ switchMode (ExMode ":'<,'>") ]
+            | NotInsertMode, [ ":" ] -> [ switchMode (ExMode ":") ]
+            | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction action) Nothing ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch ViewCommands.CenterAndFocusCurrentDocument ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]

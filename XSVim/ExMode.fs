@@ -1,6 +1,8 @@
 ﻿namespace XSVim
 open System
 open System.Text.RegularExpressions
+open MonoDevelop.Core
+open MonoDevelop.Core.ProgressMonitoring
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor.Extension
@@ -33,6 +35,18 @@ module exMode =
             Some (int m.Groups.[1].Value, int m.Groups.[2].Value)
         else
             None
+
+    let (|Substitute|_|) input =
+        let matches = Regex.Matches(input, "(.*)s/(.*)/(.*)", RegexOptions.Compiled)
+        if matches.Count = 1 then 
+            let m = matches.[0]
+            match m.Groups.[1].Value with
+            | "%" -> Some { find = m.Groups.[2].Value; replace = m.Groups.[3].Value; scope = Document }
+            | "'<,'>" -> Some { find = m.Groups.[2].Value; replace = m.Groups.[3].Value; scope = Selection }
+            | _ -> None
+        else
+            None
+
 
     let processKey (state:VimState) (key:KeyDescriptor) =
         let setMessage message = { state with statusMessage = message }
@@ -132,6 +146,10 @@ module exMode =
                             [ runOnce Move (Jump (StartOfLineNumber startLine))
                               runOnce DeleteWholeLines (Jump (StartOfLineNumber endLine)) ]
                         normalMode, actions
+                    | Substitute substition ->
+                        match Substitute.substitute substition with
+                        | true -> normalMode, resetKeys
+                        | false -> state, resetKeys
                     | _  ->
                         { state with statusMessage = sprintf "Could not parse :%s" rest |> Some; mode = NormalMode; }
                         , resetKeys

@@ -35,7 +35,7 @@ type VimMode =
     | VisualLineMode
     | InsertMode
     | ReplaceMode
-    | ExMode of char // initial char typed to get to command line
+    | ExMode of string // initial char typed to get to command line
 
 
 type MoveRightBehaviour = StopAtEndOfLine | MoveToNextLineAtEnd | IncludeDelimiter

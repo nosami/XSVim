@@ -80,6 +80,7 @@
     <Compile Include="Classes.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="WindowManagement.fs" />
+    <Compile Include="SubstituteCommand.fs" />
     <Compile Include="ExMode.fs" />
     <Compile Include="PadTreeViews.fs" />
     <Compile Include="TreeViewPads.fs" />

@@ -87,3 +87,8 @@ module ``Ex mode tests`` =
 
             """11111
 5$5555"""
+
+    [<Test>]
+    let ``Switching to substitute command mode with a selection``() =
+        let _, state, _ = test "a$bc" "v:"
+        state.statusMessage |> should equal (Some ":'<,'>")
