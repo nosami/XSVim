@@ -1657,7 +1657,15 @@ module Vim =
             | NotInsertMode, [ "g"; "p"; "l" ] -> [ gotoPad "MonoDevelop.Debugger.LocalsPad" ]
             | NotInsertMode, [ "g"; "p"; "w" ] -> [ gotoPad "MonoDevelop.Debugger.WatchPad" ]
             | NotInsertMode, [ "g"; "p"; "i" ] -> [ gotoPad "MonoDevelop.Debugger.ImmediatePad" ]
-            | NotInsertMode, [ "g"; "p"; "f" ] -> [ gotoPad "MonoDevelop.FSharp.FSharpInteractivePad" ]
+            | NotInsertMode, [ "g"; "p"; "n" ] -> [ gotoPad "MonoDevelop.FSharp.FSharpInteractivePad" ]
+            | NotInsertMode, [ "g"; "p"; "f" ] ->
+                let searchResultPads = IdeApp.Workbench.Pads |> Seq.filter(fun p -> p.Content :? MonoDevelop.Ide.FindInFiles.SearchResultPad)
+                match searchResultPads |> Seq.length with
+                | 0 -> resetKeys
+                | 1 -> [ gotoPad "SearchPad - Search Results - 0" ]
+                | _ -> wait
+            | NotInsertMode, [ "g"; "p"; "f"; OneToNine d ] ->
+                [ gotoPad (sprintf "SearchPad - Search Results - %d" (d-1)) ]
             | NotInsertMode, [ "g"; "p"; "d" ] -> wait
             | NotInsertMode, [ "g"; "p"; "d"; "t" ] -> [ gotoPad "MonoDevelop.Debugger.ThreadsPad" ]
             | NotInsertMode, [ "g"; "p"; "d"; "s" ] -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
