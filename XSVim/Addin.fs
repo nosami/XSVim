@@ -147,6 +147,9 @@ type XSVim() as this =
             x.Editor.ClearSelection()
             false
         | ModifierKeys.Command when descriptor.KeyChar <> 'z' && descriptor.KeyChar <> 'r' -> false
+        | _ when isNull x.Editor ->
+            // Seems like we can get into this state when closing a tab
+            false
         | _ ->
             let oldState = x.State
 

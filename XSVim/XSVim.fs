@@ -1218,6 +1218,9 @@ module Vim =
                 | Func f ->
                     f()
                     vimState
+                | EditorFunc f ->
+                    f editor
+                    vimState
                 | GotoPad padId ->
                     Window.gotoPad padId
                     vimState
