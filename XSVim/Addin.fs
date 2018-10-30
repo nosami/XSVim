@@ -8,7 +8,6 @@ open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 open MonoDevelop.Ide.Editor.Extension
 open MonoDevelop.Ide.FindInFiles
-open MonoDevelop.Ide.Gui.Components
 open Reflection
 
 module Subscriptions =
@@ -74,11 +73,11 @@ type XSVim() as this =
         KeyDescriptor.FromGtk(Enum.Parse(typeof<Gdk.Key>, c) :?> Gdk.Key, char c, Gdk.ModifierType.ControlMask)
         |> this.KeyPress
 
-    member x.FileName = x.Editor.FileName.FullPath
+    let mutable fileName = FilePath.Empty
 
     member x.State
-        with get() = Vim.editorStates.[x.FileName]
-        and set(value) = Vim.editorStates.[x.FileName] <- value
+        with get() = Vim.editorStates.[fileName]
+        and set(value) = Vim.editorStates.[fileName] <- value
 
 
     override x.IsValidInContext documentContext =
@@ -87,10 +86,10 @@ type XSVim() as this =
     override x.Initialize() =
         treeViewPads.initialize()
         x.Editor.FocusLost.Add(fun _ -> initializeSearchResultsPads())
-
-        LoggingService.LogDebug("XSVim initializing - " + string x.FileName)
+        fileName <- x.Editor.FileName.FullPath
+        LoggingService.LogDebug("XSVim initializing - " + string fileName)
         initConfig()
-        if not (Vim.editorStates.ContainsKey x.FileName) then
+        if not (Vim.editorStates.ContainsKey fileName) then
             let editor = x.Editor
             let state =
                 match Vim.getCaretMode editor with
@@ -98,7 +97,7 @@ type XSVim() as this =
                 | Block -> VimState.Default
 
             let initialState = Vim.switchToNormalMode editor state
-            Vim.editorStates.Add(x.FileName, initialState)
+            Vim.editorStates.Add(fileName, initialState)
             editor.GrabFocus()
             let caretChanged =
                 editor.CaretPositionChanged.Subscribe
@@ -147,9 +146,6 @@ type XSVim() as this =
             x.Editor.ClearSelection()
             false
         | ModifierKeys.Command when descriptor.KeyChar <> 'z' && descriptor.KeyChar <> 'r' -> false
-        | _ when isNull x.Editor ->
-            // Seems like we can get into this state when closing a tab
-            false
         | _ ->
             let oldState = x.State
 

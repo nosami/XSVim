@@ -856,7 +856,12 @@ module Vim =
                 if editor.SelectionMode = SelectionMode.Normal then EditActions.ToggleBlockSelectionMode editor
                 switchToInsertMode editor vimState isInitial
 
-            let start, finish = VimHelpers.getRange vimState editor command
+            let start, finish =
+                if editor.Length > 0 then
+                    VimHelpers.getRange vimState editor command
+                else
+                    // editor can have zero length when a tab containing it has just been closed
+                    0, 0
 
             let newState =
                 match command.commandType with
@@ -1702,7 +1707,8 @@ module Vim =
             | SpecialKey.Delete -> VimKey.Delete
             | _ -> Key keyPress.KeyChar
 
-    let handleKeyPress state (keyPress:KeyDescriptor) editor config =
+    let handleKeyPress state (keyPress:KeyDescriptor) (editor:TextEditor) config =
+        let fileName = editor.FileName
         let vimKey =
             match state.mode, keyPress.KeyChar, config.insertModeEscapeKey with
             | InsertMode, c, Some combo when (string c) = combo.insertModeEscapeKey1 ->
@@ -1769,5 +1775,6 @@ module Vim =
             | NotInsertMode, Key 'O', _
             | NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
             | _ -> newState
-        editorStates.[editor.FileName] <- newState
+
+        editorStates.[fileName] <- newState
         newState, handled

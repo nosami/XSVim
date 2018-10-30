@@ -85,11 +85,12 @@ module Window =
             switchToNotebook notebooks.[1]
 
     let closeTab() =
-        match tryActiveInactiveNoteBooks() with
+        let n = tryActiveInactiveNoteBooks()
+        match n with
         | Some active, Some inactive when active.tabs.Length = 1 ->
             dispatch FileCommands.CloseFile
             switchToNotebook inactive
-        | Some active, _ when active.tabs.Length > 1 ->
+        | Some active, _ when active.activeTab > 0 ->
             dispatch FileCommands.CloseFile
             openDocument active.tabs.[active.activeTab-1]
         | _ -> dispatch FileCommands.CloseFile
