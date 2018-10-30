@@ -179,7 +179,8 @@ type CommandType =
     | ReplayMacro of char
     | NextTab
     | PreviousTab
-    | Func of (TextEditor -> unit)
+    | Func of (unit -> unit)
+    | EditorFunc of (TextEditor -> unit)
     | GotoPad of string
     | DelayedFunc of (TextEditor -> unit) * int
     | CancelFunc

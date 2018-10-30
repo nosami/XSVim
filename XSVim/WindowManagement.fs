@@ -46,7 +46,7 @@ module Window =
         notebooks |> List.tryFind(fun notebook -> notebook.isActive),
         notebooks |> List.tryFind(fun notebook -> not notebook.isActive)
 
-    let nextTab _editor =
+    let nextTab() =
         tryFindActiveNoteBook() |> Option.iter(fun notebook ->
             let tabCount = notebook.tabs.Length
             let currentTabIndex = notebook.activeTab
@@ -57,7 +57,7 @@ module Window =
                     0
             openDocument notebook.tabs.[index])
 
-    let previousTab _editor =
+    let previousTab() =
         tryFindActiveNoteBook() |> Option.iter(fun notebook ->
             let tabCount = notebook.tabs.Length
             let currentTabIndex = notebook.activeTab
@@ -68,23 +68,23 @@ module Window =
                     tabCount - 1
             openDocument notebook.tabs.[index])
 
-    let switchWindow _editor =
+    let switchWindow() =
         let notebook =
             getNotebooks()
             |> List.tryFind(fun notebook -> not notebook.isActive)
         notebook |> Option.iter switchToNotebook
 
-    let leftWindow _editor =
+    let leftWindow() =
         let notebooks = getNotebooks()
         if notebooks.Length = 2 && notebooks.[1].isActive then
             switchToNotebook notebooks.[0]
 
-    let rightWindow _editor =
+    let rightWindow() =
         let notebooks = getNotebooks()
         if notebooks.Length = 2 && notebooks.[0].isActive then
             switchToNotebook notebooks.[1]
 
-    let closeTab _editor =
+    let closeTab() =
         match tryActiveInactiveNoteBooks() with
         | Some active, Some inactive when active.tabs.Length = 1 ->
             dispatch FileCommands.CloseFile

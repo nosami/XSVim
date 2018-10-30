@@ -1,8 +1,6 @@
 ﻿namespace XSVim
 open System
 open System.Text.RegularExpressions
-open MonoDevelop.Core
-open MonoDevelop.Core.ProgressMonitoring
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor.Extension
@@ -83,9 +81,7 @@ module exMode =
                 | ':'  ->
                     match rest with
                     | "q" ->
-                        async {
-                            dispatchCommand FileCommands.CloseFile
-                        } |> Async.StartImmediate
+                        Window.closeTab()
                         normalMode, resetKeys
                     | "q!"  ->
                         async {

@@ -1210,13 +1210,13 @@ module Vim =
                         | [] -> state
                     runMacro vimState macros.[c]
                 | NextTab ->
-                    Window.nextTab editor
+                    Window.nextTab()
                     vimState
                 | PreviousTab ->
-                    Window.previousTab editor
+                    Window.previousTab()
                     vimState
                 | Func f ->
-                    f editor
+                    f()
                     vimState
                 | GotoPad padId ->
                     Window.gotoPad padId
@@ -1622,8 +1622,8 @@ module Vim =
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
             | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLine; switchMode NormalMode ]
-            | VisualModes, [ ">" ] -> [ run (Func EditActions.IndentSelection) Nothing; switchMode NormalMode ]
-            | VisualModes, [ "<" ] -> [ run (Func EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, [ ">" ] -> [ run (EditorFunc EditActions.IndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, [ "<" ] -> [ run (EditorFunc EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
