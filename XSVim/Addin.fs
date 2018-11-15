@@ -215,5 +215,6 @@ type XSVim() as this =
     member x.Escape() = ctrl "c"
 
     override x.Dispose() =
+        Vim.editorStates.Remove(fileName) |> ignore;
         base.Dispose()
         disposables |> List.iter(fun d -> d.Dispose())

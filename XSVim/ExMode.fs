@@ -16,7 +16,6 @@ module exMode =
         | _ -> wait
 
     let save() = IdeApp.Workbench.ActiveDocument.Save() |> Async.AwaitTask
-    let forceClose() = IdeApp.Workbench.ActiveDocument.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
 
     let (|DeleteBetweenMarks|_|) input =
         let matches = Regex.Matches(input, "'([a-z]),'([a-z])d", RegexOptions.Compiled)
@@ -84,9 +83,7 @@ module exMode =
                         Window.closeTab()
                         normalMode, resetKeys
                     | "q!"  ->
-                        async {
-                            do! forceClose()
-                        } |> Async.StartImmediate
+                        Window.forceCloseTab()
                         normalMode, resetKeys
                     | "w"
                     | "w!"  ->
@@ -121,7 +118,7 @@ module exMode =
                     | "wq!"  ->
                         async {
                             do! save()
-                            do! forceClose()
+                            Window.forceCloseTab()
                         } |> Async.StartImmediate
                         normalMode, resetKeys
                     | "vs"
