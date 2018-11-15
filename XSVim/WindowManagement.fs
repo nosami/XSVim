@@ -20,6 +20,8 @@ module Window =
     let switchToNotebook notebook =
         openDocument notebook.tabs.[notebook.activeTab]
 
+    let forceClose() = IdeApp.Workbench.ActiveDocument.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
+
     let getNotebooks() =
         let (dockNotebookContainer: obj seq) = IdeApp.Workbench?RootWindow?TabControl?Container?GetNotebooks()
         let getFiles notebook =
@@ -84,16 +86,26 @@ module Window =
         if notebooks.Length = 2 && notebooks.[0].isActive then
             switchToNotebook notebooks.[1]
 
-    let closeTab() =
-        let n = tryActiveInactiveNoteBooks()
-        match n with
+    let private closeTabWithForce force  =
+        let closeFunc() =
+            match force with
+            | true -> forceClose() |> Async.RunSynchronously
+            | false -> dispatch FileCommands.CloseFile
+
+        match tryActiveInactiveNoteBooks() with
         | Some active, Some inactive when active.tabs.Length = 1 ->
-            dispatch FileCommands.CloseFile
+            closeFunc()
             switchToNotebook inactive
         | Some active, _ when active.activeTab > 0 ->
-            dispatch FileCommands.CloseFile
+            closeFunc()
             openDocument active.tabs.[active.activeTab-1]
-        | _ -> dispatch FileCommands.CloseFile
+        | Some active, _ when active.activeTab = 0 && active.tabs.Length > 1 ->
+            closeFunc()
+            openDocument active.tabs.[1]
+        | _ -> closeFunc()
+
+    let closeTab() = closeTabWithForce false
+    let forceCloseTab() = closeTabWithForce true
 
     let gotoPad padId =
         IdeApp.Workbench.Pads

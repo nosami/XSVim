@@ -1633,6 +1633,8 @@ module Vim =
             | VisualModes, [ ">" ] -> [ run (EditorFunc EditActions.IndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "<" ] -> [ run (EditorFunc EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]
+            | NotInsertMode, [ "Z" ] -> wait
+            | NotInsertMode, [ "Z"; "Z" ] -> [ func Window.closeTab ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]
