@@ -89,14 +89,17 @@ type XSVim() as this =
         fileName <- x.Editor.FileName.FullPath
         LoggingService.LogDebug("XSVim initializing - " + string fileName)
         initConfig()
-        if not (Vim.editorStates.ContainsKey fileName) then
-            let editor = x.Editor
-            let state =
-                match Vim.getCaretMode editor with
-                | Insert -> { VimState.Default with mode = InsertMode }
-                | Block -> VimState.Default
+        let editor = x.Editor
 
-            let initialState = Vim.switchToNormalMode editor state
+        let state =
+            match Vim.getCaretMode editor with
+            | Insert -> { VimState.Default with mode = InsertMode }
+            | Block -> VimState.Default
+
+        let initialState = Vim.switchToNormalMode editor state
+
+        if not (Vim.editorStates.ContainsKey fileName) then
+
             Vim.editorStates.Add(fileName, initialState)
             editor.GrabFocus()
             let caretChanged =
