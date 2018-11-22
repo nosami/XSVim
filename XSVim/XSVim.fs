@@ -68,10 +68,10 @@ module VimHelpers =
         let rec findRec startCount endCount at =
             if (text.Length <= at) then None else
 
-            let st = if (at+blockStartShift < text.Length) then text.[at..(at+blockStartShift)] else "" 
-            let en = if (at+blockEndShift < text.Length) then text.[at..(at+blockEndShift)] else "" 
-
             let next = op at 1
+            let st = try text.[at..(at+blockStartShift)] with | _ -> ""
+            let en = try text.[at..(at+blockEndShift)] with | _ -> ""
+
             match st, en with
             | _, e when e = blockEndDelimiter && startCount < (endCount+1) -> Some at
             | _, e when e = blockEndDelimiter -> findRec startCount (endCount+1) next
