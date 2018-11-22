@@ -81,34 +81,10 @@ module VimHelpers =
         findRec 0 0 pos
 
     let rec findUnmatchedBlockStartDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter =
-        let find (c:string) =
-            seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.GetTextAt(index, c.Length) = c)
-        match find blockStartDelimiter, find blockEndDelimiter with
-        | Some s, Some e when s > e -> Some s
-        | Some s, Some e when s < e -> findUnmatchedBlockStartDelimiter editor (s-1) blockStartDelimiter blockEndDelimiter
-        | Some s, None -> Some s
-        | _,_ -> None
+        findUnmatchedBlockDelimiter editor pos blockEndDelimiter blockStartDelimiter (-)
 
     let findUnmatchedBlockEndDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter =
-        let blockStartShift = (blockStartDelimiter |> String.length) - 1
-        let blockEndShift = (blockEndDelimiter |> String.length) - 1
-
-        let text = editor.Text
-
-        let rec findRec startCount endCount at =
-            if (text.Length <= at) then None else
-
-            let st = if (at+blockStartShift < text.Length) then text.[at..(at+blockStartShift)] else "" 
-            let en = if (at+blockEndShift < text.Length) then text.[at..(at+blockEndShift)] else "" 
-
-            let next = at + 1
-            match st, en with
-            | _, e when e = blockEndDelimiter && startCount < (endCount+1) -> Some at
-            | _, e when e = blockEndDelimiter && startCount >= (endCount+1) -> findRec startCount (endCount+1) next
-            | s, _ when s = blockStartDelimiter -> findRec (startCount+1) endCount next
-            | _,_ -> findRec startCount endCount next
-
-        findRec 0 0 pos
+        findUnmatchedBlockDelimiter editor pos blockStartDelimiter blockEndDelimiter (+)
 
     let isWordChar c = Char.IsLetterOrDigit c || c = '-' || c = '_'
     let isWORDChar c = not (Char.IsWhiteSpace c)
