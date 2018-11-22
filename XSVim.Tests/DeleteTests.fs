@@ -175,3 +175,10 @@ $    bar
     [<Test>]
     let ``d]) deletes to next unmatched )``() =
         assertText "if (a$ == (b)c)" "d])" "if ($"
+    [<Test>]
+    let ``dib deletes nested brackets``() =
+        assertText "(fo$o (bar (foo) )  )" "dib" "()$"
+
+    [<Test>]
+    let ``dib deletes nested brackets backwards``() =
+        assertText "(foo (bar (foo) ) $ )" "dib" "()$"
