@@ -59,6 +59,27 @@ module VimHelpers =
         seq { editor.CaretOffset .. -1 .. 0 }
         |> Seq.tryFind(fun index -> editor.[index] = ch)
 
+    let findUnmatchedBlockDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter op =
+        let blockStartShift = (blockStartDelimiter |> String.length) - 1
+        let blockEndShift = (blockEndDelimiter |> String.length) - 1
+
+        let text = editor.Text
+
+        let rec findRec startCount endCount at =
+            if (text.Length <= at) then None else
+
+            let st = if (at+blockStartShift < text.Length) then text.[at..(at+blockStartShift)] else "" 
+            let en = if (at+blockEndShift < text.Length) then text.[at..(at+blockEndShift)] else "" 
+
+            let next = op at 1
+            match st, en with
+            | _, e when e = blockEndDelimiter && startCount < (endCount+1) -> Some at
+            | _, e when e = blockEndDelimiter -> findRec startCount (endCount+1) next
+            | s, _ when s = blockStartDelimiter -> findRec (startCount+1) endCount next
+            | _,_ -> findRec startCount endCount next
+
+        findRec 0 0 pos
+
     let rec findUnmatchedBlockStartDelimiter(editor:TextEditor) pos blockStartDelimiter blockEndDelimiter =
         let find (c:string) =
             seq {pos .. -1 .. 0} |> Seq.tryFind(fun index -> editor.GetTextAt(index, c.Length) = c)
