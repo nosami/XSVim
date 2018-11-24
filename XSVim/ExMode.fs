@@ -122,6 +122,7 @@ module exMode =
                         } |> Async.StartImmediate
                         normalMode, resetKeys
                     | "vs"
+                    | "vsp"
                     | "vsplit"
                     | "sp"
                     | "split" ->
