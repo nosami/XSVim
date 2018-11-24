@@ -1426,6 +1426,9 @@ module Vim =
 
         let run = getCommand numericArgument
 
+        let runInVisualMode actions = [ switchMode VisualMode ] @ actions @ [ switchMode NormalMode ]
+        let runInVisualLineMode actions = [ switchMode VisualLineMode ] @ actions @ [ switchMode NormalMode ]
+
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -1481,13 +1484,13 @@ module Vim =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText; switchMode NormalMode ]
+                runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText ]
             | NormalMode, [ "d"; "k" ] ->
                 let numberOfLines =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; switchMode NormalMode ]
+                runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; ]
             | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
             | NotInsertMode, [ UnfinishedMovement ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
@@ -1498,10 +1501,7 @@ module Vim =
                 match numericArgument with
                 | None -> [ run indent m ]
                 | Some lines ->
-                    [ switchMode VisualMode
-                      getCommand (lines-1 |> Some) Move Down
-                      runOnce indent SelectedText
-                      switchMode NormalMode ]
+                    runInVisualMode [ getCommand (lines-1 |> Some) Move Down; runOnce indent SelectedText ]
             | NormalMode, Action action :: Movement m -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
@@ -1522,7 +1522,7 @@ module Vim =
             | NormalMode, [ "y"; "y" ]
             | NormalMode, [ "Y" ] ->
                 match numericArgument with
-                | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
+                | Some lines -> runInVisualLineMode [ getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
