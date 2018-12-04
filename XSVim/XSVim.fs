@@ -66,7 +66,7 @@ module VimHelpers =
         let text = editor.Text
 
         let rec findRec startCount endCount at =
-            if (text.Length <= at) then None else
+            if (text.Length <= at || at < 0) then None else
 
             let next = op at 1
             let st = try text.[at..(at+blockStartShift)] with | _ -> ""
