@@ -182,3 +182,7 @@ $    bar
     [<Test>]
     let ``dib deletes nested brackets backwards``() =
         assertText "(foo (bar (foo) ) $ )" "dib" "()$"
+
+    [<Test>]
+    let ``dib outside brackets does nothing``() =
+        assertText "don't crash$ me" "dib" "don't crash$ me"
