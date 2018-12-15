@@ -65,6 +65,12 @@ module ``Miscellaneous tests`` =
                 """
 
     [<Test>]
+    let ``Large text addition is not too slow!``() =
+        let _, state, editor =
+            test " $" ""
+        editor.InsertText(0, new System.String('x', 200000))
+
+    [<Test>]
     let ``backspace is repeated``() =
         assertText "d$" "iabc<bs> <esc>." "abab $ d"
 
