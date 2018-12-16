@@ -34,6 +34,7 @@ Some Vim keybindings (such as Ctrl-F, Ctrl-D etc) conflict with VS's own built i
 - `gu` - Find usages
 - `gb` - Go to base symbol
 - `gh` - Show tooltip at current caret location (`G`o `H`over)
+- `<C-p> - Go to file`
 - `hjkl` support on the Solution Explorer pad and Test Explorer pad. Pressing `<esc>` on these will switch focus back to the last editor window.
 - Insert mode escape binding. See example screenshot to see how to configure `jj` to escape when in insert mode.
 - Goto Pad shortcuts start with `gp`
