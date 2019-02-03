@@ -82,3 +82,12 @@ module ``Yank and put tests`` =
     [<Test>]
     let ``x with multiplier stops at EOL``() =
         assertText "ab$cdef\n" "100xp" "abcdef$\n"
+
+    [<Test>]
+    let ``2dw yank two words``() =
+        assertText "p$ublic int someInt = 1;" "2dwP" "public int s$omeInt = 1;"
+
+    [<Test>]
+    let ``2d} yank two paragraphs``() =
+        let _  = test " $\na\n\nb\n\n" "2d}"
+        Vim.registers.[EmptyRegister].content |> should equal " \na\n\nb\n\n"
