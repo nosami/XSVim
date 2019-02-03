@@ -1502,7 +1502,18 @@ module Vim =
                 | None -> [ run indent m ]
                 | Some lines ->
                     runInVisualMode [ getCommand (lines-1 |> Some) Move Down; runOnce indent SelectedText ]
-            | NormalMode, Action action :: Movement m -> [ run action m ]
+            | NormalMode, Action action :: Movement m when numericArgument = None -> [ run action m ]
+            | NormalMode, Action action :: Movement m ->
+                match action, m with
+                | Delete, _
+                | Yank _, _ ->
+                    match m with
+                    | WordForwards -> runInVisualMode [ run Move ForwardToEndOfWord; runOnce Move (Right StopAtEndOfLine); runOnce action SelectedText; ]
+                    | WORDForwards -> runInVisualMode [ run Move ForwardToEndOfWORD; runOnce Move (Right StopAtEndOfLine); runOnce action SelectedText; ]
+                    | WordBackwards -> runInVisualMode [ runOnce Move Left; run Move ForwardToEndOfWord; runOnce action SelectedText; ]
+                    | WORDBackwards -> runInVisualMode [ runOnce Move Left; run Move ForwardToEndOfWORD; runOnce action SelectedText; ]
+                    | _ -> runInVisualMode [ run Move m; runOnce action SelectedText; ]
+                | _ -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] ->
