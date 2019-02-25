@@ -473,7 +473,7 @@ module VimHelpers =
         | Jump ParagraphBackwards ->
             match paragraphBackwards editor with
             | Some index -> editor.CaretOffset, index
-            | None -> editor.CaretOffset, editor.CaretOffset
+            | None -> editor.CaretOffset, 0
         | Jump ParagraphForwards ->
             match paragraphForwards editor with
             | Some index -> editor.CaretOffset, index
