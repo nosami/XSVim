@@ -89,3 +89,8 @@ module ``Visual tests`` =
     let ``Moving to the EOF in visual mode does select text``() =
         let _  = test " $\na\n" "vGy"
         Vim.registers.[EmptyRegister].content |> should equal " \na\n"
+
+    [<Test>]
+    let ``Moving by a paragraph to the start of file does select text``() =
+        let _ = test "start\n $" "v{y"
+        Vim.registers.[EmptyRegister].content |> should equal "start\n "
