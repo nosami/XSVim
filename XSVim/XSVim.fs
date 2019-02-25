@@ -650,7 +650,8 @@ module Vim =
                     finish, vimState.visualStartOffset + 1
                 else
                     vimState.visualStartOffset, finish + if command.textObject = EndOfLine then 0 else 1
-            editor.SetSelection(start, finish)
+
+            editor.SetSelection(start, min finish editor.Length)
             if editor.SelectionMode = SelectionMode.Block then EditActions.ToggleBlockSelectionMode editor
         | VisualBlockMode, Move | VisualBlockMode, SwitchMode _ ->
             let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset

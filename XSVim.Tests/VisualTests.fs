@@ -84,3 +84,8 @@ module ``Visual tests`` =
     let ``selection is not affected when you move to other end``() =
         let _ = test "abc$def" "vllloy"
         getClipboard() |> should equal "cdef"
+
+    [<Test>]
+    let ``Moving to the EOF in visual mode does select text``() =
+        let _  = test " $\na\n" "vGy"
+        Vim.registers.[EmptyRegister].content |> should equal " \na\n"

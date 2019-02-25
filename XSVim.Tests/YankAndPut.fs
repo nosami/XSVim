@@ -91,8 +91,3 @@ module ``Yank and put tests`` =
     let ``2d} yank two paragraphs``() =
         let _  = test " $\na\n\nb\n" "2d}"
         Vim.registers.[EmptyRegister].content |> should equal " \na\n\nb\n"
-
-    [<Test>]
-    let ``Moving to the EOF in visual mode does select text``() =
-        let _  = test " $\na\n" "vGy"
-        Vim.registers.[EmptyRegister].content |> should equal " \na\n"
