@@ -22,11 +22,14 @@ module Subscriptions =
 
                 let newState = { state with lastAction = actions }
                 Vim.editorStates.[editor.FileName] <- newState
+
             if change.Offset + change.InsertionLength = editor.CaretOffset then
+                let state = Vim.editorStates.[editor.FileName]
+                let typedChars =
+                    [ for c in change.InsertedText.Text do
+                        yield typeChar (Key c) ]
                 let vimState = 
-                    change.InsertedText.Text
-                    |> Seq.fold(fun state c ->
-                                   { state with lastAction = state.lastAction @ [ typeChar (Key c) ]}) (Vim.editorStates.[editor.FileName])
+                   { state with lastAction = state.lastAction @ typedChars }
                 Vim.editorStates.[editor.FileName] <- vimState
 
 type XSVim() as this =
