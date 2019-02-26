@@ -1772,6 +1772,8 @@ module Vim =
                     macros.[m] <- macros.[m] @ [ typeChar vimKey ])
                 //{ newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
                 newState
+            | NotInsertMode, _, SwitchMode VisualMode
+            | NotInsertMode, _, SwitchMode VisualLineMode
             | NotInsertMode, _, Delete
             | NotInsertMode, _, Change
             | NotInsertMode, _, Indent

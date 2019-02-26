@@ -236,3 +236,54 @@ module ``Miscellaneous tests`` =
     [<Test>]
     let ``<C-x> decrements -1``() =
         assertText "abc -1$ " "<C-x>" "abc -2$ "
+
+    [<Test>]
+    let ``dot repeats 2dd``() =
+        assertText 
+           """
+           a$aaaa
+           aaaaa
+           bbbbb
+           bbbbb
+           ccccc
+           """
+
+           "2dd."
+
+           """
+           c$cccc
+           """           
+
+    [<Test>]
+    let ``dot repeats 2dj``() =
+        assertText
+            """
+            a$aaaa
+            aaaaa
+            aaaaa
+            bbbbb
+            bbbbb
+            bbbbb
+            """
+
+            "2dj."
+
+            """
+            $"""
+
+    [<Test>]
+    let ``dot repeats 3S``() =
+        assertText
+            """
+            a$aaaa
+            aaaaa
+            bbbbb
+            bbbbb
+            ccccc
+            ccccc"""
+
+            "3S<esc>."
+
+            """
+
+$            ccccc"""
