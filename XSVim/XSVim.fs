@@ -1426,6 +1426,9 @@ module Vim =
 
         let run = getCommand numericArgument
 
+        let runInVisualMode actions = [ yield switchMode VisualMode; yield! actions; yield switchMode NormalMode ]
+        let runInVisualLineMode actions = [ yield switchMode VisualLineMode; yield! actions; yield switchMode NormalMode ]
+
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
@@ -1481,13 +1484,13 @@ module Vim =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText; switchMode NormalMode ]
+                runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText ]
             | NormalMode, [ "d"; "k" ] ->
                 let numberOfLines =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
-                [ switchMode VisualLineMode; getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; switchMode NormalMode ]
+                runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; ]
             | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
             | NotInsertMode, [ UnfinishedMovement ] -> wait
             | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
@@ -1498,11 +1501,19 @@ module Vim =
                 match numericArgument with
                 | None -> [ run indent m ]
                 | Some lines ->
-                    [ switchMode VisualMode
-                      getCommand (lines-1 |> Some) Move Down
-                      runOnce indent SelectedText
-                      switchMode NormalMode ]
-            | NormalMode, Action action :: Movement m -> [ run action m ]
+                    runInVisualMode [ getCommand (lines-1 |> Some) Move Down; runOnce indent SelectedText ]
+            | NormalMode, Action action :: Movement m when numericArgument = None -> [ run action m ]
+            | NormalMode, Action action :: Movement m ->
+                match action, m with
+                | Delete, _
+                | Yank _, _ ->
+                    match m with
+                    | WordForwards -> runInVisualMode [ run Move ForwardToEndOfWord; runOnce Move (Right StopAtEndOfLine); runOnce action SelectedText; ]
+                    | WORDForwards -> runInVisualMode [ run Move ForwardToEndOfWORD; runOnce Move (Right StopAtEndOfLine); runOnce action SelectedText; ]
+                    | WordBackwards -> runInVisualMode [ runOnce Move Left; run Move ForwardToEndOfWord; runOnce action SelectedText; ]
+                    | WORDBackwards -> runInVisualMode [ runOnce Move Left; run Move ForwardToEndOfWORD; runOnce action SelectedText; ]
+                    | _ -> runInVisualMode [ run Move m; runOnce action SelectedText; ]
+                | _ -> [ run action m ]
             | NormalMode, [ "u" ] -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
             | NormalMode, [ "d"; "d" ] ->
@@ -1522,7 +1533,7 @@ module Vim =
             | NormalMode, [ "y"; "y" ]
             | NormalMode, [ "Y" ] ->
                 match numericArgument with
-                | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
+                | Some lines -> runInVisualLineMode [ getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
             | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
             | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
@@ -1772,8 +1783,7 @@ module Vim =
                     macros.[m] <- macros.[m] @ [ typeChar vimKey ])
                 //{ newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
                 newState
-            | NotInsertMode, _, SwitchMode VisualMode
-            | NotInsertMode, _, SwitchMode VisualLineMode
+            | NotInsertMode, _, SwitchMode VisualModes
             | NotInsertMode, _, Delete
             | NotInsertMode, _, Change
             | NotInsertMode, _, Indent
