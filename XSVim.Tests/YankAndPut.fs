@@ -89,5 +89,5 @@ module ``Yank and put tests`` =
 
     [<Test>]
     let ``2d} yank two paragraphs``() =
-        let _  = test " $\na\n\nb\n\n" "2d}"
-        Vim.registers.[EmptyRegister].content |> should equal " \na\n\nb\n\n"
+        let _  = test " $\na\n\nb\n" "2d}"
+        Vim.registers.[EmptyRegister].content |> should equal " \na\n\nb\n"
