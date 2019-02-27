@@ -1426,8 +1426,8 @@ module Vim =
 
         let run = getCommand numericArgument
 
-        let runInVisualMode actions = [ switchMode VisualMode ] @ actions @ [ switchMode NormalMode ]
-        let runInVisualLineMode actions = [ switchMode VisualLineMode ] @ actions @ [ switchMode NormalMode ]
+        let runInVisualMode actions = [ yield switchMode VisualMode; yield! actions; yield switchMode NormalMode ]
+        let runInVisualLineMode actions = [ yield switchMode VisualLineMode; yield! actions; yield switchMode NormalMode ]
 
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
