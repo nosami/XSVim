@@ -28,7 +28,7 @@ type SettingsWidget() as this =
         new Label("Alternate Mapping",
                   TooltipText = "Select an alternate mapping for when not in insert mode")
     let dropDownAlternateMapping = 
-        new ComboBox([| "None"; "Colemak"|]);
+        new ComboBox([| "None"; "Colemak"; "Dvorak" |]);
 
     do
         hbox.PackStart labelMapping
