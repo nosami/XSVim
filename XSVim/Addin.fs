@@ -38,19 +38,24 @@ type XSVim() as this =
 
     let mutable disposables : IDisposable list = []
     let mutable processingKey = false
-    let mutable config = { insertModeEscapeKey = None }
+    let mutable config = Config.Default
     static let searchPads = HashSet<string>() 
     let initConfig() =
+        let keyboardMapping =  match SettingsPanel.AlternateMapping() with
+                                         | "Colemak" -> Colemak
+                                         | "Dvorak" -> Dvorak
+                                         | _ -> Qwerty
         let mapping = SettingsPanel.InsertModeEscapeMapping()
         if mapping.Length = 2 then
             config <- { insertModeEscapeKey =
-                           {
-                               insertModeEscapeKey1 = string mapping.[0]
-                               insertModeEscapeKey2 = string mapping.[1]
-                               insertModeEscapeTimeout = SettingsPanel.InsertModeEscapeMappingTimeout()
-                           } |> Some }
+                            {
+                                insertModeEscapeKey1 = string mapping.[0]
+                                insertModeEscapeKey2 = string mapping.[1]
+                                insertModeEscapeTimeout = SettingsPanel.InsertModeEscapeMappingTimeout()
+                            } |> Some
+                        keyboardLayout = keyboardMapping }
         else
-            config <- { insertModeEscapeKey = None }
+            config <- { Config.Default with keyboardLayout = keyboardMapping }
 
 
     let initializeSearchResultsPads() =
