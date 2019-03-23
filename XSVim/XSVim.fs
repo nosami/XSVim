@@ -311,7 +311,7 @@ module VimHelpers =
                 None
         | None -> None
 
-    let rec getRange (vimState:VimState) (editor:TextEditor) (command:VimAction) =
+    let rec getRange (config:Config) (vimState:VimState) (editor:TextEditor) (command:VimAction) =
         let line = editor.GetLine editor.CaretLine
         let noOp = (editor.CaretOffset, editor.CaretOffset)
         match command.textObject with
@@ -410,10 +410,12 @@ module VimHelpers =
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusiveBackwards c ->
             let startOffset =
-                match vimState.keys with
-                | Key ';' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                match config.keyboardLayout, vimState.keys with
+                | Qwerty, Key ';' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
                     editor.CaretOffset-1
-                | _ -> editor.CaretOffset
+                | Colemak, Key 'o' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                    editor.CaretOffset-1
+                | _, _ -> editor.CaretOffset
             match findStringCharBackwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index+1
             | None -> editor.CaretOffset, editor.CaretOffset
@@ -423,10 +425,12 @@ module VimHelpers =
             | None -> editor.CaretOffset, editor.CaretOffset
         | ToCharExclusive c ->
             let startOffset =
-                match vimState.keys with
-                | Key ';' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                match config.keyboardLayout, vimState.keys with
+                | Qwerty, Key ';' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
                     editor.CaretOffset+1
-                | _ -> editor.CaretOffset
+                | Colemak, Key 'o' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                    editor.CaretOffset+1
+                | _, _ -> editor.CaretOffset
             match findCharForwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index-1
             | None -> editor.CaretOffset, editor.CaretOffset
@@ -600,8 +604,11 @@ module VimHelpers =
         | Range (startOffset, endOffset) -> startOffset, endOffset
         | Jump (ToSearch search) ->
             let startOffset =
-                match vimState.keys with
-                | [Key 'n'] | [Key 'N'] -> editor.CaretOffset + 1
+                match config.keyboardLayout, vimState.keys with
+                | Qwerty, [Key 'n'] 
+                | Qwerty, [Key 'N'] -> editor.CaretOffset + 1
+                | Colemak, [Key 'k'] 
+                | Colemak, [Key 'K'] -> editor.CaretOffset + 1
                 | _ -> editor.CaretOffset
             let offset = findNextSearchOffset editor search startOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
@@ -610,7 +617,7 @@ module VimHelpers =
             editor.CaretOffset, offset
         | Jump SearchAgain ->
             match vimState.lastSearch with
-            | Some search -> getRange vimState editor { command with textObject = search }
+            | Some search -> getRange config vimState editor { command with textObject = search }
             | None -> editor.CaretOffset, editor.CaretOffset
         | Jump SearchAgainBackwards ->
             match vimState.lastSearch with
@@ -620,7 +627,7 @@ module VimHelpers =
                     | Jump (ToSearch s) -> Jump (ToSearchBackwards s)
                     | Jump (ToSearchBackwards s) -> Jump (ToSearch s)
                     | _ -> failwith "Invalid search"
-                getRange vimState editor { command with textObject = reverseSearch }
+                getRange config vimState editor { command with textObject = reverseSearch }
             | None -> editor.CaretOffset, editor.CaretOffset
         | _ -> editor.CaretOffset, editor.CaretOffset
 
@@ -639,7 +646,7 @@ module Vim =
         | _ -> None
 
     let (|NotInsertMode|_|) = function
-        | InsertMode | ExMode _ -> None
+        | InsertMode | ReplaceMode | ExMode _ -> None
         | _ -> Some NotInsertMode
 
     let setSelection vimState (editor:TextEditor) (command:VimAction) (start:int) finish =
@@ -769,7 +776,7 @@ module Vim =
         | EscapeKey _
         | Control _ -> ()
 
-    let runCommand vimState editor command =
+    let runCommand config vimState editor command =
         let delete state start finish =
             let finish =
                 match command.textObject with
@@ -855,7 +862,7 @@ module Vim =
                 vimState
             | None -> vimState
 
-        let rec processCommands count vimState command isInitial =
+        let rec processCommands config count vimState command isInitial =
             let blockInsert fColumnSelect =
                 let selectionStartLocation = editor.OffsetToLocation vimState.visualStartOffset
                 let topLine = min selectionStartLocation.Line editor.CaretLine
@@ -867,7 +874,7 @@ module Vim =
 
             let start, finish =
                 if editor.Length > 0 then
-                    VimHelpers.getRange vimState editor command
+                    VimHelpers.getRange config vimState editor command
                 else
                     // editor can have zero length when a tab containing it has just been closed
                     0, 0
@@ -1014,7 +1021,7 @@ module Vim =
                     match vimState.mode with
                     | VisualModes -> editor.CaretOffset <- vimState.visualStartOffset
                     | _ -> ()
-                    processCommands 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
+                    processCommands config 1 vimState (runOnce (SwitchMode NormalMode) Nothing) false
                 | Put Before ->
                     if registers.[EmptyRegister].linewise then
                         editor.CaretOffset <- editor.GetLine(editor.CaretLine).Offset
@@ -1112,12 +1119,12 @@ module Vim =
                     | NormalMode ->
                         let state = switchToNormalMode editor vimState
                         if vimState.mode = InsertMode then
-                            processCommands 1 state (runOnce (SetMark ".") Nothing) false
+                            processCommands config 1 state (runOnce (SetMark ".") Nothing) false
                         else
                             state
                     | VisualMode | VisualLineMode | VisualBlockMode ->
                         setCaretMode editor Block
-                        let start, finish = VimHelpers.getRange vimState editor command
+                        let start, finish = VimHelpers.getRange config vimState editor command
                         let statusMessage =
                             match mode with
                             | VisualMode -> Some "-- VISUAL --"
@@ -1163,7 +1170,7 @@ module Vim =
                         editor.CaretOffset <- offset
                         vimState
                     | None ->
-                        processCommands 1 vimState (runOnce Move WordForwards) isInitial
+                        processCommands config 1 vimState (runOnce Move WordForwards) isInitial
                 | Star Before ->
                     match wordAtCaret editor with
                     | Some word ->
@@ -1217,9 +1224,9 @@ module Vim =
                     let rec runMacro state actions =
                         match actions with
                         | [ only ] ->
-                            processCommands (getCount only.repeat) state only false
+                            processCommands config (getCount only.repeat) state only false
                         | h :: t ->
-                            let newState = processCommands (getCount h.repeat) state h false
+                            let newState = processCommands config (getCount h.repeat) state h false
                             runMacro newState t
                         | [] -> state
                     runMacro vimState macros.[c]
@@ -1257,10 +1264,10 @@ module Vim =
 
             match count with
             | 1 -> newState
-            | _ -> processCommands (count-1) newState command false
+            | _ -> processCommands config (count-1) newState command false
         let count = command.repeat |> Option.defaultValue 1
 
-        processCommands count vimState command true
+        processCommands config count vimState command true
 
     let (|Digit|_|) character =
         if character >= "0" && character <= "9" then
@@ -1302,7 +1309,9 @@ module Vim =
         else
             None
 
-    let (|Movement|_|) = function
+    let (|Movement|_|) layout keys =
+        let remappedKeys = keys |> List.map (fun k -> remap layout k)
+        match remappedKeys with
         | ["<left>"]
         | ["h"] -> Some Left
         | ["<down>"]
@@ -1347,8 +1356,9 @@ module Vim =
 
     let unfinishedMovements = [ "g"; "["; "]"; "@"; "m"; "`"; "'" ] |> set
 
-    let (|UnfinishedMovement|_|) character =
-        if unfinishedMovements.Contains character then
+    let (|UnfinishedMovement|_|) layout character =
+        let remappedCharacter = remap layout character
+        if unfinishedMovements.Contains remappedCharacter then
             Some UnfinishedMovement
         else
             None
@@ -1359,7 +1369,8 @@ module Vim =
         | "=" -> Some EqualIndent
         | _ -> None
 
-    let (|FindChar|_|) = function
+    let (|FindChar|_|) layout key =
+        match remap layout key with
         | "f" -> Some ToCharInclusive
         | "F" -> Some ToCharInclusiveBackwards
         | "t" -> Some ToCharExclusive
@@ -1371,7 +1382,8 @@ module Vim =
         | "?" -> Some (SearchChar '?')
         | _ -> None
 
-    let (|Action|_|) = function
+    let (|Action|_|) layout key =
+        match remap layout key with
         | "d" -> Some Delete
         | "c" -> Some Change
         | "v" -> Some Visual
@@ -1380,10 +1392,12 @@ module Vim =
         | "<" -> Some UnIndent
         | _ -> None
 
-    let (|ModeChange|_|) = function
+    let (|ModeChange|_|) layout key =
+        match remap layout key with
         | "i" -> Some InsertMode
         | "v" -> Some VisualMode
         | "<C-v>" -> Some VisualBlockMode
+        | "<C-q>" -> Some VisualBlockMode
         | "V" -> Some VisualLineMode
         | "R" -> Some ReplaceMode
         | _ -> None
@@ -1392,7 +1406,20 @@ module Vim =
         | "<esc>" | "<C-c>" | "<C-[>" -> Some Escape
         | _ -> None
 
+    let (|RemappedMatches|_|) layout matchList unmappedList = 
+        let mappedList = unmappedList |> List.map (fun x -> remap layout x)
+        if mappedList = matchList then 
+          Some matchList
+        else 
+          None
 
+    let (|RemappedMatchesChar|_|) layout matchChar unmappedChar = 
+        let mappedChar = remap layout unmappedChar
+        if mappedChar = matchChar then 
+          Some matchChar
+        else 
+          None
+                
     let getInsertModeEscapeCombo config =
         match config.insertModeEscapeKey with
         | Some combo ->
@@ -1400,12 +1427,13 @@ module Vim =
         | None -> "", "", 0
 
     let parseKeys (state:VimState) (config: Config) =
+        let layout = config.keyboardLayout;
         let keyList = state.keys |> List.map string
         let numericArgument, keyList =
             match keyList, state.mode with
             | "r" :: _, _
             | [ _ ], ReplaceMode
-            | FindChar _ :: _, _ -> None, keyList
+            | FindChar layout _ :: _, _ -> None, keyList
             // 2dw -> 2, dw
             | OneToNine d1 :: Digit d2 :: Digit d3 :: Digit d4 :: t, _ ->
                 Some (d1 * 1000 + d2 * 100 + d3 * 10 + d4), t
@@ -1433,7 +1461,7 @@ module Vim =
         LoggingService.LogDebug (sprintf "%A %A" state.mode keyList)
         let newState =
             match keyList with
-            | [ FindChar m; c ] -> { state with findCharCommand = run Move ( m c ) |> Some }
+            | [ FindChar layout m; c ] -> { state with findCharCommand = run Move ( m c ) |> Some }
             | _ -> state
 
         let insertModeEscapeFirstChar, insertModeEscapeSecondChar, insertModeTimeout =
@@ -1455,56 +1483,56 @@ module Vim =
                 [ run CancelFunc Nothing
                   run (ChangeState { state with keys = [] }) Nothing
                   typeChar (Key (char insertModeEscapeFirstChar)) ]
-            | NotInsertMode, [ "G" ] ->
+            | NotInsertMode, RemappedMatches layout [ "G" ] _ ->
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
                 | None -> [ runOnce Move (Jump LastLine) ]
             | NormalMode, [ IndentChar _ ] -> wait
-            | NormalMode, [ IndentChar _ ; "g" ] -> wait
-            | NormalMode, [ IndentChar indent; "G" ] ->
+            | NormalMode, [ IndentChar _ ; RemappedMatchesChar layout "g" _ ] -> wait
+            | NormalMode, [ IndentChar indent; RemappedMatchesChar layout "G" _ ] ->
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Indent (Jump (StartOfLineNumber lineNumber)) ]
                 | None -> [ runOnce indent (Jump LastLine) ]
-            | NormalMode, [ IndentChar indent; "g"; "g" ] ->
+            | NormalMode, [ IndentChar indent; RemappedMatchesChar layout "g" _; RemappedMatchesChar layout "g" _ ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce indent (Jump (StartOfLineNumber lineNumber)) ]
             | NormalMode, [ ">"; ">" ] -> [ run Indent WholeLine ]
             | NormalMode, [ "<"; "<" ] -> [ run UnIndent WholeLine ]
             | NormalMode, [ "="; "=" ] -> [ run EqualIndent WholeLine ]
-            | NormalMode, [ "V" ] ->
+            | NormalMode, RemappedMatches layout [ "V" ] _ ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
                 | None -> [ switchMode VisualLineMode ]
-            | NormalMode, [ "v" ] ->
+            | NormalMode, RemappedMatches layout [ "v" ] _ ->
                 match numericArgument with
                 | Some chars -> [ switchMode VisualMode; getCommand (chars-1 |> Some) Move (Right StopAtEndOfLine) ]
                 | None -> [ switchMode VisualMode ]
-            | NormalMode, [ "d"; "G" ] -> [ runOnce DeleteWholeLines (Jump LastLine)]
-            | NormalMode, [ "d"; "j" ] ->
+            | NormalMode, RemappedMatches layout [ "d"; "G" ] _ -> [ runOnce DeleteWholeLines (Jump LastLine)]
+            | NormalMode, RemappedMatches layout [ "d"; "j" ] _ ->
                 let numberOfLines =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
                 runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Down; runOnce Delete SelectedText ]
-            | NormalMode, [ "d"; "k" ] ->
+            | NormalMode, RemappedMatches layout [ "d"; "k" ] _ ->
                 let numberOfLines =
                     match numericArgument with
                     | Some lines -> lines
                     | None -> 1
                 runInVisualLineMode [ getCommand (numberOfLines |> Some) Move Up; runOnce Delete SelectedText; ]
-            | NotInsertMode, [ (Action _) ; UnfinishedMovement ] -> wait
-            | NotInsertMode, [ UnfinishedMovement ] -> wait
-            | NormalMode, [ "d"; "g"; "g" ] -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
+            | NotInsertMode, [ (Action layout _) ; UnfinishedMovement layout _] -> wait
+            | NotInsertMode, [ UnfinishedMovement layout _ ] -> wait
+            | NormalMode, RemappedMatches layout [ "d"; "g"; "g" ] _ -> [ runOnce DeleteWholeLines (Jump StartOfDocument)]
             | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
-            | NotInsertMode, Movement m -> [ run Move m ]
-            | NotInsertMode, [ FindChar m; c ] -> [ run Move (m c) ]
-            | NormalMode, IndentChar indent :: Movement m ->
+            | NotInsertMode, Movement layout m -> [ run Move m ]
+            | NotInsertMode, [ FindChar layout m; c ] -> [ run Move (m c) ]
+            | NormalMode, IndentChar indent :: Movement layout m ->
                 match numericArgument with
                 | None -> [ run indent m ]
                 | Some lines ->
                     runInVisualMode [ getCommand (lines-1 |> Some) Move Down; runOnce indent SelectedText ]
-            | NormalMode, Action action :: Movement m when numericArgument = None -> [ run action m ]
-            | NormalMode, Action action :: Movement m ->
+            | NormalMode, Action layout action :: Movement layout m when numericArgument = None -> [ run action m ]
+            | NormalMode, Action layout action :: Movement layout m ->
                 match action, m with
                 | Delete, _
                 | Yank _, _ ->
@@ -1515,9 +1543,9 @@ module Vim =
                     | WORDBackwards -> runInVisualMode [ runOnce Move Left; run Move ForwardToEndOfWORD; runOnce action SelectedText; ]
                     | _ -> runInVisualMode [ run Move m; runOnce action SelectedText; ]
                 | _ -> [ run action m ]
-            | NormalMode, [ "u" ] -> [ run Undo Nothing ]
+            | NormalMode, RemappedMatches layout [ "u" ] _ -> [ run Undo Nothing ]
             | NormalMode, [ "<C-r>" ] -> [ run Redo Nothing ]
-            | NormalMode, [ "d"; "d" ] ->
+            | NormalMode, RemappedMatches layout [ "d"; "d" ] _ ->
                 match numericArgument with
                 | None -> [ run Delete WholeLine ]
                 | Some lines ->
@@ -1529,98 +1557,97 @@ module Vim =
             | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
             | NormalMode, ["\""] -> wait
             | NormalMode, ["\""; _ ] -> wait
-            | NormalMode, ["\""; _; "y"] -> wait
-            | NormalMode, "\"" :: (RegisterMatch r) :: "y" :: (Movement m) -> [ run (Yank r) m]
-            | NormalMode, [ "y"; "y" ]
-            | NormalMode, [ "Y" ] ->
+            | NormalMode, ["\""; _; RemappedMatchesChar layout "y" _ ] -> wait
+            | NormalMode, "\"" :: (RegisterMatch r) :: RemappedMatchesChar layout "y" _ :: (Movement layout m) -> [ run (Yank r) m]
+            | NormalMode, RemappedMatches layout [ "y"; "y" ] _
+            | NormalMode, RemappedMatches layout [ "Y" ] _ ->
                 match numericArgument with
                 | Some lines -> runInVisualLineMode [ getCommand (lines-1 |> Some) Move Down; runOnce (Yank EmptyRegister) SelectedText ]
                 | None -> [ runOnce (Yank EmptyRegister) WholeLineIncludingDelimiter ]
-            | NormalMode, [ "C" ] -> [ run Change EndOfLine ]
-            | NormalMode, [ "D" ] -> [ run Delete EndOfLine ]
-            | NormalMode, [ "x" ] -> [ runOnce Delete (Character (numericArgument |> Option.defaultValue 1)) ]
-            | NormalMode, [ "X" ] -> [ run DeleteLeft Nothing ]
-            | NormalMode, [ "s"] -> [ run Substitute CurrentLocation]
-            | NormalMode, [ "S"] -> [ run Delete WholeLine; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
-            | NormalMode, [ "p" ] -> [ run (Put After) Nothing ]
-            | NormalMode, [ "P" ] -> [ run (Put Before) Nothing ]
-            | VisualModes, [ "p" ] -> [ run (Put OverSelection) Nothing ]
-            | VisualModes, [ "P" ] -> [ run (Put OverSelection) Nothing ]
-            | NormalMode, [ "J" ] -> [ run JoinLines Nothing ]
+            | NormalMode, RemappedMatches layout [ "C" ] _ -> [ run Change EndOfLine ]
+            | NormalMode, RemappedMatches layout [ "D" ] _ -> [ run Delete EndOfLine ]
+            | NormalMode, RemappedMatches layout [ "x" ] _ -> [ runOnce Delete (Character (numericArgument |> Option.defaultValue 1)) ]
+            | NormalMode, RemappedMatches layout [ "X" ] _ -> [ run DeleteLeft Nothing ]
+            | NormalMode, RemappedMatches layout [ "s" ] _ -> [ run Substitute CurrentLocation]
+            | NormalMode, RemappedMatches layout [ "S" ] _ -> [ run Delete WholeLine; runOnce (InsertLine After) Nothing; switchMode InsertMode ]
+            | NormalMode, RemappedMatches layout [ "p" ] _ -> [ run (Put After) Nothing ]
+            | NormalMode, RemappedMatches layout [ "P" ] _ -> [ run (Put Before) Nothing ]
+            | VisualModes, RemappedMatches layout [ "p" ] _ -> [ run (Put OverSelection) Nothing ]
+            | VisualModes, RemappedMatches layout [ "P" ] _ -> [ run (Put OverSelection) Nothing ]
+            | NormalMode, RemappedMatches layout [ "J" ] _ -> [ run JoinLines Nothing ]
             | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
             | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
             | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction Move) Nothing ]
-            | VisualModes, [ ":" ] -> [ switchMode (ExMode ":'<,'>") ]
-            | NotInsertMode, [ ":" ] -> [ switchMode (ExMode ":") ]
-            | NotInsertMode, [ Action action; SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction action) Nothing ]
+            | VisualModes, RemappedMatches layout [ ":" ] _ -> [ switchMode (ExMode ":'<,'>") ]
+            | NotInsertMode, RemappedMatches layout [ ":" ] _ -> [ switchMode (ExMode ":") ]
+            | NotInsertMode, [ Action layout action; SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction action) Nothing ]
             | NormalMode, [ "z"; "z" ] -> [ dispatch ViewCommands.CenterAndFocusCurrentDocument ]
             | NormalMode, [ "z"; ] -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
             | NormalMode, [ "<C-o>" ] -> [ dispatch NavigationCommands.NavigateBack ]
             | NormalMode, [ "<C-i>" ] -> [ dispatch NavigationCommands.NavigateForward ]
-            | NormalMode, [ "r" ] -> wait
-            | NormalMode, [ "r"; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
-            | NormalMode, [ "r"; c ] -> [ run (ReplaceChar c) Nothing ]
-            | NormalMode, [ "m"; c ] -> [ run (SetMark c) Nothing ]
-            | NotInsertMode, [ Action action; FindChar m; c ] -> [ run action (m c) ]
-            | NotInsertMode, [ Action action; "i"; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
-            | NotInsertMode, [ Action action; "a"; BlockDelimiter c ] -> [ run action (ABlock c) ]
-            | NotInsertMode, [ Action action; "i"; QuoteDelimiter c ] -> [ run action (InnerQuotedBlock (char c)) ]
-            | NotInsertMode, [ Action action; "a"; QuoteDelimiter c ] -> [ run action (AQuotedBlock (char c)) ]
-            | NotInsertMode, [ Action action; "i"; "w" ] -> [ run action InnerWord ]
-            | NotInsertMode, [ Action action; "a"; "w" ] -> [ run action AWord ]
-            | NotInsertMode, [ Action action; "i"; "W" ] -> [ run action InnerWORD ]
-            | NotInsertMode, [ Action action; "a"; "W" ] -> [ run action AWORD ]
-            | NotInsertMode, [ Action action; "a"; "t" ] -> [ run action ATag ]
-            | NotInsertMode, [ Action action; "i"; "t" ] -> [ run action InnerTag ]
-            | VisualMode, [ "i"; "w" ] -> [ run Visual InnerWord ]
-            | VisualMode, [ "a"; "w" ] -> [ run Visual AWord ]
-            | VisualMode, [ "i"; "W" ] -> [ run Visual InnerWORD ]
-            | VisualMode, [ "a"; "W" ] -> [ run Visual AWORD ]
-            | VisualMode, [ "a"; "t" ] -> [ run Visual ATag ]
-            | VisualMode, [ "i"; "t" ] -> [ run Visual InnerTag ]
-            | VisualMode, [ "u"] -> [ dispatch EditCommands.LowercaseSelection ]
-            | VisualMode, [ "U"] -> [ dispatch EditCommands.UppercaseSelection ]
-            | NormalMode, [ ModeChange mode ] -> [ switchMode mode ]
-            | NormalMode, [ "a" ] -> [ run Move (Right IncludeDelimiter); switchMode InsertMode ]
-            | NormalMode, [ "A" ] -> [ run Move EndOfLineIncludingDelimiter; switchMode InsertMode ]
-            | NormalMode, [ "O" ] -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
-            | NormalMode, [ "o" ] -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
-            | NormalMode, [ "I" ] -> [ run Move FirstNonWhitespace; switchMode InsertMode ]
-            | NormalMode, [ Action _ ] -> wait
-            | NotInsertMode, [ Action _; "i" ] -> wait
-            | NotInsertMode, [ Action _; "a" ] -> wait
-            | VisualMode, [ "i" ] | VisualMode, [ "a" ] -> wait
-            | NotInsertMode, [ FindChar _; ] -> wait
-            | NotInsertMode, [ Action _; FindChar _; ] -> wait
-            | NotInsertMode, [ "<ret>" ] -> [ run Move Down; run Move FirstNonWhitespace ]
+            | NormalMode, RemappedMatches layout [ "r" ] _ -> wait
+            | NormalMode, [ RemappedMatchesChar layout "r" _; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
+            | NormalMode, [ RemappedMatchesChar layout "r" _; c ] -> [ run (ReplaceChar c) Nothing ]
+            | NormalMode, [ "m" ; c ] -> [ run (SetMark c) Nothing ]
+            | NotInsertMode, [ Action layout action; FindChar layout m; c ] -> [ run action (m c) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; BlockDelimiter c ] -> [ run action (ABlock c) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; QuoteDelimiter c ] -> [ run action (InnerQuotedBlock (char c)) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; QuoteDelimiter c ] -> [ run action (AQuotedBlock (char c)) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; RemappedMatchesChar layout "w" _ ] -> [ run action InnerWord ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; RemappedMatchesChar layout "w" _ ] -> [ run action AWord ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; RemappedMatchesChar layout "W" _ ] -> [ run action InnerWORD ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; RemappedMatchesChar layout "W" _ ] -> [ run action AWORD ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; RemappedMatchesChar layout "t" _ ] -> [ run action ATag ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; RemappedMatchesChar layout "t" _ ] -> [ run action InnerTag ]
+            | VisualMode, RemappedMatches layout [ "i"; "w" ] _ -> [ run Visual InnerWord ]
+            | VisualMode, RemappedMatches layout [ "a"; "w" ] _ -> [ run Visual AWord ]
+            | VisualMode, RemappedMatches layout [ "i"; "W" ] _ -> [ run Visual InnerWORD ]
+            | VisualMode, RemappedMatches layout [ "a"; "W" ] _ -> [ run Visual AWORD ]
+            | VisualMode, RemappedMatches layout [ "a"; "t" ] _ -> [ run Visual ATag ]
+            | VisualMode, RemappedMatches layout [ "i"; "t" ] _ -> [ run Visual InnerTag ]
+            | VisualMode, RemappedMatches layout [ "u"] _ -> [ dispatch EditCommands.LowercaseSelection ]
+            | VisualMode, RemappedMatches layout [ "U"] _ -> [ dispatch EditCommands.UppercaseSelection ]
+            | NormalMode, [ ModeChange layout mode ] -> [ switchMode mode ]
+            | NormalMode, RemappedMatches layout [ "a" ] _ -> [ run Move (Right IncludeDelimiter); switchMode InsertMode ]
+            | NormalMode, RemappedMatches layout [ "A" ] _ -> [ run Move EndOfLineIncludingDelimiter; switchMode InsertMode ]
+            | NormalMode, RemappedMatches layout [ "O" ] _ -> [ run (InsertLine After) Nothing; switchMode InsertMode ]
+            | NormalMode, RemappedMatches layout [ "o" ] _ -> [ run (InsertLine Before) Nothing; switchMode InsertMode ]
+            | NormalMode, RemappedMatches layout [ "I" ] _ -> [ run Move FirstNonWhitespace; switchMode InsertMode ]
+            | NormalMode, [ Action layout _ ] -> wait
+            | NotInsertMode, [ Action layout _; RemappedMatchesChar layout "i" _ ] -> wait
+            | NotInsertMode, [ Action layout _; "a" ] -> wait
+            | VisualMode, RemappedMatches layout [ "i" ] _ | VisualMode, [ "a" ] -> wait
+            | NotInsertMode, [ FindChar layout _; ] -> wait
+            | NotInsertMode, [ Action layout _; FindChar layout _; ] -> wait | NotInsertMode, [ "<ret>" ] -> [ run Move Down; run Move FirstNonWhitespace ]
             | NotInsertMode, [ "q" ] when state.macro.IsNone -> wait
             | NotInsertMode, [ "q"; c ] -> [ run (MacroStart (char c)) Nothing ]
             | NotInsertMode, [ "q" ] -> [ run MacroEnd Nothing ]
             | NotInsertMode, [ "@"; c ] -> [ run (ReplayMacro (char c)) Nothing ]
-            | NotInsertMode, [ "g"; "g" ] ->
+            | NotInsertMode, RemappedMatches layout [ "g"; "g" ] _ ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
-            | NotInsertMode, [ "g"; "d" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
-            | NotInsertMode, [ "g"; "u" ] -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.FindReferences" ]
-            | NotInsertMode, [ "g"; "b" ] -> [ dispatch "MonoDevelop.RefactoryCommands.NavigationCommands.FindBaseSymbols" ]
-            | NotInsertMode, [ "g"; "t" ] -> [ func Window.nextTab ]
-            | NotInsertMode, [ "g"; "T" ] -> [ func Window.previousTab ]
-            | NotInsertMode, [ "z"; "z" ] -> [ dispatch TextEditorCommands.RecenterEditor ]
-            | NotInsertMode, [ "z"; "a" ] -> [ dispatch EditCommands.ToggleAllFoldings ]
-            | NotInsertMode, [ "z"; "o" ] -> [ dispatch EditCommands.ToggleFolding ]
-            | NotInsertMode, [ "z"; "c" ] -> [ dispatch EditCommands.ToggleFolding ]
-            | NotInsertMode, [ "g"; "h" ] -> [ dispatch TextEditorCommands.ShowQuickInfo ]
-            | NotInsertMode, [ "g"; "v" ] ->
+            | NotInsertMode, RemappedMatches layout [ "g"; "d" ] _ -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.GotoDeclaration" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "u" ] _ -> [ dispatch "MonoDevelop.Refactoring.RefactoryCommands.FindReferences" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "b" ] _ -> [ dispatch "MonoDevelop.RefactoryCommands.NavigationCommands.FindBaseSymbols" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "t" ] _ -> [ func Window.nextTab ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "T" ] _ -> [ func Window.previousTab ]
+            | NotInsertMode, RemappedMatches layout [ "z"; "z" ] _ -> [ dispatch TextEditorCommands.RecenterEditor ]
+            | NotInsertMode, RemappedMatches layout [ "z"; "a" ] _ -> [ dispatch EditCommands.ToggleAllFoldings ]
+            | NotInsertMode, RemappedMatches layout [ "z"; "o" ] _ -> [ dispatch EditCommands.ToggleFolding ]
+            | NotInsertMode, RemappedMatches layout [ "z"; "c" ] _ -> [ dispatch EditCommands.ToggleFolding ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "h" ] _ -> [ dispatch TextEditorCommands.ShowQuickInfo ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "v" ] _ ->
                 match state.lastSelection with
                 | Some selection -> [ run Move (Offset selection.start)
                                       switchMode selection.mode
                                       run Move (Offset selection.finish) ]
                 | None -> resetKeys
             | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
-            | NotInsertMode, [ ";" ] -> match state.findCharCommand with Some command -> [ command ] | None -> []
+            | NotInsertMode, RemappedMatches layout [ ";" ] _ -> match state.findCharCommand with Some command -> [ command ] | None -> []
             | NotInsertMode, [ "," ] ->
                 match state.findCharCommand with
                 | Some command ->
@@ -1633,23 +1660,23 @@ module Vim =
                         | _ -> failwith "Invalid find command"
                     [ { command with textObject=findCommand } ]
                 | None -> []
-            | VisualModes, Movement m -> [ run Move m ]
+            | VisualModes, Movement layout m -> [ run Move m ]
             | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
             | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
-            | VisualModes, [ "i"; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
+            | VisualModes, [ RemappedMatchesChar layout "i" _; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
             | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
-            | VisualModes, [ "i"; QuoteDelimiter c ] -> [ run Visual (InnerQuotedBlock (char c)) ]
+            | VisualModes, [ RemappedMatchesChar layout "i" _; QuoteDelimiter c ] -> [ run Visual (InnerQuotedBlock (char c)) ]
             | VisualModes, [ "a"; QuoteDelimiter c ] -> [ run Visual (AQuotedBlock (char c)) ]
             | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "d" ] -> [ run Delete SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "D" ] -> [ run Delete EndOfLine; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "d" ] _ -> [ run Delete SelectedText; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "D" ] _ -> [ run Delete EndOfLine; switchMode NormalMode ]
             | VisualModes, [ "c" ]
-            | VisualModes, [ "s" ] -> [ run Change SelectedText ]
-            | VisualModes, [ "o" ] -> [ run SelectionOtherEnd Nothing ]
+            | VisualModes, RemappedMatches layout [ "s" ] _ -> [ run Change SelectedText ]
+            | VisualModes, RemappedMatches layout [ "o" ] _ -> [ run SelectionOtherEnd Nothing ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "y" ] -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
-            | VisualModes, [ "Y" ] -> [ run (Yank EmptyRegister) WholeLine; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "y" ] _ -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "Y" ] _ -> [ run (Yank EmptyRegister) WholeLine; switchMode NormalMode ]
             | VisualModes, [ ">" ] -> [ run (EditorFunc EditActions.IndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "<" ] -> [ run (EditorFunc EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
             | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]
@@ -1748,55 +1775,61 @@ module Vim =
 
         LoggingService.LogDebug (sprintf "%A" action)
 
-        let rec performActions actions' state handled =
+        let rec performActions config actions' state handled =
             match actions' with
             | [] -> state, handled
             | [ only ] ->
                 match only.commandType with
                 | DoNothing -> state, true
                 | _ ->
-                    let newState = runCommand state editor only
+                    let newState = runCommand config state editor only
                     { newState with keys = [] }, true
             | h::t ->
-                let newState = runCommand state editor h
-                performActions t newState true
+                let newState = runCommand config state editor h
+                performActions config t newState true
 
         let newState, handled =
             let processKey() =
                 use group = editor.OpenUndoGroup()
                 state.macro
                 |> Option.iter(fun (Macro c) -> macros.[c] <- macros.[c] @ action)
-                performActions action newState false
+                performActions config action newState false
 
             match state.mode, newState.keys |> List.map string with
             | ExMode _, [ Escape ] -> processKey()
             | ExMode _, _ ->
                 let state, actions = exMode.processKey state keyPress
-                performActions actions state true
+                performActions config actions state true
             | _ -> processKey()
 
         let firstAction = action |> List.head
 
         let newState =
-            match state.mode, vimKey, firstAction.commandType with
-            | InsertMode, _, _ ->
+            match config.keyboardLayout, state.mode, vimKey, firstAction.commandType with
+            | _, InsertMode, _, _ ->
                 newState.macro |> Option.iter(fun (Macro m) ->
                     macros.[m] <- macros.[m] @ [ typeChar vimKey ])
                 //{ newState with lastAction = newState.lastAction @ [ typeChar vimKey ]}
                 newState
-            | NotInsertMode, _, SwitchMode VisualModes
-            | NotInsertMode, _, Delete
-            | NotInsertMode, _, Change
-            | NotInsertMode, _, Indent
-            | NotInsertMode, _, UnIndent
-            | NotInsertMode, _, Put _
-            | NotInsertMode, _, ReplaceChar _
-            | NotInsertMode, Key 'a', _
-            | NotInsertMode, Key 'i', _
-            | NotInsertMode, Key 'I', _
-            | NotInsertMode, Key 'o', _
-            | NotInsertMode, Key 'O', _
-            | NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
+            | _, NotInsertMode, _, SwitchMode VisualModes
+            | _, NotInsertMode, _, Delete
+            | _, NotInsertMode, _, Change
+            | _, NotInsertMode, _, Indent
+            | _, NotInsertMode, _, UnIndent
+            | _, NotInsertMode, _, Put _
+            | _, NotInsertMode, _, ReplaceChar _
+            | Qwerty, NotInsertMode, Key 'a', _
+            | Qwerty, NotInsertMode, Key 'i', _
+            | Qwerty, NotInsertMode, Key 'I', _
+            | Qwerty, NotInsertMode, Key 'o', _
+            | Qwerty, NotInsertMode, Key 'O', _
+            | Qwerty, NotInsertMode, Key 'A', _
+            | Colemak, NotInsertMode, Key 'a', _
+            | Colemak, NotInsertMode, Key 'u', _
+            | Colemak, NotInsertMode, Key 'U', _
+            | Colemak, NotInsertMode, Key 'y', _
+            | Colemak, NotInsertMode, Key 'Y', _
+            | Colemak, NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
             | _ -> newState
 
         editorStates.[fileName] <- newState

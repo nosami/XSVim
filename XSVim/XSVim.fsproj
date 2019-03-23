@@ -84,6 +84,7 @@
     <Compile Include="ExMode.fs" />
     <Compile Include="PadTreeViews.fs" />
     <Compile Include="TreeViewPads.fs" />
+    <Compile Include="Mapping.fs" />
     <Compile Include="XSVim.fs" />
     <Compile Include="Addin.fs" />
     <EmbeddedResource Include="KeyBindingSchemeVim.xml" />
