@@ -415,6 +415,8 @@ module VimHelpers =
                     editor.CaretOffset-1
                 | Colemak, Key 'o' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
                     editor.CaretOffset-1
+                | Dvorak, Key 's' :: _ when c = editor.[editor.CaretOffset-1].ToString() ->
+                    editor.CaretOffset-1
                 | _, _ -> editor.CaretOffset
             match findStringCharBackwardsOnLine editor line startOffset c with
             | Some index -> editor.CaretOffset, index+1
@@ -429,6 +431,8 @@ module VimHelpers =
                 | Qwerty, Key ';' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
                     editor.CaretOffset+1
                 | Colemak, Key 'o' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
+                    editor.CaretOffset+1
+                | Dvorak, Key 's' :: _ when c = editor.[editor.CaretOffset+1].ToString() ->
                     editor.CaretOffset+1
                 | _, _ -> editor.CaretOffset
             match findCharForwardsOnLine editor line startOffset c with
@@ -609,6 +613,8 @@ module VimHelpers =
                 | Qwerty, [Key 'N'] -> editor.CaretOffset + 1
                 | Colemak, [Key 'k'] 
                 | Colemak, [Key 'K'] -> editor.CaretOffset + 1
+                | Dvorak, [Key 'b'] 
+                | Dvorak, [Key 'B'] -> editor.CaretOffset + 1
                 | _ -> editor.CaretOffset
             let offset = findNextSearchOffset editor search startOffset |> Option.defaultValue editor.CaretOffset
             editor.CaretOffset, offset
@@ -1284,7 +1290,7 @@ module Vim =
     let (|RegisterMatch|_|) = function
         | c -> Some (Register (Char.Parse c))
 
-    let (|BlockDelimiter|_|) character =
+    let (|BlockDelimiter|_|) layout character =
         let pairs =
             [
                 "[", ("[", "]")
@@ -1298,14 +1304,16 @@ module Vim =
                 "<", ("<", ">")
                 ">", ("<", ">")
             ] |> dict
-        if pairs.ContainsKey character then
-            Some pairs.[character]
+        let mappedChar = remap layout character
+        if pairs.ContainsKey mappedChar then
+            Some pairs.[mappedChar]
         else
             None
 
-    let (|QuoteDelimiter|_|) character =
-        if Array.contains character [| "\""; "'"; "`"|] then
-            Some character
+    let (|QuoteDelimiter|_|) layout character =
+        let mappedChar = remap layout character
+        if Array.contains mappedChar [| "\""; "'"; "`"|] then
+            Some mappedChar
         else
             None
 
@@ -1363,7 +1371,8 @@ module Vim =
         else
             None
 
-    let (|IndentChar|_|) = function
+    let (|IndentChar|_|) layout key =
+        match remap layout key with
         | ">" -> Some Indent
         | "<" -> Some UnIndent
         | "=" -> Some EqualIndent
@@ -1377,7 +1386,8 @@ module Vim =
         | "T" -> Some ToCharExclusiveBackwards
         | _ -> None
 
-    let (|SearchChar|_|) = function
+    let (|SearchChar|_|) layout key =
+        match remap layout key with
         | "/" -> Some (SearchChar '/')
         | "?" -> Some (SearchChar '?')
         | _ -> None
@@ -1413,7 +1423,7 @@ module Vim =
         else 
           None
 
-    let (|RemappedMatchesChar|_|) layout matchChar unmappedChar = 
+    let (|RemappedMatchesChar|_|) layout matchChar unmappedChar = //
         let mappedChar = remap layout unmappedChar
         if mappedChar = matchChar then 
           Some matchChar
@@ -1487,18 +1497,18 @@ module Vim =
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Move (Jump (StartOfLineNumber lineNumber)) ]
                 | None -> [ runOnce Move (Jump LastLine) ]
-            | NormalMode, [ IndentChar _ ] -> wait
-            | NormalMode, [ IndentChar _ ; RemappedMatchesChar layout "g" _ ] -> wait
-            | NormalMode, [ IndentChar indent; RemappedMatchesChar layout "G" _ ] ->
+            | NormalMode, [ IndentChar layout _ ] -> wait
+            | NormalMode, [ IndentChar layout _ ; RemappedMatchesChar layout "g" _ ] -> wait
+            | NormalMode, [ IndentChar layout indent; RemappedMatchesChar layout "G" _ ] ->
                 match numericArgument with
                 | Some lineNumber -> [ runOnce Indent (Jump (StartOfLineNumber lineNumber)) ]
                 | None -> [ runOnce indent (Jump LastLine) ]
-            | NormalMode, [ IndentChar indent; RemappedMatchesChar layout "g" _; RemappedMatchesChar layout "g" _ ] ->
+            | NormalMode, [ IndentChar layout indent; RemappedMatchesChar layout "g" _; RemappedMatchesChar layout "g" _ ] ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
                 [ runOnce indent (Jump (StartOfLineNumber lineNumber)) ]
-            | NormalMode, [ ">"; ">" ] -> [ run Indent WholeLine ]
-            | NormalMode, [ "<"; "<" ] -> [ run UnIndent WholeLine ]
-            | NormalMode, [ "="; "=" ] -> [ run EqualIndent WholeLine ]
+            | NormalMode, RemappedMatches layout [ ">"; ">" ] _ -> [ run Indent WholeLine ]
+            | NormalMode, RemappedMatches layout [ "<"; "<" ] _ -> [ run UnIndent WholeLine ]
+            | NormalMode, RemappedMatches layout [ "="; "=" ] _ -> [ run EqualIndent WholeLine ]
             | NormalMode, RemappedMatches layout [ "V" ] _ ->
                 match numericArgument with
                 | Some lines -> [ switchMode VisualLineMode; getCommand (lines-1 |> Some) Move Down ]
@@ -1526,7 +1536,7 @@ module Vim =
             | ReplaceMode, [ c ] -> [ run (ReplaceChar c) Nothing; run Move (Right IncludeDelimiter) ]
             | NotInsertMode, Movement layout m -> [ run Move m ]
             | NotInsertMode, [ FindChar layout m; c ] -> [ run Move (m c) ]
-            | NormalMode, IndentChar indent :: Movement layout m ->
+            | NormalMode, IndentChar layout indent :: Movement layout m ->
                 match numericArgument with
                 | None -> [ run indent m ]
                 | Some lines ->
@@ -1554,11 +1564,11 @@ module Vim =
                       runOnce Delete SelectedText
                       switchMode NormalMode
                       runOnce Move FirstNonWhitespace ]
-            | NormalMode, [ "c"; "c" ] -> [ run Change WholeLine ]
-            | NormalMode, ["\""] -> wait
-            | NormalMode, ["\""; _ ] -> wait
-            | NormalMode, ["\""; _; RemappedMatchesChar layout "y" _ ] -> wait
-            | NormalMode, "\"" :: (RegisterMatch r) :: RemappedMatchesChar layout "y" _ :: (Movement layout m) -> [ run (Yank r) m]
+            | NormalMode, RemappedMatches layout [ "c"; "c" ] _ -> [ run Change WholeLine ]
+            | NormalMode, RemappedMatches layout ["\""] _ -> wait
+            | NormalMode, [RemappedMatchesChar layout "\"" _; _ ] -> wait
+            | NormalMode, [RemappedMatchesChar layout "\"" _; _; RemappedMatchesChar layout "y" _ ] -> wait
+            | NormalMode, RemappedMatchesChar layout "\"" _ :: (RegisterMatch r) :: RemappedMatchesChar layout "y" _ :: (Movement layout m) -> [ run (Yank r) m]
             | NormalMode, RemappedMatches layout [ "y"; "y" ] _
             | NormalMode, RemappedMatches layout [ "Y" ] _ ->
                 match numericArgument with
@@ -1575,15 +1585,15 @@ module Vim =
             | VisualModes, RemappedMatches layout [ "p" ] _ -> [ run (Put OverSelection) Nothing ]
             | VisualModes, RemappedMatches layout [ "P" ] _ -> [ run (Put OverSelection) Nothing ]
             | NormalMode, RemappedMatches layout [ "J" ] _ -> [ run JoinLines Nothing ]
-            | NotInsertMode, [ "*" ] -> [ run (Star After) Nothing ]
-            | NotInsertMode, [ "#" ] -> [ run (Star Before) Nothing ]
-            | NotInsertMode, [ "£" ] -> [ run (Star Before) Nothing ]
-            | NotInsertMode, [ SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction Move) Nothing ]
+            | NotInsertMode, RemappedMatches layout [ "*" ] _ -> [ run (Star After) Nothing ]
+            | NotInsertMode, RemappedMatches layout [ "#" ] _ -> [ run (Star Before) Nothing ]
+            | NotInsertMode, RemappedMatches layout [ "£" ] _ -> [ run (Star Before) Nothing ]
+            | NotInsertMode, [ SearchChar layout c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction Move) Nothing ]
             | VisualModes, RemappedMatches layout [ ":" ] _ -> [ switchMode (ExMode ":'<,'>") ]
             | NotInsertMode, RemappedMatches layout [ ":" ] _ -> [ switchMode (ExMode ":") ]
-            | NotInsertMode, [ Action layout action; SearchChar c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction action) Nothing ]
-            | NormalMode, [ "z"; "z" ] -> [ dispatch ViewCommands.CenterAndFocusCurrentDocument ]
-            | NormalMode, [ "z"; ] -> wait
+            | NotInsertMode, [ Action layout action; SearchChar layout c ] -> [ switchMode (ExMode (string c)); runOnce (SetSearchAction action) Nothing ]
+            | NormalMode, RemappedMatches layout [ "z"; "z" ] _ -> [ dispatch ViewCommands.CenterAndFocusCurrentDocument ]
+            | NormalMode, RemappedMatches layout [ "z"; ] _ -> wait
             | NormalMode, [ "<C-y>" ] -> [ dispatch TextEditorCommands.ScrollLineUp ]
             | NormalMode, [ "<C-e>" ] -> [ dispatch TextEditorCommands.ScrollLineDown ]
             | NormalMode, [ "<C-o>" ] -> [ dispatch NavigationCommands.NavigateBack ]
@@ -1591,12 +1601,12 @@ module Vim =
             | NormalMode, RemappedMatches layout [ "r" ] _ -> wait
             | NormalMode, [ RemappedMatchesChar layout "r" _; "<ret>" ] -> [ run (ReplaceChar "\n" ) Nothing ]
             | NormalMode, [ RemappedMatchesChar layout "r" _; c ] -> [ run (ReplaceChar c) Nothing ]
-            | NormalMode, [ "m" ; c ] -> [ run (SetMark c) Nothing ]
+            | NormalMode, [ RemappedMatchesChar layout "m" _; c ] -> [ run (SetMark c) Nothing ]
             | NotInsertMode, [ Action layout action; FindChar layout m; c ] -> [ run action (m c) ]
-            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; BlockDelimiter c ] -> [ run action (InnerBlock c) ]
-            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; BlockDelimiter c ] -> [ run action (ABlock c) ]
-            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; QuoteDelimiter c ] -> [ run action (InnerQuotedBlock (char c)) ]
-            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; QuoteDelimiter c ] -> [ run action (AQuotedBlock (char c)) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; BlockDelimiter layout c ] -> [ run action (InnerBlock c) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; BlockDelimiter layout c ] -> [ run action (ABlock c) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; QuoteDelimiter layout c ] -> [ run action (InnerQuotedBlock (char c)) ]
+            | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; QuoteDelimiter layout c ] -> [ run action (AQuotedBlock (char c)) ]
             | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; RemappedMatchesChar layout "w" _ ] -> [ run action InnerWord ]
             | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "a" _; RemappedMatchesChar layout "w" _ ] -> [ run action AWord ]
             | NotInsertMode, [ Action layout action; RemappedMatchesChar layout "i" _; RemappedMatchesChar layout "W" _ ] -> [ run action InnerWORD ]
@@ -1623,9 +1633,9 @@ module Vim =
             | VisualMode, RemappedMatches layout [ "i" ] _ | VisualMode, [ "a" ] -> wait
             | NotInsertMode, [ FindChar layout _; ] -> wait
             | NotInsertMode, [ Action layout _; FindChar layout _; ] -> wait | NotInsertMode, [ "<ret>" ] -> [ run Move Down; run Move FirstNonWhitespace ]
-            | NotInsertMode, [ "q" ] when state.macro.IsNone -> wait
-            | NotInsertMode, [ "q"; c ] -> [ run (MacroStart (char c)) Nothing ]
-            | NotInsertMode, [ "q" ] -> [ run MacroEnd Nothing ]
+            | NotInsertMode, RemappedMatches layout [ "q" ] _ when state.macro.IsNone -> wait
+            | NotInsertMode, [ RemappedMatchesChar layout "q" _; c ] -> [ run (MacroStart (char c)) Nothing ]
+            | NotInsertMode, RemappedMatches layout [ "q" ] _ -> [ run MacroEnd Nothing ]
             | NotInsertMode, [ "@"; c ] -> [ run (ReplayMacro (char c)) Nothing ]
             | NotInsertMode, RemappedMatches layout [ "g"; "g" ] _ ->
                 let lineNumber = match numericArgument with Some n -> n | None -> 1
@@ -1646,9 +1656,9 @@ module Vim =
                                       switchMode selection.mode
                                       run Move (Offset selection.finish) ]
                 | None -> resetKeys
-            | NotInsertMode, [ "." ] -> state.lastAction @ [ switchMode NormalMode ]
+            | NotInsertMode, RemappedMatches layout [ "." ] _ -> state.lastAction @ [ switchMode NormalMode ]
             | NotInsertMode, RemappedMatches layout [ ";" ] _ -> match state.findCharCommand with Some command -> [ command ] | None -> []
-            | NotInsertMode, [ "," ] ->
+            | NotInsertMode, RemappedMatches layout [ "," ] _ ->
                 match state.findCharCommand with
                 | Some command ->
                     let findCommand =
@@ -1661,27 +1671,27 @@ module Vim =
                     [ { command with textObject=findCommand } ]
                 | None -> []
             | VisualModes, Movement layout m -> [ run Move m ]
-            | VisualBlockMode, [ "I" ] -> [ run (BlockInsert Before) Nothing ]
+            | VisualBlockMode, RemappedMatches layout [ "I" ] _ -> [ run (BlockInsert Before) Nothing ]
             | VisualBlockMode, [ "A" ] -> [ run (BlockInsert After) Nothing ]
-            | VisualModes, [ RemappedMatchesChar layout "i" _; BlockDelimiter c ] -> [ run Visual (InnerBlock c) ]
-            | VisualModes, [ "a"; BlockDelimiter c ] -> [ run Visual (ABlock c) ]
-            | VisualModes, [ RemappedMatchesChar layout "i" _; QuoteDelimiter c ] -> [ run Visual (InnerQuotedBlock (char c)) ]
-            | VisualModes, [ "a"; QuoteDelimiter c ] -> [ run Visual (AQuotedBlock (char c)) ]
-            | VisualModes, [ "x" ] -> [ run Delete SelectedText; switchMode NormalMode ]
+            | VisualModes, [ RemappedMatchesChar layout "i" _; BlockDelimiter layout c ] -> [ run Visual (InnerBlock c) ]
+            | VisualModes, [ "a"; BlockDelimiter layout c ] -> [ run Visual (ABlock c) ]
+            | VisualModes, [ RemappedMatchesChar layout "i" _; QuoteDelimiter layout c ] -> [ run Visual (InnerQuotedBlock (char c)) ]
+            | VisualModes, [ "a"; QuoteDelimiter layout c ] -> [ run Visual (AQuotedBlock (char c)) ]
+            | VisualModes, RemappedMatches layout [ "x" ] _ -> [ run Delete SelectedText; switchMode NormalMode ]
             | VisualModes, RemappedMatches layout [ "d" ] _ -> [ run Delete SelectedText; switchMode NormalMode ]
             | VisualModes, RemappedMatches layout [ "D" ] _ -> [ run Delete EndOfLine; switchMode NormalMode ]
-            | VisualModes, [ "c" ]
+            | VisualModes, RemappedMatches layout [ "c" ] _
             | VisualModes, RemappedMatches layout [ "s" ] _ -> [ run Change SelectedText ]
             | VisualModes, RemappedMatches layout [ "o" ] _ -> [ run SelectionOtherEnd Nothing ]
             | NormalMode, [ "~" ] -> [ run ToggleCase CurrentLocation ]
             | VisualModes, [ "~" ] -> [ run ToggleCase SelectedText; switchMode NormalMode ]
             | VisualModes, RemappedMatches layout [ "y" ] _ -> [ run (Yank EmptyRegister) SelectedText; switchMode NormalMode ]
             | VisualModes, RemappedMatches layout [ "Y" ] _ -> [ run (Yank EmptyRegister) WholeLine; switchMode NormalMode ]
-            | VisualModes, [ ">" ] -> [ run (EditorFunc EditActions.IndentSelection) Nothing; switchMode NormalMode ]
-            | VisualModes, [ "<" ] -> [ run (EditorFunc EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
-            | VisualModes, [ "=" ] -> [ run EqualIndent SelectedText; switchMode NormalMode ]
-            | NotInsertMode, [ "Z" ] -> wait
-            | NotInsertMode, [ "Z"; "Z" ] -> [ func Window.closeTab ]
+            | VisualModes, RemappedMatches layout [ ">" ] _ -> [ run (EditorFunc EditActions.IndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "<" ] _ -> [ run (EditorFunc EditActions.UnIndentSelection) Nothing; switchMode NormalMode ]
+            | VisualModes, RemappedMatches layout [ "=" ] _ -> [ run EqualIndent SelectedText; switchMode NormalMode ]
+            | NotInsertMode, RemappedMatches layout [ "Z" ] _ -> wait
+            | NotInsertMode, RemappedMatches layout  ["Z"; "Z" ] _ -> [ func Window.closeTab ]
             | NotInsertMode, [ "<C-p>" ] -> [ dispatch SearchCommands.GotoFile ]
             | NotInsertMode, [ "<C-w>" ] -> wait
             | NotInsertMode, [ "<C-w>"; "w" ]
@@ -1703,33 +1713,33 @@ module Vim =
             | InsertMode, [ "<C-n>" ] -> [ dispatch TextEditorCommands.DynamicAbbrev ]
             | NotInsertMode, [ "<C-a>" ] -> [ run IncrementNumber Nothing; switchMode NormalMode ]
             | NotInsertMode, [ "<C-x>" ] -> [ run DecrementNumber Nothing; switchMode NormalMode ]
-            | NotInsertMode, [ "g"; "p" ] -> wait
-            | NotInsertMode, [ "g"; "p"; "s" ] -> [ gotoPad "ProjectPad" ]
-            | NotInsertMode, [ "g"; "p"; "c" ] -> [ gotoPad "ClassPad" ]
-            | NotInsertMode, [ "g"; "p"; "e" ] -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.ErrorListPad" ]
-            | NotInsertMode, [ "g"; "p"; "t" ] -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.TaskListPad" ]
-            | NotInsertMode, [ "g"; "p"; "p" ] -> [ gotoPad "MonoDevelop.DesignerSupport.PropertyPad" ]
-            | NotInsertMode, [ "g"; "p"; "o" ] -> [ gotoPad "MonoDevelop.DesignerSupport.DocumentOutlinePad" ]
-            | NotInsertMode, [ "g"; "p"; "b" ] -> [ gotoPad "MonoDevelop.Debugger.BreakpointPad" ]
-            | NotInsertMode, [ "g"; "p"; "l" ] -> [ gotoPad "MonoDevelop.Debugger.LocalsPad" ]
-            | NotInsertMode, [ "g"; "p"; "w" ] -> [ gotoPad "MonoDevelop.Debugger.WatchPad" ]
-            | NotInsertMode, [ "g"; "p"; "i" ] -> [ gotoPad "MonoDevelop.Debugger.ImmediatePad" ]
-            | NotInsertMode, [ "g"; "p"; "n" ] -> [ gotoPad "MonoDevelop.FSharp.FSharpInteractivePad" ]
-            | NotInsertMode, [ "g"; "p"; "f" ] ->
+            | NotInsertMode, RemappedMatches layout [ "g"; "p" ] _ -> wait
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "s" ] _ -> [ gotoPad "ProjectPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "c" ] _ -> [ gotoPad "ClassPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "e" ] _ -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.ErrorListPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "t" ] _ -> [ gotoPad "MonoDevelop.Ide.Gui.Pads.TaskListPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "p" ] _ -> [ gotoPad "MonoDevelop.DesignerSupport.PropertyPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "o" ] _ -> [ gotoPad "MonoDevelop.DesignerSupport.DocumentOutlinePad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "b" ] _ -> [ gotoPad "MonoDevelop.Debugger.BreakpointPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "l" ] _ -> [ gotoPad "MonoDevelop.Debugger.LocalsPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "w" ] _ -> [ gotoPad "MonoDevelop.Debugger.WatchPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "i" ] _ -> [ gotoPad "MonoDevelop.Debugger.ImmediatePad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "n" ] _ -> [ gotoPad "MonoDevelop.FSharp.FSharpInteractivePad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "f" ] _ ->
                 let searchResultPads = IdeApp.Workbench.Pads |> Seq.filter(fun p -> p.Content :? MonoDevelop.Ide.FindInFiles.SearchResultPad)
                 match searchResultPads |> Seq.length with
                 | 0 -> resetKeys
                 | 1 -> [ gotoPad "SearchPad - Search Results - 0" ]
                 | _ -> wait
-            | NotInsertMode, [ "g"; "p"; "f"; OneToNine d ] ->
+            | NotInsertMode, [ RemappedMatchesChar layout "g" _; RemappedMatchesChar layout "p" _; RemappedMatchesChar layout "f" _; OneToNine d ] ->
                 [ gotoPad (sprintf "SearchPad - Search Results - %d" (d-1)) ]
-            | NotInsertMode, [ "g"; "p"; "d" ] -> wait
-            | NotInsertMode, [ "g"; "p"; "d"; "t" ] -> [ gotoPad "MonoDevelop.Debugger.ThreadsPad" ]
-            | NotInsertMode, [ "g"; "p"; "d"; "s" ] -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
-            | NotInsertMode, [ "g"; "p"; "d"; "c" ] -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
-            | NotInsertMode, [ "g"; "p"; "u" ] -> wait
-            | NotInsertMode, [ "g"; "p"; "u"; "t" ] -> [ gotoPad "MonoDevelop.UnitTesting.TestPad" ]
-            | NotInsertMode, [ "g"; "p"; "u"; "r" ] -> [ gotoPad "MonoDevelop.UnitTesting.TestResultsPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "d" ] _ -> wait
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "d"; "t" ] _ -> [ gotoPad "MonoDevelop.Debugger.ThreadsPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "d"; "s" ] _ -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "d"; "c" ] _ -> [ gotoPad "MonoDevelop.Debugger.StackTracePad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "u" ] _ -> wait
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "u"; "t" ] _ -> [ gotoPad "MonoDevelop.UnitTesting.TestPad" ]
+            | NotInsertMode, RemappedMatches layout [ "g"; "p"; "u"; "r" ] _-> [ gotoPad "MonoDevelop.UnitTesting.TestResultsPad" ]
             | _, [] when numericArgument.IsSome  -> wait
             | _ -> resetKeys
         action, newState
@@ -1829,7 +1839,12 @@ module Vim =
             | Colemak, NotInsertMode, Key 'U', _
             | Colemak, NotInsertMode, Key 'y', _
             | Colemak, NotInsertMode, Key 'Y', _
-            | Colemak, NotInsertMode, Key 'A', _ -> { newState with lastAction = action }
+            | Colemak, NotInsertMode, Key 'A', _
+            | Dvorak, NotInsertMode, Key 'c', _
+            | Dvorak, NotInsertMode, Key 'C', _
+            | Dvorak, NotInsertMode, Key 'r', _
+            | Dvorak, NotInsertMode, Key 'R', _
+            | Dvorak, NotInsertMode, Key 'A', _-> { newState with lastAction = action }
             | _ -> newState
 
         editorStates.[fileName] <- newState

@@ -154,6 +154,8 @@ module TestHelpers =
 
     let testColemak source keys = testWithEol source keys "\n" Colemak
 
+    let testDvorak source keys = testWithEol source keys "\n" Dvorak
+
     let switchLineEndings (s:string) =
         s.Replace("\n", "\r\n")
 
@@ -171,4 +173,12 @@ module TestHelpers =
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
             let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Colemak
+            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
+
+    let assertDvorakText (source:string) (keys:string) expected =
+        let actual, _, _ = testDvorak source keys
+        Assert.AreEqual(expected, actual, "Failed with \n")
+        if source.Contains("\n") || actual.Contains("\n") then
+            // Run the test again with \r\n line endings
+            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Dvorak
             Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
