@@ -1,90 +1,112 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-	<PropertyGroup>
-		<Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-		<Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-		<ProjectGuid>{3C522649-67F6-4F65-9CC9-D5847768FE68}</ProjectGuid>
-		<OutputType>Library</OutputType>
-		<RootNamespace>XSVim.Tests</RootNamespace>
-		<AssemblyName>XSVim.Tests</AssemblyName>
-		<TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
-		<TestRunnerCommand>/Applications/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe</TestRunnerCommand>
-		<TestRunnerArgs>run-md-tests</TestRunnerArgs>
-	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-		<DebugSymbols>true</DebugSymbols>
-		<DebugType>full</DebugType>
-		<Optimize>false</Optimize>
-		<OutputPath>bin\Debug</OutputPath>
-		<DefineConstants>DEBUG</DefineConstants>
-		<ErrorReport>prompt</ErrorReport>
-		<PlatformTarget>
-		</PlatformTarget>
-	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-		<Optimize>true</Optimize>
-		<OutputPath>bin\Release</OutputPath>
-		<DefineConstants>
-		</DefineConstants>
-		<ErrorReport>prompt</ErrorReport>
-		<GenerateTailCalls>true</GenerateTailCalls>
-		<PlatformTarget>
-		</PlatformTarget>
-	</PropertyGroup>
-	<PropertyGroup>
-		<FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(VisualStudioVersion)' == '10.0' OR '$(VisualStudioVersion)' == '11.0'">
-		<FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
-	</PropertyGroup>
-	<ItemGroup>
-		<Reference Include="MonoDevelop.SourceEditor">
-			<HintPath>..\lib\MonoDevelop.SourceEditor.dll</HintPath>
-		</Reference>
-		<Reference Include="MonoDevelop.Ide">
-			<HintPath>..\lib\MonoDevelop.Ide.dll</HintPath>
-		</Reference>
-		<Reference Include="MonoDevelop.Core">
-			<HintPath>..\lib\MonoDevelop.Core.dll</HintPath>
-		</Reference>
-		<Reference Include="System" />
-		<Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
-			<Private>True</Private>
-		</Reference>
-		<Reference Include="gtk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
-			<Private>True</Private>
-		</Reference>
-		<Reference Include="GuiUnit">
-			<HintPath>..\lib\GuiUnit.exe</HintPath>
-		</Reference>
-		<Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
-		<Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
-		<Reference Include="Mono.Posix" />
-		<Reference Include="FSharp.Core">
-		  <HintPath>..\packages\FSharp.Core.4.3.4\lib\net45\FSharp.Core.dll</HintPath>
-		</Reference>
-	</ItemGroup>
-	<ItemGroup>
-	  <Compile Include="Properties\AssemblyInfo.fs" />
-	  <Compile Include="TestHelpers.fs" />
-	  <Compile Include="DeleteTests.fs" />
-	  <Compile Include="Movement.fs" />
-	  <Compile Include="VisualTests.fs" />
-	  <Compile Include="KeyParsing.fs" />
-	  <Compile Include="MiscTests.fs" />
-	  <Compile Include="YankAndPut.fs" />
-	  <Compile Include="ChangeTests.fs" />
-	  <Compile Include="InsertionTests.fs" />
-	  <Compile Include="TextObjectSelectionTests.fs" />
-	  <Compile Include="MarkerTests.fs" />
-	  <Compile Include="ExModeTests.fs" />
-	  <Compile Include="MacrosTests.fs" />
-	  <Compile Include="IndentationTests.fs" />
-	  <None Include="packages.config" />
-	  <ProjectReference Include="..\XSVim\XSVim.fsproj">
-	    <Project>{9DB313D4-4CD1-455F-846F-42CD234DE626}</Project>
-	    <Name>XSVim</Name>
-	  </ProjectReference>
-	</ItemGroup>
-	<Import Project="$(FSharpTargetsPath)" />
+﻿<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{3C522649-67F6-4F65-9CC9-D5847768FE68}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>XSVim.Tests</RootNamespace>
+    <AssemblyName>XSVim.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TestRunnerCommand>/Applications/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe</TestRunnerCommand>
+    <TestRunnerArgs>run-md-tests</TestRunnerArgs>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <DefineConstants></DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <GenerateTailCalls>true</GenerateTailCalls>
+    <PlatformTarget></PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup>
+    <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(VisualStudioVersion)' == '10.0' OR '$(VisualStudioVersion)' == '11.0'">
+    <FSharpTargetsPath>$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets</FSharpTargetsPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MonoDevelop.SourceEditor">
+      <HintPath>..\lib\MonoDevelop.SourceEditor.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoDevelop.Ide">
+      <HintPath>..\lib\MonoDevelop.Ide.dll</HintPath>
+    </Reference>
+    <Reference Include="MonoDevelop.Core">
+      <HintPath>..\lib\MonoDevelop.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="gdk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="gtk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="GuiUnit">
+      <HintPath>..\lib\GuiUnit.exe</HintPath>
+    </Reference>
+    <Reference Include="atk-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="pango-sharp, Version=2.12.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+    <Reference Include="Mono.Posix" />
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.4.3.4\lib\net45\FSharp.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.fs" />
+    <Compile Include="TestHelpers.fs" />
+    <Compile Include="DeleteTests.fs" />
+    <Compile Include="DeleteTestsColemak.fs" />
+    <Compile Include="DeleteTestsDvorak.fs" />
+    <Compile Include="Movement.fs" />
+    <Compile Include="MovementColemak.fs" />
+    <Compile Include="MovementDvorak.fs" />
+    <Compile Include="VisualTests.fs" />
+    <Compile Include="VisualTestsColemak.fs" />
+    <Compile Include="VisualTestsDvorak.fs" />
+    <Compile Include="KeyParsing.fs" />
+    <Compile Include="KeyParsingColemak.fs" />
+    <Compile Include="KeyParsingDvorak.fs" />
+    <Compile Include="MiscTests.fs" />
+    <Compile Include="MiscTestsColemak.fs" />
+    <Compile Include="MiscTestsDvorak.fs" />
+    <Compile Include="YankAndPut.fs" />
+    <Compile Include="YankAndPutColemak.fs" />
+    <Compile Include="YankAndPutDvorak.fs" />
+    <Compile Include="ChangeTests.fs" />
+    <Compile Include="ChangeTestsColemak.fs" />
+    <Compile Include="ChangeTestsDvorak.fs" />
+    <Compile Include="InsertionTests.fs" />
+    <Compile Include="InsertionTestsColemak.fs" />
+    <Compile Include="InsertionTestsDvorak.fs" />
+    <Compile Include="TextObjectSelectionTests.fs" />
+    <Compile Include="TextObjectSelectionTestsColemak.fs" />
+    <Compile Include="TextObjectSelectionTestsDvorak.fs" />
+    <Compile Include="MarkerTests.fs" />
+    <Compile Include="MarkerTestsColemak.fs" />
+    <Compile Include="MarkerTestsDvorak.fs" />
+    <Compile Include="ExModeTests.fs" />
+    <Compile Include="ExModeTestsColemak.fs" />
+    <Compile Include="ExModeTestsDvorak.fs" />
+    <Compile Include="MacrosTests.fs" />
+    <Compile Include="MacrosTestsColemak.fs" />
+    <Compile Include="MacrosTestsDvorak.fs" />
+    <Compile Include="IndentationTests.fs" />
+    <Compile Include="IndentionTestsColemak.fs" />
+    <Compile Include="IndentationTestsDvorak.fs" />
+    <None Include="packages.config" />
+    <ProjectReference Include="..\XSVim\XSVim.fsproj">
+      <Project>{9DB313D4-4CD1-455F-846F-42CD234DE626}</Project>
+      <Name>XSVim</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(FSharpTargetsPath)" />
 </Project>

@@ -133,9 +133,9 @@ module TestHelpers =
         let text = getEditorText editor newState
         text, newState, editor
 
-    let testWithEol (source:string) (keys:string) eolMarker =
+    let testWithEol (source:string) (keys:string) eolMarker layout =
         FixtureSetup.initialiseMonoDevelop()
-        let config = { insertModeEscapeKey = None }
+        let config = { Config.Default with keyboardLayout = layout }
         let editor = TextEditorFactory.CreateNewEditor()
         editor.FileName <- FilePath "test.txt"
         editor.TextChanged.Add(fun changes -> Subscriptions.textChanged editor changes)
@@ -150,7 +150,11 @@ module TestHelpers =
         Vim.editorStates.[editor.FileName] <- VimState.Default
         sendKeysToEditor editor keys config
 
-    let test source keys = testWithEol source keys "\n"
+    let test source keys = testWithEol source keys "\n" Qwerty
+
+    let testColemak source keys = testWithEol source keys "\n" Colemak
+
+    let testDvorak source keys = testWithEol source keys "\n" Dvorak
 
     let switchLineEndings (s:string) =
         s.Replace("\n", "\r\n")
@@ -160,5 +164,21 @@ module TestHelpers =
         Assert.AreEqual(expected, actual, "Failed with \n")
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
-            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n"
+            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Qwerty
+            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
+
+    let assertColemakText (source:string) (keys:string) expected =
+        let actual, _, _ = testColemak source keys
+        Assert.AreEqual(expected, actual, "Failed with \n")
+        if source.Contains("\n") || actual.Contains("\n") then
+            // Run the test again with \r\n line endings
+            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Colemak
+            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
+
+    let assertDvorakText (source:string) (keys:string) expected =
+        let actual, _, _ = testDvorak source keys
+        Assert.AreEqual(expected, actual, "Failed with \n")
+        if source.Contains("\n") || actual.Contains("\n") then
+            // Run the test again with \r\n line endings
+            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Dvorak
             Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
