@@ -20,9 +20,16 @@ type InsertModeEscapeKeyCombo = {
     insertModeEscapeTimeout: int
 }
 
+type KeyboardLayout = 
+    | Qwerty
+    | Colemak
+    | Dvorak
+
 type Config = {
     insertModeEscapeKey: InsertModeEscapeKeyCombo option
-}
+    keyboardLayout: KeyboardLayout
+} with
+    static member Default = { insertModeEscapeKey = None; keyboardLayout = Qwerty }
 
 type Register =
     | Register of char
