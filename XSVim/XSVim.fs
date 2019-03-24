@@ -1840,6 +1840,7 @@ module Vim =
             | Colemak, NotInsertMode, Key 'y', _
             | Colemak, NotInsertMode, Key 'Y', _
             | Colemak, NotInsertMode, Key 'A', _
+            | Dvorak, NotInsertMode, Key 'a', _
             | Dvorak, NotInsertMode, Key 'c', _
             | Dvorak, NotInsertMode, Key 'C', _
             | Dvorak, NotInsertMode, Key 'r', _
