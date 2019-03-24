@@ -13,7 +13,7 @@ open MonoDevelop
 [<assembly:AddinDescription ("Vim emulation layer for Xamarin Studio / Visual Studio for Mac.")>]
 [<assembly:AddinUrl ("https://github.com/nosami/XSVim")>]
 [<assembly:AddinAuthor ("jason")>]
-[<assembly:AddinDependency ("::MonoDevelop.Core", "7.4")>]
-[<assembly:AddinDependency ("::MonoDevelop.Ide", "7.4")>]
-[<assembly:AddinDependency ("::MonoDevelop.SourceEditor2", "7.4")>]
+[<assembly:AddinDependency ("::MonoDevelop.Core", "8.0")>]
+[<assembly:AddinDependency ("::MonoDevelop.Ide", "8.0")>]
+[<assembly:AddinDependency ("::MonoDevelop.SourceEditor2", "8.0")>]
 ()
