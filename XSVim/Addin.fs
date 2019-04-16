@@ -41,7 +41,7 @@ type XSVim() as this =
     let mutable config = Config.Default
     static let searchPads = HashSet<string>() 
     let initConfig() =
-        let keyboardMapping =  match SettingsPanel.AlternateMapping() with
+        let keyboardMapping =  match SettingsPanel.KeyboardLayout() with
                                          | "Colemak" -> Colemak
                                          | "Dvorak" -> Dvorak
                                          | _ -> Qwerty

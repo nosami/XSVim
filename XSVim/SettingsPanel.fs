@@ -21,27 +21,30 @@ type SettingsWidget() as this =
 
     let escapeMappingEntryTimeout = new Entry("1000")
     let checkDisableAutoCompleteNormalMode =
-        new CheckButton("Disable intellisense in Normal mode. Use only if you are having issues.",
+        new CheckButton("Disable intellisense in Normal mode. Use only if you are having issues with the intellisense drop down.",
                   TooltipText = "Enabling this switches the setting Intellisense on keystroke globally when in Normal mode.")
 
-    let labelAlternateMapping =
-        new Label("Alternate Mapping",
-                  TooltipText = "Select an alternate mapping for when not in insert mode")
-    let dropDownAlternateMapping = 
-        new ComboBox([| "None"; "Colemak"; "Dvorak" |]);
+    let labelKeyboardLayout =
+        new Label("Keyboard Layout",
+                  TooltipText = "Select an keyboard layout for when not in insert mode")
+    let dropDownKeyboardLayout =
+        new ComboBox([| "Qwerty"; "Colemak"; "Dvorak" |]);
 
     do
         hbox.PackStart labelMapping
         hbox.PackStart escapeMappingEntry
+
         let hboxTimeout = new HBox(false, 6)
         hboxTimeout.PackStart labelMappingTimeout
         hboxTimeout.PackStart escapeMappingEntryTimeout
-        let hboxAlternate = new HBox(false, 6)
-        hboxAlternate.PackStart labelAlternateMapping
-        hboxAlternate.PackStart dropDownAlternateMapping
+
+        let hboxKeyboardLayout = new HBox(false, 6)
+        hboxKeyboardLayout.PackStart labelKeyboardLayout
+        hboxKeyboardLayout.PackStart dropDownKeyboardLayout
+
         vbox.PackStart hbox
         vbox.PackStart hboxTimeout
-        vbox.PackStart hboxAlternate
+        vbox.PackStart hboxKeyboardLayout
         vbox.Add hbox
         vbox.Add checkDisableAutoCompleteNormalMode
         this.Add vbox
@@ -50,7 +53,7 @@ type SettingsWidget() as this =
     member this.EscapeMappingEntry = escapeMappingEntry
     member this.EscapeMappingEntryTimeout = escapeMappingEntryTimeout
     member this.DisableAutoCompleteNormalMode = checkDisableAutoCompleteNormalMode
-    member this.AlternateMapping = dropDownAlternateMapping
+    member this.KeyboardLayout = dropDownKeyboardLayout
 
 type SettingsPanel() =
     inherit OptionsPanel()
@@ -58,7 +61,7 @@ type SettingsPanel() =
     static let escapeMappingKey = "VimEscapeMapping"
     static let escapeMappingKeyTimeout = "VimEscapeMappingTimeout"
     static let disableAutoComplete = "VimDisableAutoComplete"
-    static let alternateMapping = "VimAlternateMapping"
+    static let keyboardLayout = "VimAlternateMapping"
 
     static member InsertModeEscapeMapping() =
         PropertyService.Get(escapeMappingKey, "")
@@ -69,8 +72,8 @@ type SettingsPanel() =
     static member AutoCompleteInNormalModeIsDisabled() =
         PropertyService.Get(disableAutoComplete, false)
 
-    static member AlternateMapping() =
-        PropertyService.Get(alternateMapping, "None")
+    static member KeyboardLayout() =
+        PropertyService.Get(keyboardLayout, "Qwerty")
 
     override x.Dispose() = widget.Dispose()
 
@@ -78,7 +81,7 @@ type SettingsPanel() =
         widget.EscapeMappingEntry.Text <- SettingsPanel.InsertModeEscapeMapping()
         widget.EscapeMappingEntryTimeout.Text <- SettingsPanel.InsertModeEscapeMappingTimeout() |> string
         widget.DisableAutoCompleteNormalMode.Active <- SettingsPanel.AutoCompleteInNormalModeIsDisabled()
-        widget.AlternateMapping.Active <- match SettingsPanel.AlternateMapping() with
+        widget.KeyboardLayout.Active <- match SettingsPanel.KeyboardLayout() with
                                                 | "Colemak" -> 1
                                                 | "Dvorak" -> 2
                                                 | _ -> 0
@@ -94,4 +97,4 @@ type SettingsPanel() =
             md.Show()
         PropertyService.Set(escapeMappingKeyTimeout, int widget.EscapeMappingEntryTimeout.Text)
         PropertyService.Set(disableAutoComplete, widget.DisableAutoCompleteNormalMode.Active)
-        PropertyService.Set(alternateMapping, widget.AlternateMapping.ActiveText)
+        PropertyService.Set(keyboardLayout, widget.KeyboardLayout.ActiveText)
