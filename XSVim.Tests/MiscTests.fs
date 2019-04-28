@@ -174,6 +174,10 @@ module ``Miscellaneous tests`` =
         assertText "a$bc abc" "*" "abc a$bc"
 
     [<Test>]
+    let ``n finds next match``() =
+        assertText "a$bc abc cba abc" "*n" "abc abc cba a$bc"
+
+    [<Test>]
     let ``* finds next word when on last word char``() =
         assertText "abc$ abc" "*" "abc a$bc"
 
