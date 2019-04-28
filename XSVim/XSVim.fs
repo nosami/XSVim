@@ -1174,7 +1174,7 @@ module Vim =
                                 let m = matches |> Seq.head
                                 m.Index
                         editor.CaretOffset <- offset
-                        vimState
+                        { vimState with lastSearch = Some (Jump (ToSearch word)) }
                     | None ->
                         processCommands config 1 vimState (runOnce Move WordForwards) isInitial
                 | Star Before ->
@@ -1196,7 +1196,7 @@ module Vim =
                                 let m = matches |> Seq.last
                                 m.Index
                         editor.CaretOffset <- offset
-                        vimState
+                        { vimState with lastSearch = Some (Jump (ToSearchBackwards word)) }
                     | None -> vimState
                 | InsertChar c ->
                     match vimState.mode with
