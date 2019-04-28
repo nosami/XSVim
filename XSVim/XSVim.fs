@@ -1125,6 +1125,7 @@ module Vim =
                     | NormalMode ->
                         let state = switchToNormalMode editor vimState
                         if vimState.mode = InsertMode then
+                            MonoDevelop.Ide.CodeCompletion.CompletionWindowManager.HideWindow ()
                             processCommands config 1 state (runOnce (SetMark ".") Nothing) false
                         else
                             state
