@@ -6,6 +6,8 @@ open MonoDevelop.Ide.Editor.Extension
 open NUnit.Framework
 open XSVim
 open MonoDevelop.Core
+open MonoDevelop.Core.ProgressMonitoring
+open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 [<AutoOpen>]
 module FsUnit =
@@ -79,13 +81,15 @@ module FixtureSetup =
     let firstRun = ref true
 
     let initialiseMonoDevelop() =
-        if !firstRun then
-            printf "initialising"
-            firstRun := false
-            Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
-            //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
-            Runtime.Initialize (true)
-            MonoDevelop.Ide.DesktopService.Initialize()
+        async {
+            if !firstRun then
+                printf "initialising"
+                firstRun := false
+                Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
+                //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
+                Runtime.Initialize (true)
+                do! Runtime.RunInMainThread(fun() -> IdeApp.Initialize(new ConsoleProgressMonitor())) |> Async.AwaitTask
+        } |> Async.StartImmediateAsTask
 
 [<AutoOpen>]
 module TestHelpers =

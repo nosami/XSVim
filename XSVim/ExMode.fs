@@ -1,6 +1,7 @@
 ﻿namespace XSVim
 open System
 open System.Text.RegularExpressions
+open Reflection
 open MonoDevelop.Ide
 open MonoDevelop.Ide.Commands
 open MonoDevelop.Ide.Editor.Extension
@@ -106,7 +107,7 @@ module exMode =
                         IdeApp.Workbench.Documents
                         |> Seq.iter(fun doc ->
                             async {
-                                do! doc.Window.CloseWindow true |> Async.AwaitTask |> Async.Ignore
+                                do! doc?Window?CloseWindow true |> Async.AwaitTask |> Async.Ignore
                             } |> Async.StartImmediate)
                         normalMode, resetKeys
                     | "wq"  ->

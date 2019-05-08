@@ -599,8 +599,8 @@ module VimHelpers =
                 if editor.FileName.FullPath.ToString() = mark.FileName then
                     editor.CaretOffset, offset
                 else
-                    let document = IdeApp.Workbench.GetDocument(mark.FileName)
-                    let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName, document.Project)
+                    let document = IdeApp.Workbench.GetDocument(FilePath mark.FileName)
+                    let fileInfo = new MonoDevelop.Ide.Gui.FileOpenInformation (document.FileName)
                     IdeApp.Workbench.OpenDocument(fileInfo) |> ignore
                     editor.CaretOffset, offset
             | _ -> editor.CaretOffset, editor.CaretOffset
@@ -1125,7 +1125,8 @@ module Vim =
                     | NormalMode ->
                         let state = switchToNormalMode editor vimState
                         if vimState.mode = InsertMode then
-                            MonoDevelop.Ide.CodeCompletion.CompletionWindowManager.HideWindow ()
+                            
+                            //MonoDevelop.Ide.CodeCompletion.CompletionWindowManager.HideWindow ()
                             processCommands config 1 state (runOnce (SetMark ".") Nothing) false
                         else
                             state
