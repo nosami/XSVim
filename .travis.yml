@@ -1,4 +1,4 @@
-language: csharp
+﻿language: csharp
 os: osx
 mono: latest
 solution: XSVim.sln
@@ -8,8 +8,8 @@ install:
 - sudo hdiutil attach VisualStudioForMac-Preview-7.6.0.947.dmg
 script:
 - msbuild /p:Configuration=Release
-- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
-  run-md-tests XSVim.Tests/bin/Release/XSVim.Tests.dll -labels
+#- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
+#  run-md-tests XSVim.Tests/bin/Release/XSVim.Tests.dll -labels
 - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
   setup pack XSVim/bin/Release/XSVim.dll
 deploy:
