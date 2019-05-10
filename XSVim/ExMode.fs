@@ -107,7 +107,7 @@ module exMode =
                         IdeApp.Workbench.Documents
                         |> Seq.iter(fun doc ->
                             async {
-                                do! doc?Window?CloseWindow true |> Async.AwaitTask |> Async.Ignore
+                                do! doc.Close true |> Async.AwaitTask |> Async.Ignore
                             } |> Async.StartImmediate)
                         normalMode, resetKeys
                     | "wq"  ->

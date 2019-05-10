@@ -20,7 +20,7 @@ module Window =
     let switchToNotebook notebook =
         openDocument notebook.tabs.[notebook.activeTab]
 
-    let forceClose() = IdeApp.Workbench.ActiveDocument?Window?CloseWindow true |> Async.AwaitTask |> Async.Ignore
+    let forceClose() = IdeApp.Workbench.ActiveDocument.Close true |> Async.AwaitTask |> Async.Ignore
 
     let getNotebooks() =
         let (dockNotebookContainer: obj seq) = IdeApp.Workbench?RootWindow?TabControl?Container?GetNotebooks()

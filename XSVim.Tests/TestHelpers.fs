@@ -81,15 +81,16 @@ module FixtureSetup =
     let firstRun = ref true
 
     let initialiseMonoDevelop() =
-        async {
-            if !firstRun then
-                printf "initialising"
-                firstRun := false
-                Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
-                //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
-                Runtime.Initialize (true)
-                do! Runtime.RunInMainThread(fun() -> IdeApp.Initialize(new ConsoleProgressMonitor())) |> Async.AwaitTask
-        } |> Async.StartImmediateAsTask
+        if !firstRun then
+            printf "initialising"
+            firstRun := false
+            Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
+            //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
+
+            Runtime.Initialize (true)
+            // to get FontService initialized
+            Runtime.ServiceProvider.GetService<MonoDevelop.Ide.Fonts.FontService>()
+            |> ignore
 
 [<AutoOpen>]
 module TestHelpers =
