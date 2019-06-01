@@ -1,10 +1,17 @@
-namespace XSVim.Tests
+﻿namespace XSVim.Tests
 open NUnit.Framework
+open XSVim
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Text object selection tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
+    // Tests for aw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#aw
     module aw =
-        // Tests for aw. Reference: http://vimdoc.sourceforge.net/htmldoc/motion.html#aw
         [<Test>]
         let ``daw deletes around word``() =
             assertText "a b$c d" "daw" "a d$"

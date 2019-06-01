@@ -1,8 +1,14 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Change tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
     [<Test>]
     let ``cc non empty line``() =
         assertText "abc\nd$ef\nghi" "cc" "abc\n|\nghi"
@@ -65,6 +71,7 @@ module ``Change tests`` =
 
     [<Test>]
     let ``2S changes two lines``() =
+        MonoDevelop.Core.Runtime.AssertMainThread()
         assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n |\n line4 "
 
     [<Test>]

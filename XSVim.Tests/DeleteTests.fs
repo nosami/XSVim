@@ -1,8 +1,14 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Delete tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
     [<Test>]
     let ``Vjd test``() =
         let source =

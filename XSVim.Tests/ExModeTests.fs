@@ -1,15 +1,22 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
 open XSVim
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Ex mode tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
     [<Test>]
     let ``/ searches for word``() =
         assertText "ab$c abc" "/abc<ret>" "abc a$bc"
 
     [<Test>]
     let ``/ is case insensitive``() =
+        //assertDvorakText "ab$c ABC" "zabc<ret>" "abc A$BC"
         assertText "ab$c ABC" "/abc<ret>" "abc A$BC"
 
     [<Test>]
