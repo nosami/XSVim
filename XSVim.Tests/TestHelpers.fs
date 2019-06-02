@@ -6,14 +6,11 @@ open MonoDevelop.Ide.Editor.Extension
 open NUnit.Framework
 open XSVim
 open MonoDevelop.Core
-open MonoDevelop.Core.ProgressMonitoring
-open MonoDevelop.Ide
 open MonoDevelop.Ide.Editor
 [<AutoOpen>]
 module FsUnit =
 
     open System.Diagnostics
-    open NUnit.Framework
     open NUnit.Framework.Constraints
 
     [<DebuggerNonUserCode>]
@@ -83,12 +80,14 @@ module FixtureSetup =
     let initialiseMonoDevelop() =
         async {
             if !firstRun then
-                printf "initialising"
                 firstRun := false
+                printf "initialising"
                 Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
-                //Environment.SetEnvironmentVariable ("XDG_CONFIG_HOME", "/tmp")
                 Runtime.Initialize (true)
-                do! Runtime.RunInMainThread(fun() -> IdeApp.Initialize(new ConsoleProgressMonitor())) |> Async.AwaitTask
+                // Initialize FontService
+                let task = Runtime.ServiceProvider.GetService<MonoDevelop.Ide.Fonts.FontService>()
+                let! _ = task |> Async.AwaitTask
+                ()
         } |> Async.StartImmediateAsTask
 
 [<AutoOpen>]
@@ -108,8 +107,49 @@ module TestHelpers =
             keys.ToCharArray()
             |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
 
+    let groupToKeys2 keys mode layout =
+        match keys, mode with
+        | "esc", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
+        | "ret", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None) |]
+        | "bs" , _ -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None) |]
+        | "del", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None) |]
+        | CtrlKey ch, _ -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
+        | keys, NormalMode -> 
+            keys.ToCharArray()
+            |> Array.map (fun c ->
+                KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), mapFromQwerty.remap layout c, Gdk.ModifierType.None))
+        | keys, _ ->
+            keys.ToCharArray()
+            |> Array.map (fun c ->
+                KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
+
+    let keyToDescriptor key (state: VimState) layout =
+        let lastKeyPress = state.keys |> List.tryLast
+
+        let noremap = // The next key press is not translated for keyboard layout
+            [ 'm'; '@'; 'r'; 'f'; 'q']
+            |> List.map (mapFromQwerty.remap layout)
+            |> List.map Key
+            |> List.map Some
+
+        match key, state with
+        | "esc", _  -> KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None)
+        | "ret", _  -> KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None)
+        | "bs" , _ -> KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None)
+        | "del", _  -> KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None)
+        | CtrlKey ch, _ -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask)
+        | key, _ when noremap |> List.contains(lastKeyPress) ->
+            KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), char key, Gdk.ModifierType.None)
+        | key, { mode = NormalMode }
+        | key, { mode = VisualMode }
+        | key, { mode = VisualLineMode }
+        | key, { mode = VisualBlockMode } ->
+            KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), mapFromQwerty.remap layout (char key), Gdk.ModifierType.None)
+        | key, _ ->
+            KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), char key, Gdk.ModifierType.None)
     let parseKeys (keys:string) =
         let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
+        //let g = groupToKeys
         keys.Split '§' |> Array.collect groupToKeys
 
     let getEditorText (editor:TextEditor) state =
@@ -137,8 +177,46 @@ module TestHelpers =
         let text = getEditorText editor newState
         text, newState, editor
 
+    let sendKeysToEditor2 (editor:TextEditor) keys config =
+        let keygroups =
+            Regex.Replace(keys, "<(.*?)>", "§$1§").Split '§'
+
+        let keygroups =
+            keygroups
+            |> Array.collect(fun g ->
+                                 match g with
+                                 | "esc" -> [|g|]
+                                 | "ret" -> [|g|]
+                                 | "bs"  -> [|g|]
+                                 | "del" -> [|g|]
+                                 | CtrlKey ch -> [|g|]
+                                 | _ ->  Seq.toArray g |> Array.map string) // "abc" -> [|"a"; "b"; "c" |]
+
+        let mutable s:string = String.Empty
+
+        let newState =
+            keygroups
+            |> Array.fold(fun state keys ->
+                let state = Vim.editorStates.[editor.FileName]
+
+                printfn "%A" state.keys
+                let descriptor = keyToDescriptor keys state config.keyboardLayout
+                s <- s + descriptor.KeyChar.ToString()
+                printfn "%A" state.mode
+                printfn "%A" descriptor
+
+                let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
+                printfn "%A" handledState
+                printfn "\"%s\"" (getEditorText editor handledState)
+                if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
+                    Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
+                handledState) Vim.editorStates.[editor.FileName]
+
+        printfn "remapped keys %s" s
+        let text = getEditorText editor newState
+        text, newState, editor
+
     let testWithEol (source:string) (keys:string) eolMarker layout =
-        FixtureSetup.initialiseMonoDevelop()
         let config = { Config.Default with keyboardLayout = layout }
         let editor = TextEditorFactory.CreateNewEditor()
         editor.FileName <- FilePath "test.txt"
@@ -152,37 +230,21 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
         Vim.editorStates.[editor.FileName] <- VimState.Default
-        sendKeysToEditor editor keys config
+        sendKeysToEditor2 editor keys config
 
     let test source keys = testWithEol source keys "\n" Qwerty
-
-    let testColemak source keys = testWithEol source keys "\n" Colemak
-
-    let testDvorak source keys = testWithEol source keys "\n" Dvorak
 
     let switchLineEndings (s:string) =
         s.Replace("\n", "\r\n")
 
     let assertText (source:string) (keys:string) expected =
-        let actual, _, _ = test source keys
+        let actual, _, _ = testWithEol source keys "\n" Qwerty
         Assert.AreEqual(expected, actual, "Failed with \n")
+        let actual, _, _ = testWithEol source keys "\n" Colemak
+        Assert.AreEqual(expected, actual, "Failed with colemak")
+        let actual, _, _ = testWithEol source keys "\n" Dvorak
+        Assert.AreEqual(expected, actual, "Failed with dvorak")
         if source.Contains("\n") || actual.Contains("\n") then
             // Run the test again with \r\n line endings
             let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Qwerty
-            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
-
-    let assertColemakText (source:string) (keys:string) expected =
-        let actual, _, _ = testColemak source keys
-        Assert.AreEqual(expected, actual, "Failed with \n")
-        if source.Contains("\n") || actual.Contains("\n") then
-            // Run the test again with \r\n line endings
-            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Colemak
-            Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")
-
-    let assertDvorakText (source:string) (keys:string) expected =
-        let actual, _, _ = testDvorak source keys
-        Assert.AreEqual(expected, actual, "Failed with \n")
-        if source.Contains("\n") || actual.Contains("\n") then
-            // Run the test again with \r\n line endings
-            let actual, _, _ = testWithEol (source |> switchLineEndings) keys "\r\n" Dvorak
             Assert.AreEqual(expected |> switchLineEndings, actual.Replace("\r$\n", "\r\n$"), "Failed with \r\n")

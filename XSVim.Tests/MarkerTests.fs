@@ -1,9 +1,14 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
 open XSVim
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Marker tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
     [<Test>]
     let ``ma adds marker a``() =
         assertText "a$bc" "mall`a" "a$bc"
@@ -41,6 +46,7 @@ aaaaa$aaaa
 bbbbbbbbb
 .........
             """
+
 
               "ma/b<ret>mb:'a,'bd<ret>"
 

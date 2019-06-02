@@ -610,9 +610,9 @@ module VimHelpers =
             let startOffset =
                 match config.keyboardLayout, vimState.keys with
                 | Qwerty, [Key 'n'] 
-                | Qwerty, [Key 'N'] -> editor.CaretOffset + 1
+                | Qwerty, [Key 'N']
                 | Colemak, [Key 'k'] 
-                | Colemak, [Key 'K'] -> editor.CaretOffset + 1
+                | Colemak, [Key 'K']
                 | Dvorak, [Key 'b'] 
                 | Dvorak, [Key 'B'] -> editor.CaretOffset + 1
                 | _ -> editor.CaretOffset

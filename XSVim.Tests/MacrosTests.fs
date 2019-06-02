@@ -1,9 +1,15 @@
 ﻿namespace XSVim.Tests
 open NUnit.Framework
 open XSVim
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Macro tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
     [<Test>]
     let ``Start recording macro q``() =
         let _, state, _ = test " $" "qq"
@@ -25,4 +31,3 @@ module ``Macro tests`` =
     [<Test>]
     let ``Macros containing repeats are repeatable``() =
         assertText " $aa aa aa aa" "qq2faab<esc>q3@q" " aab aab aab aab$"
-

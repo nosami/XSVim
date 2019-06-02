@@ -1,10 +1,16 @@
 ﻿namespace XSVim.Tests
 
-open XSVim
 open NUnit.Framework
+open XSVim
+open System.Runtime.CompilerServices
+open System.Threading.Tasks
 
 [<TestFixture>]
 module ``Yank and put tests`` =
+    [<SetUp;AsyncStateMachine(typeof<Task>)>]
+    let ``run before tests``() =
+        FixtureSetup.initialiseMonoDevelop()
+
     [<Test>]
     let ``Yanking puts cursor at original position before selection was made``() =
         assertText "a$bc" "vly" "a$bc"
