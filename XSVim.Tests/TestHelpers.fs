@@ -97,32 +97,6 @@ module TestHelpers =
         | s when s.Length = 3 && s.StartsWith "C-" -> Some s.[2]
         | _ -> None
 
-    let groupToKeys = function
-        | "esc" -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
-        | "ret" -> [| KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None) |]
-        | "bs" -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None) |]
-        | "del" -> [| KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None) |]
-        | CtrlKey ch -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
-        | keys ->
-            keys.ToCharArray()
-            |> Array.map (fun c -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
-
-    let groupToKeys2 keys mode layout =
-        match keys, mode with
-        | "esc", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None) |]
-        | "ret", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None) |]
-        | "bs" , _ -> [| KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None) |]
-        | "del", _  -> [| KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None) |]
-        | CtrlKey ch, _ -> [| KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask) |]
-        | keys, NormalMode -> 
-            keys.ToCharArray()
-            |> Array.map (fun c ->
-                KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), mapFromQwerty.remap layout c, Gdk.ModifierType.None))
-        | keys, _ ->
-            keys.ToCharArray()
-            |> Array.map (fun c ->
-                KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), c, Gdk.ModifierType.None))
-
     let keyToDescriptor key (state: VimState) layout =
         let lastKeyPress = state.keys |> List.tryLast
 
@@ -132,25 +106,25 @@ module TestHelpers =
             |> List.map Key
             |> List.map Some
 
-        match key, state with
+        let shouldRemapKey =
+            match state.mode, noremap |> List.contains lastKeyPress with
+            | _, true -> false
+            | NormalMode, _
+            | VisualMode, _
+            | VisualLineMode, _
+            | VisualBlockMode, _ -> true
+            | _ -> false
+
+        match key, shouldRemapKey with
         | "esc", _  -> KeyDescriptor.FromGtk(Gdk.Key.Escape, '\000', Gdk.ModifierType.None)
         | "ret", _  -> KeyDescriptor.FromGtk(Gdk.Key.Return, '\000', Gdk.ModifierType.None)
         | "bs" , _ -> KeyDescriptor.FromGtk(Gdk.Key.BackSpace, '\000', Gdk.ModifierType.None)
         | "del", _  -> KeyDescriptor.FromGtk(Gdk.Key.Delete, '\000', Gdk.ModifierType.None)
         | CtrlKey ch, _ -> KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), ch, Gdk.ModifierType.ControlMask)
-        | key, _ when noremap |> List.contains(lastKeyPress) ->
+        | key, false ->
             KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), char key, Gdk.ModifierType.None)
-        | key, { mode = NormalMode }
-        | key, { mode = VisualMode }
-        | key, { mode = VisualLineMode }
-        | key, { mode = VisualBlockMode } ->
+        | key, true ->
             KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), mapFromQwerty.remap layout (char key), Gdk.ModifierType.None)
-        | key, _ ->
-            KeyDescriptor.FromGtk(Gdk.Key.a (* important? *), char key, Gdk.ModifierType.None)
-    let parseKeys (keys:string) =
-        let keys = Regex.Replace(keys, "<(.*?)>", "§$1§")
-        //let g = groupToKeys
-        keys.Split '§' |> Array.collect groupToKeys
 
     let getEditorText (editor:TextEditor) state =
         if state.mode = InsertMode then
@@ -162,22 +136,6 @@ module TestHelpers =
                 editor.Text.Insert(editor.CaretOffset+1, "$")
 
     let sendKeysToEditor (editor:TextEditor) keys config =
-        let keyDescriptors = parseKeys keys
-        let newState =
-            keyDescriptors
-            |> Array.fold(fun state descriptor ->
-                let state = Vim.editorStates.[editor.FileName]
-                let handledState, handledKeyPress = Vim.handleKeyPress state descriptor editor config
-                printfn "%A" handledState
-                printfn "\"%s\"" (getEditorText editor handledState)
-                if state.mode = InsertMode && descriptor.ModifierKeys <> ModifierKeys.Control && descriptor.SpecialKey <> SpecialKey.Escape then
-                    Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
-                handledState) Vim.editorStates.[editor.FileName]
-
-        let text = getEditorText editor newState
-        text, newState, editor
-
-    let sendKeysToEditor2 (editor:TextEditor) keys config =
         let keygroups =
             Regex.Replace(keys, "<(.*?)>", "§$1§").Split '§'
 
@@ -192,8 +150,6 @@ module TestHelpers =
                                  | CtrlKey ch -> [|g|]
                                  | _ ->  Seq.toArray g |> Array.map string) // "abc" -> [|"a"; "b"; "c" |]
 
-        let mutable s:string = String.Empty
-
         let newState =
             keygroups
             |> Array.fold(fun state keys ->
@@ -201,7 +157,6 @@ module TestHelpers =
 
                 printfn "%A" state.keys
                 let descriptor = keyToDescriptor keys state config.keyboardLayout
-                s <- s + descriptor.KeyChar.ToString()
                 printfn "%A" state.mode
                 printfn "%A" descriptor
 
@@ -212,7 +167,6 @@ module TestHelpers =
                     Vim.processVimKey editor (Vim.keyPressToVimKey descriptor)
                 handledState) Vim.editorStates.[editor.FileName]
 
-        printfn "remapped keys %s" s
         let text = getEditorText editor newState
         text, newState, editor
 
@@ -230,7 +184,7 @@ module TestHelpers =
         editor.CaretOffset <- caret-1
         editor.Options <- new CustomEditorOptions(TabsToSpaces=true, IndentationSize=4, IndentStyle=IndentStyle.Smart, TabSize=4, DefaultEolMarker=eolMarker)
         Vim.editorStates.[editor.FileName] <- VimState.Default
-        sendKeysToEditor2 editor keys config
+        sendKeysToEditor editor keys config
 
     let test source keys = testWithEol source keys "\n" Qwerty
 

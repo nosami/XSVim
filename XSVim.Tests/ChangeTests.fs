@@ -71,7 +71,6 @@ module ``Change tests`` =
 
     [<Test>]
     let ``2S changes two lines``() =
-        MonoDevelop.Core.Runtime.AssertMainThread()
         assertText " line1 \n line2$ \n line3 \n line4 " "2S" " line1 \n |\n line4 "
 
     [<Test>]

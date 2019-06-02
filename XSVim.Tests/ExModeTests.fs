@@ -16,7 +16,6 @@ module ``Ex mode tests`` =
 
     [<Test>]
     let ``/ is case insensitive``() =
-        //assertDvorakText "ab$c ABC" "zabc<ret>" "abc A$BC"
         assertText "ab$c ABC" "/abc<ret>" "abc A$BC"
 
     [<Test>]
