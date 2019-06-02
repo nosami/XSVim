@@ -8,8 +8,8 @@ install:
 - sudo hdiutil attach visualstudioformac-8.1.0.2306.dmg
 script:
 - msbuild /p:Configuration=Release
-#- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
-#  run-md-tests XSVim.Tests/bin/Release/XSVim.Tests.dll -labels
+- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
+  run-md-tests XSVim.Tests/bin/Release/XSVim.Tests.dll -labels
 - mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
   setup pack XSVim/bin/Release/XSVim.dll
 deploy:
