@@ -2,6 +2,7 @@
 
 open System
 open System.Text.RegularExpressions
+open System.Threading.Tasks
 open MonoDevelop.Ide.Editor.Extension
 open NUnit.Framework
 open XSVim
@@ -78,17 +79,16 @@ module FixtureSetup =
     let firstRun = ref true
 
     let initialiseMonoDevelop() =
-        async {
-            if !firstRun then
-                firstRun := false
-                printf "initialising"
-                Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
-                Runtime.Initialize (true)
-                // Initialize FontService
-                let task = Runtime.ServiceProvider.GetService<MonoDevelop.Ide.Fonts.FontService>()
-                let! _ = task |> Async.AwaitTask
-                ()
-        } |> Async.StartImmediateAsTask
+        if !firstRun then
+            firstRun := false
+            printf "initialising"
+            Environment.SetEnvironmentVariable ("MONO_ADDINS_REGISTRY", "/tmp")
+            Runtime.Initialize (true)
+            // Initialize FontService
+            Runtime.ServiceProvider.GetService<MonoDevelop.Ide.Fonts.FontService>() :> Task
+        else
+            Task.CompletedTask
+       
 
 [<AutoOpen>]
 module TestHelpers =
