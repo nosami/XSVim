@@ -11,6 +11,12 @@ Visual Studio -> Extensions -> Gallery -> IDE Extensions -> "VIM" -> Install
 
 Then close the current document that you are working on and open a new document to activate the plugin.
 
+## 8.1 New Editor
+
+Unfortunately, this addin does not work yet with the new editor that was made default in 8.1. To use this addin, make sure that the old editor is in use.
+
+![image](https://user-images.githubusercontent.com/667194/59626372-9de68280-9133-11e9-9fbe-035553d7042e.png)
+
 # What works?
 
 Most Vim commands should work. If you see something that doesn't work, please file an issue. There's a good chance that I just don't know about it.
