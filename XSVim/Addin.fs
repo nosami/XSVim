@@ -88,7 +88,7 @@ type XSVim() as this =
 
 
     override x.IsValidInContext documentContext =
-        documentContext.Name <> "__FSI__.fs" || documentContext.Name <> "__FSI__.fsx"
+        documentContext.Name <> "__FSI__.fs" && documentContext.Name <> "__FSI__.fsx"
 
     override x.Initialize() =
         treeViewPads.initialize()
