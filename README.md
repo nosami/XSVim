@@ -40,7 +40,7 @@ Some Vim keybindings (such as Ctrl-F, Ctrl-D etc) conflict with VS's own built i
 - `gu` - Find usages
 - `gb` - Go to base symbol
 - `gh` - Show tooltip at current caret location (`G`o `H`over)
-- `hjkl` support on the Solution Explorer pad and Test Explorer pad. Pressing `<esc>` on these will switch focus back to the last editor window. This feature does not yet work on the Search Results pad.
+- `hjkl` support on the Solution Explorer pad and Test Explorer pad. Pressing `<esc>` on these will switch focus back to the last editor window. `jk` support on the Search Results pad.
 - Goto Pad shortcuts start with `gp`
   - `gps` - Go to solution explorer 
   - `gpc` - Go to class pad
