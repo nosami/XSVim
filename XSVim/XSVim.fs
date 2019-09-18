@@ -971,24 +971,11 @@ module Vim =
                     vimState
                 | EqualIndent ->
                     // Always work top to bottom
-                    let start, finish = min start finish, max start finish
-                    let finish =
-                        if editor.[finish-1] = '\n' then
-                            finish - 1
-                        else
-                            finish
-                    let startLine = editor.GetLineByOffset(start)
-                    let endLine = editor.GetLineByOffset(finish).LineNumber
-
-                    for line in [startLine.LineNumber..endLine] do
-                        let currentIndent = editor.GetLineIndent (line)
-                        let newIndent = editor.IndentationTracker.GetIndentationString(line-1)
-                        editor.ReplaceText(editor.GetLine(line).Offset, currentIndent.Length, newIndent)
-
-                    editor.CaretOffset <-
-                        let startLine = editor.GetLineByOffset(start)
-                        startLine.Offset + editor.GetLineIndent(startLine).Length
-                    vimState
+                    setSelection vimState editor command start finish
+                    dispatchCommand CodeFormatting.CodeFormattingCommands.FormatBuffer
+                    editor.ClearSelection()
+                    EditActions.MoveCaretToLineStart editor
+                    processCommands config 1 vimState (runOnce Move StartOfLine) false
                 | Substitute ->
                     let newState = delete vimState start finish
                     switchToInsertMode editor newState isInitial
