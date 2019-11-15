@@ -17,6 +17,8 @@ Unfortunately, this addin does not work yet with the new editor that was made de
 
 ![image](https://user-images.githubusercontent.com/667194/59626372-9de68280-9133-11e9-9fbe-035553d7042e.png)
 
+Alternatively, I have been working on making VsVim work for the new editor. If you want to try this out, please follow the instructions [here](https://github.com/VsVim/VsVim/pull/2733#issuecomment-538998555)
+
 # What works?
 
 Most Vim commands should work. If you see something that doesn't work, please file an issue. There's a good chance that I just don't know about it.
