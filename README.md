@@ -1,5 +1,10 @@
 # XSVim [![Gitter](https://badges.gitter.im/XSVim/Lobby.svg)](https://gitter.im/XSVim/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/nosami/XSVim.svg?branch=7.4)](https://travis-ci.org/nosami/XSVim)
 
+# This addin is obsolete
+
+This extension only works for the older editor. You should probably try [these instructions to get VsVim running on VSMac](https://github.com/VsVim/VsVim/pull/2733#issuecomment-538998555) as VsVim works on the new editor.
+
+Some file types (e.g. F#) are still currently using the old editor in VSMac. This addin will still work for those file types while the transition is made to the new editor.
 
 # Installation
 
@@ -13,7 +18,7 @@ Then close the current document that you are working on and open a new document 
 
 ## 8.1 New Editor
 
-Unfortunately, this addin does not work yet with the new editor that was made default in 8.1. To use this addin, make sure that the old editor is in use.
+Unfortunately, this addin does not work with the new editor that was made default in 8.1. To use this addin, make sure that the old editor is in use.
 
 ![image](https://user-images.githubusercontent.com/667194/59626372-9de68280-9133-11e9-9fbe-035553d7042e.png)
 
