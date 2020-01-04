@@ -2,7 +2,7 @@
 
 # This addin is obsolete
 
-This extension only works for the older editor. You should probably try [these instructions to get VsVim running on VSMac](https://github.com/VsVim/VsVim/pull/2733#issuecomment-538998555) as VsVim works on the new editor.
+This extension only works for the older editor. For VSMac 8.4, you should install VsVim instead ![VsVim installation from the Gallery](https://user-images.githubusercontent.com/667194/71757513-71efdc00-2e8e-11ea-898d-167d5d40cb17.png) as VsVim works on the new editor.
 
 Some file types (e.g. F#) are still currently using the old editor in VSMac. This addin will still work for those file types while the transition is made to the new editor.
 
