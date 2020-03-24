@@ -4,8 +4,7 @@ mono: latest
 solution: XSVim.sln
 install:
 - nuget restore XSVim.sln
-- wget https://download.visualstudio.microsoft.com/download/pr/b7349b89-5c43-456f-b13e-f1b21c7fcd74/6622fae9c5cdb5c2362cf64998744313/visualstudioformac-8.1.0.2306.dmg
-- sudo hdiutil attach visualstudioformac-8.1.0.2306.dmg
+- wget https://download.visualstudio.microsoft.com/download/pr/29ca6bca-9226-4904-93f8-3678cb24c2ca/596a772e2d2a7d28cbfd570933817a70/visualstudioformac-8.4.8.2.dmg
 script:
 - msbuild /p:Configuration=Release
 #- mono64 "/Volumes/Visual Studio/Visual Studio.app/Contents/Resources/lib/monodevelop/bin/vstool.exe"
