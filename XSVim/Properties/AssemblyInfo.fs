@@ -5,7 +5,7 @@ open System.Runtime.CompilerServices
 [<AutoOpen>]
 module AddinVersion =
     [<Literal>]
-    let version = "0.65.11.82"
+    let version = "0.65.12.81"
 
 [<assembly: AssemblyTitle("XSVim")>]
 
