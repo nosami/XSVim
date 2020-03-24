@@ -32,6 +32,6 @@
         <Section id="VimSettings" _label="Vim Settings" class = "XSVim.SettingsPanel" icon="md-prefs-source" />
     </Extension>
     <Extension path = "/MonoDevelop/Ide/KeyBindingSchemes">
-        <Scheme id="Vim" _name = "Visual Studio + Vim" resource="KeyBindingSchemeVim.xml" forMac="true" />
+        <Scheme id="XSVim" _name = "Visual Studio + Vim" resource="KeyBindingSchemeVim.xml" forMac="true" />
     </Extension>
 </ExtensionModel>
